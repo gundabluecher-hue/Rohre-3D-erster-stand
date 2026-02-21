@@ -1,3 +1,10 @@
 @echo off
-PowerShell -NoProfile -ExecutionPolicy Bypass -File "%~dp0start_game.ps1"
-if %errorlevel% neq 0 pause
+echo ====================================
+echo   Mini Curve Fever 3D - NE 3D Launcher
+echo ====================================
+echo.
+echo Projektpfad: %~dp0
+echo Starte lokalen Webserver aus DIESEM Ordner...
+echo.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0server.ps1"
+pause

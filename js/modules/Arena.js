@@ -1,582 +1,723 @@
-import { CONFIG } from './Config.js';
+// ============================================
+// Arena.js - Map-Generierung
+// ============================================
+
 import * as THREE from 'three';
+import { CONFIG } from './Config.js';
 
 export class Arena {
-    constructor(scene) {
-        this.scene = scene;
-        this.walls = [];
-        this.portals = [];
-        this.tunnels = [];
+    constructor(renderer) {
+        this.renderer = renderer;
         this.obstacles = [];
-
-        // Groups
-        this.portalGroup = new THREE.Group();
-        this.scene.add(this.portalGroup);
-
-        this.tunnelGroup = new THREE.Group();
-        this.scene.add(this.tunnelGroup);
-
-        this.obstacleGroup = new THREE.Group();
-        this.scene.add(this.obstacleGroup);
-
-        // Geometry Cache
-        this.wallLRGeo = new THREE.PlaneGeometry(CONFIG.ARENA_D, CONFIG.ARENA_H);
-        this.wallFBGeo = new THREE.PlaneGeometry(CONFIG.ARENA_W, CONFIG.ARENA_H);
-        this.planeGeo = new THREE.PlaneGeometry(CONFIG.ARENA_W, CONFIG.ARENA_D);
-
-        // Materials Cache
-        this.hardMat = new THREE.MeshStandardMaterial({
-            color: 0xf87171, roughness: 0.35, metalness: 0.25,
-            emissive: new THREE.Color(0x7a1010), emissiveIntensity: 0.65
-        });
-        this.foamMat = new THREE.MeshStandardMaterial({
-            color: 0x34d399, roughness: 0.85, metalness: 0,
-            emissive: new THREE.Color(0x0b6b4f), emissiveIntensity: 0.25,
-            transparent: true, opacity: 0.78
-        });
-
-        this.initTextures();
-        this.buildBox();
+        this.portals = [];
+        this.portalsEnabled = true;
+        this.bounds = { minX: 0, maxX: 0, minY: 0, maxY: 0, minZ: 0, maxZ: 0 };
+        this._tmpSphere = new THREE.Sphere();  // Wiederverwendbar für Kollision
     }
 
-    initTextures() {
-        this.arenaTex = this.makeCheckerTexture({
-            cells: 12, c1: "#070d1c", c2: "#0b1630", accent: "#60a5fa", accentAlpha: 0.10
-        });
-        this.arenaTex.repeat.set(6, 3);
+    /** Baut die Arena für die gewählte Map */
+    build(mapKey) {
+        const map = CONFIG.MAPS[mapKey] || CONFIG.MAPS.standard;
+        this.currentMapKey = mapKey;
+        const scale = CONFIG.ARENA.MAP_SCALE || 1;
+        const [baseSx, baseSy, baseSz] = map.size;
+        const sx = baseSx * scale;
+        const sy = baseSy * scale;
+        const sz = baseSz * scale;
+        const halfX = sx / 2;
+        const halfY = sy / 2;
+        const halfZ = sz / 2;
 
-        this.floorTex = this.makeCheckerTexture({
-            cells: 16, c1: "#060a16", c2: "#0a1328", accent: "#34d399", accentAlpha: 0.08
-        });
-        this.floorTex.repeat.set(8, 8);
+        this.bounds = {
+            minX: -halfX, maxX: halfX,
+            minY: 0, maxY: sy,
+            minZ: -halfZ, maxZ: halfZ,
+        };
 
-        this.ceilTex = this.makeCheckerTexture({
-            cells: 14, c1: "#050913", c2: "#091a2f", accent: "#a78bfa", accentAlpha: 0.08
+        // Material
+        const checkerTemplate = this._createCheckerTexture(
+            CONFIG.ARENA.CHECKER_LIGHT_COLOR,
+            CONFIG.ARENA.CHECKER_DARK_COLOR
+        );
+        const checkerWorldSize = Math.max(1, CONFIG.ARENA.CHECKER_WORLD_SIZE || 18);
+
+        const floorTexture = checkerTemplate.clone();
+        floorTexture.needsUpdate = true;
+        floorTexture.repeat.set(
+            Math.max(1, sx / checkerWorldSize),
+            Math.max(1, sz / checkerWorldSize)
+        );
+
+        const wallTexture = checkerTemplate.clone();
+        wallTexture.needsUpdate = true;
+        wallTexture.repeat.set(
+            Math.max(1, sx / checkerWorldSize),
+            Math.max(1, sy / checkerWorldSize)
+        );
+
+        const wallMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            map: wallTexture,
+            transparent: true,
+            opacity: 0.9,
+            roughness: 0.75,
+            metalness: 0.1,
+            side: THREE.DoubleSide,
         });
-        this.ceilTex.repeat.set(7, 7);
+
+        const floorMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            map: floorTexture,
+            roughness: 0.9,
+            metalness: 0.05,
+        });
+
+        const obstacleMat = new THREE.MeshStandardMaterial({
+            color: 0x2a2a4a,
+            roughness: 0.4,
+            metalness: 0.5,
+            transparent: true,
+            opacity: 0.6,
+        });
+
+        // ---- Boden ----
+        const floor = new THREE.Mesh(
+            new THREE.PlaneGeometry(sx, sz),
+            floorMat
+        );
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        floor.matrixAutoUpdate = false; // Optimierung: Statisch
+        floor.updateMatrix();
+        this.renderer.addToScene(floor);
+
+        // ---- Wände ----
+        const t = CONFIG.ARENA.WALL_THICKNESS * scale;
+
+        // Vorne (z+)
+        this._addWall(0, halfY, halfZ + t / 2, sx + 2 * t, sy, t, wallMat);
+        // Hinten (z-)
+        this._addWall(0, halfY, -halfZ - t / 2, sx + 2 * t, sy, t, wallMat);
+        // Links (x-)
+        this._addWall(-halfX - t / 2, halfY, 0, t, sy, sz, wallMat);
+        // Rechts (x+)
+        this._addWall(halfX + t / 2, halfY, 0, t, sy, sz, wallMat);
+        // Decke
+        this._addWall(0, sy, 0, sx, t, sz, wallMat);
+
+        // ---- Hindernisse ----
+        for (const obs of map.obstacles) {
+            const [px, py, pz] = obs.pos;
+            const [ox, oy, oz] = obs.size;
+            this._addObstacle(
+                px * scale,
+                py * scale,
+                pz * scale,
+                ox * scale,
+                oy * scale,
+                oz * scale,
+                obstacleMat
+            );
+        }
+
+        // ---- Portale ----
+        this._buildPortals(map, scale);
+
+        // ---- Umgebungseffekte ----
+        this._addParticles(sx, sy, sz);
     }
 
-    makeCheckerTexture({ size = 512, cells = 8, c1 = "#0b1224", c2 = "#0f1c33", accent = null, accentAlpha = 0.12 } = {}) {
-        const c = document.createElement("canvas");
-        c.width = size; c.height = size;
-        const g = c.getContext("2d");
-        const cell = size / cells;
+    _buildPortals(map, scale) {
+        this.portals = [];
+        if (!this.portalsEnabled) return;
 
-        for (let y = 0; y < cells; y++) {
-            for (let x = 0; x < cells; x++) {
-                g.fillStyle = (x + y) % 2 === 0 ? c1 : c2;
-                g.fillRect(x * cell, y * cell, cell, cell);
-                if (accent && Math.random() < 0.18) {
-                    g.globalAlpha = accentAlpha;
-                    g.fillStyle = accent;
-                    g.fillRect(x * cell, y * cell, cell, cell);
-                    g.globalAlpha = 1;
+        const pairCount = Math.max(0, Math.floor(CONFIG.GAMEPLAY.PORTAL_COUNT || 0));
+        if (pairCount > 0) {
+            this._buildFixedDynamicPortals(pairCount);
+            return;
+        }
+
+        if (Array.isArray(map.portals)) {
+            for (const def of map.portals) {
+                this._createPortalFromDef(def, scale);
+            }
+        }
+
+        // AP-04: Validierung der Portal-Abstände
+        this._validatePortalPlacements();
+    }
+
+    _createPortalFromDef(def, scale) {
+        const posA = this._resolvePortalPosition(
+            new THREE.Vector3(def.a[0] * scale, def.a[1] * scale, def.a[2] * scale),
+            11
+        );
+        const posB = this._resolvePortalPosition(
+            new THREE.Vector3(def.b[0] * scale, def.b[1] * scale, def.b[2] * scale),
+            29
+        );
+        const color = def.color || 0x00ffcc;
+        this._addPortalInstance(posA, posB, color, 'NEUTRAL', 'NEUTRAL');
+    }
+
+    _buildFixedDynamicPortals(pairCount) {
+        if (CONFIG.GAMEPLAY.PLANAR_MODE) {
+            this._buildFixedPlanarPortals(pairCount);
+        } else {
+            this._buildFixed3DPortals(pairCount);
+        }
+    }
+
+    _buildFixed3DPortals(pairCount) {
+        const colors = [0x00ffcc, 0xff00cc, 0xffff00, 0x00ccff, 0xff8844, 0x66ff44];
+        const slots = this._getMapPortalSlots3D();
+        if (slots.length < 2) return;
+
+        for (let i = 0; i < pairCount; i++) {
+            const slotA = slots[(i * 2) % slots.length];
+            const slotB = slots[(i * 2 + 5) % slots.length];
+            const slotBAlt = slots[(i * 2 + 7) % slots.length];
+
+            const posA = this._portalPositionFromSlot(slotA, i * 13 + 5);
+            let posB = this._portalPositionFromSlot(slotB, i * 17 + 9);
+            if (posA.distanceToSquared(posB) < 64) {
+                posB = this._portalPositionFromSlot(slotBAlt, i * 23 + 3);
+            }
+
+            this._addPortalInstance(posA, posB, colors[i % colors.length], 'NEUTRAL', 'NEUTRAL');
+        }
+    }
+
+    _buildFixedPlanarPortals(pairCount) {
+        const colors = [0x00ffcc, 0xff00cc, 0xffff00, 0x00ccff, 0xff8844, 0x66ff44];
+        const anchors = this._getMapPlanarAnchors();
+        const levels = this.getPortalLevelsFallback();
+        if (anchors.length === 0 || levels.length < 2) return;
+
+        const transitionCount = levels.length - 1;
+        for (let i = 0; i < pairCount; i++) {
+            const anchor = anchors[i % anchors.length];
+            const levelBand = (i + Math.floor(i / Math.max(1, anchors.length))) % transitionCount;
+            const lowY = levels[levelBand];
+            const highY = levels[levelBand + 1];
+            const pair = this._resolvePlanarElevatorPair(anchor[0], anchor[1], lowY, highY, i * 29 + 7);
+            if (!pair) continue;
+
+            this._addPortalInstance(pair.low, pair.high, colors[i % colors.length], 'UP', 'DOWN');
+        }
+    }
+
+    _getMapPortalSlots3D() {
+        const layouts = {
+            standard: [
+                [-0.75, 0.18, -0.75], [0.75, 0.18, 0.75], [0.75, 0.35, -0.75], [-0.75, 0.35, 0.75],
+                [-0.2, 0.52, -0.82], [0.2, 0.52, 0.82], [-0.82, 0.62, 0.2], [0.82, 0.62, -0.2],
+                [0, 0.26, -0.35], [0, 0.58, 0.35], [-0.45, 0.72, 0], [0.45, 0.72, 0],
+            ],
+            empty: [
+                [-0.78, 0.2, -0.78], [0.78, 0.2, 0.78], [0.78, 0.2, -0.78], [-0.78, 0.2, 0.78],
+                [0, 0.45, -0.82], [0, 0.45, 0.82], [-0.82, 0.45, 0], [0.82, 0.45, 0],
+                [-0.35, 0.72, -0.35], [0.35, 0.72, 0.35], [0.35, 0.72, -0.35], [-0.35, 0.72, 0.35],
+            ],
+            maze: [
+                [-0.8, 0.22, -0.6], [0.8, 0.22, 0.6], [-0.8, 0.22, 0.6], [0.8, 0.22, -0.6],
+                [-0.25, 0.5, -0.8], [0.25, 0.5, 0.8], [-0.6, 0.62, 0], [0.6, 0.62, 0],
+                [0, 0.35, -0.2], [0, 0.35, 0.2], [-0.4, 0.75, -0.35], [0.4, 0.75, 0.35],
+            ],
+            complex: [
+                [-0.82, 0.2, -0.82], [0.82, 0.2, 0.82], [0.82, 0.2, -0.82], [-0.82, 0.2, 0.82],
+                [-0.5, 0.42, -0.1], [0.5, 0.42, 0.1], [-0.1, 0.55, 0.5], [0.1, 0.55, -0.5],
+                [0, 0.72, -0.72], [0, 0.72, 0.72], [-0.72, 0.72, 0], [0.72, 0.72, 0],
+            ],
+            pyramid: [
+                [-0.78, 0.18, -0.78], [0.78, 0.18, 0.78], [0.78, 0.18, -0.78], [-0.78, 0.18, 0.78],
+                [-0.45, 0.38, -0.45], [0.45, 0.38, 0.45], [0, 0.58, -0.78], [0, 0.58, 0.78],
+                [-0.78, 0.58, 0], [0.78, 0.58, 0], [-0.2, 0.78, 0], [0.2, 0.78, 0],
+            ],
+        };
+        return layouts[this.currentMapKey] || layouts.standard;
+    }
+
+    _getMapPlanarAnchors() {
+        const anchors = {
+            standard: [[-0.7, -0.7], [0.7, -0.7], [0.7, 0.7], [-0.7, 0.7], [0, -0.45], [0, 0.45], [-0.45, 0], [0.45, 0]],
+            empty: [[-0.75, -0.75], [0.75, -0.75], [0.75, 0.75], [-0.75, 0.75], [0, -0.55], [0, 0.55], [-0.55, 0], [0.55, 0]],
+            maze: [[-0.78, -0.62], [0.78, -0.62], [0.78, 0.62], [-0.78, 0.62], [0, -0.72], [0, 0.72], [-0.52, 0], [0.52, 0]],
+            complex: [[-0.82, -0.82], [0.82, -0.82], [0.82, 0.82], [-0.82, 0.82], [-0.55, 0], [0.55, 0], [0, -0.55], [0, 0.55]],
+            pyramid: [[-0.78, -0.78], [0.78, -0.78], [0.78, 0.78], [-0.78, 0.78], [-0.48, 0], [0.48, 0], [0, -0.48], [0, 0.48]],
+        };
+        return anchors[this.currentMapKey] || anchors.standard;
+    }
+
+    _portalPositionFromSlot(slot, seed) {
+        const b = this.bounds;
+        const margin = CONFIG.PORTAL.RING_SIZE + 2.5;
+        const nx = (slot[0] + 1) * 0.5;
+        const ny = slot[1];
+        const nz = (slot[2] + 1) * 0.5;
+        const pos = new THREE.Vector3(
+            b.minX + margin + nx * (b.maxX - b.minX - 2 * margin),
+            b.minY + margin + ny * (b.maxY - b.minY - 2 * margin),
+            b.minZ + margin + nz * (b.maxZ - b.minZ - 2 * margin)
+        );
+        return this._resolvePortalPosition(pos, seed);
+    }
+
+    _portalPositionFromXZLevel(nx, nz, levelY, seed) {
+        const b = this.bounds;
+        const margin = CONFIG.PORTAL.RING_SIZE + 2.5;
+        const pos = new THREE.Vector3(
+            b.minX + margin + (nx + 1) * 0.5 * (b.maxX - b.minX - 2 * margin),
+            levelY,
+            b.minZ + margin + (nz + 1) * 0.5 * (b.maxZ - b.minZ - 2 * margin)
+        );
+        return this._resolvePortalPosition(pos, seed);
+    }
+
+    _resolvePlanarElevatorPair(nx, nz, yLow, yHigh, seed = 0) {
+        const lowY = Math.min(yLow, yHigh);
+        const highY = Math.max(yLow, yHigh);
+        const b = this.bounds;
+        const margin = CONFIG.PORTAL.RING_SIZE + 2.5;
+        const testRadius = CONFIG.PORTAL.RADIUS * 0.75;
+
+        const baseX = b.minX + margin + (nx + 1) * 0.5 * (b.maxX - b.minX - 2 * margin);
+        const baseZ = b.minZ + margin + (nz + 1) * 0.5 * (b.maxZ - b.minZ - 2 * margin);
+
+        const lowProbe = new THREE.Vector3();
+        const highProbe = new THREE.Vector3();
+        for (let i = 0; i < 28; i++) {
+            const angle = (((seed + i * 41) % 360) * Math.PI) / 180;
+            const dist = i === 0 ? 0 : 2.2 + (i - 1) * 1.2;
+            const x = Math.max(b.minX + margin, Math.min(b.maxX - margin, baseX + Math.cos(angle) * dist));
+            const z = Math.max(b.minZ + margin, Math.min(b.maxZ - margin, baseZ + Math.sin(angle) * dist));
+
+            lowProbe.set(x, lowY, z);
+            highProbe.set(x, highY, z);
+            if (!this.checkCollision(lowProbe, testRadius) && !this.checkCollision(highProbe, testRadius)) {
+                return {
+                    low: lowProbe.clone(),
+                    high: highProbe.clone(),
+                };
+            }
+        }
+
+        const lowFallback = this._resolvePortalPosition(new THREE.Vector3(baseX, lowY, baseZ), seed);
+        const highAtLowXZ = new THREE.Vector3(lowFallback.x, highY, lowFallback.z);
+        if (!this.checkCollision(highAtLowXZ, testRadius)) {
+            return {
+                low: lowFallback,
+                high: highAtLowXZ,
+            };
+        }
+
+        const highFallback = this._resolvePortalPosition(new THREE.Vector3(baseX, highY, baseZ), seed + 17);
+        const lowAtHighXZ = new THREE.Vector3(highFallback.x, lowY, highFallback.z);
+        if (!this.checkCollision(lowAtHighXZ, testRadius)) {
+            return {
+                low: lowAtHighXZ,
+                high: highFallback,
+            };
+        }
+
+        return null;
+    }
+
+    _resolvePortalPosition(pos, seed = 0) {
+        const b = this.bounds;
+        const margin = CONFIG.PORTAL.RING_SIZE + 2.5;
+        const testRadius = CONFIG.PORTAL.RADIUS * 0.75;
+        if (!this.checkCollision(pos, testRadius)) {
+            return pos;
+        }
+
+        const probe = new THREE.Vector3();
+        for (let i = 0; i < 20; i++) {
+            const angle = (((seed + i * 37) % 360) * Math.PI) / 180;
+            const dist = 2.5 + i * 1.3;
+            const yShift = ((i % 5) - 2) * 1.1;
+            probe.set(
+                pos.x + Math.cos(angle) * dist,
+                pos.y + yShift,
+                pos.z + Math.sin(angle) * dist
+            );
+
+            probe.x = Math.max(b.minX + margin, Math.min(b.maxX - margin, probe.x));
+            probe.y = Math.max(b.minY + margin, Math.min(b.maxY - margin, probe.y));
+            probe.z = Math.max(b.minZ + margin, Math.min(b.maxZ - margin, probe.z));
+
+            if (!this.checkCollision(probe, testRadius)) {
+                return probe.clone();
+            }
+        }
+
+        return pos;
+    }
+
+    _addPortalInstance(posA, posB, color, dirA = 'NEUTRAL', dirB = 'NEUTRAL') {
+        const meshA = this._createPortalMesh(posA, color, dirA);
+        const meshB = this._createPortalMesh(posB, color, dirB);
+
+        this.portals.push({
+            posA, posB,
+            meshA, meshB,
+            color,
+            cooldowns: new Map(),
+        });
+    }
+
+    _createPortalMesh(position, color, direction = 'NEUTRAL') {
+        const group = new THREE.Group();
+        const ringSize = CONFIG.PORTAL.RING_SIZE;
+
+        // Override color based on direction if specified
+        // Green for UP, Red for DOWN, specified color for NEUTRAL
+        let displayColor = color;
+        if (direction === 'UP') displayColor = 0x00ff00;
+        if (direction === 'DOWN') displayColor = 0xff0000;
+
+        // Äußerer Ring (Torus)
+        const torusGeo = new THREE.TorusGeometry(ringSize, 0.3, 16, 32);
+        const torusMat = new THREE.MeshStandardMaterial({
+            color: displayColor,
+            emissive: displayColor,
+            emissiveIntensity: 1.2,
+            roughness: 0.2,
+            metalness: 0.8,
+        });
+        const torus = new THREE.Mesh(torusGeo, torusMat);
+        group.add(torus);
+
+        // Innerer Glow (halbtransparente Scheibe)
+        const discGeo = new THREE.CircleGeometry(ringSize * 0.85, 32);
+        const discMat = new THREE.MeshBasicMaterial({
+            color: displayColor,
+            transparent: true,
+            opacity: 0.15,
+            side: THREE.DoubleSide,
+        });
+        const disc = new THREE.Mesh(discGeo, discMat);
+        group.add(disc);
+
+        // Zweiter innerer Ring für Tiefe
+        const innerTorusGeo = new THREE.TorusGeometry(ringSize * 0.6, 0.15, 12, 24);
+        const innerTorusMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            emissive: displayColor,
+            emissiveIntensity: 0.5,
+            transparent: true,
+            opacity: 0.6,
+        });
+        const innerTorus = new THREE.Mesh(innerTorusGeo, innerTorusMat);
+        group.add(innerTorus);
+
+        // DIRECTION ARROW
+        if (direction !== 'NEUTRAL') {
+            const arrowGeo = new THREE.ConeGeometry(0.8, 2.5, 8);
+            const arrowMat = new THREE.MeshBasicMaterial({
+                color: displayColor,
+                transparent: true,
+                opacity: 0.8,
+            });
+            const arrow = new THREE.Mesh(arrowGeo, arrowMat);
+
+            // Default Cone points UP (Y+)
+            if (direction === 'UP') {
+                // Point Up
+                arrow.position.y = 0;
+            } else if (direction === 'DOWN') {
+                // Point Down
+                arrow.rotation.x = Math.PI;
+                arrow.position.y = 0;
+            }
+
+            group.add(arrow);
+
+            // Animation helper
+            group.userData.arrow = arrow;
+            group.userData.direction = direction;
+        }
+
+        group.position.copy(position);
+        this.renderer.addToScene(group);
+
+        return group;
+    }
+
+    toggleBeams() {
+        // Beams intentionally removed: portal pairing is only shown via color and position.
+    }
+
+    /** Prüft ob eine Position ein Portal berührt, gibt Zielposition zurück oder null */
+    checkPortal(position, radius, entityId) {
+        if (!this.portalsEnabled) return null;
+
+        const triggerRadius = CONFIG.PORTAL.RADIUS;
+        const triggerRadiusSq = (triggerRadius + radius) * (triggerRadius + radius);
+
+        for (const portal of this.portals) {
+            // Cooldown prüfen
+            if (portal.cooldowns.has(entityId) && portal.cooldowns.get(entityId) > 0) {
+                continue;
+            }
+
+            const distASq = position.distanceToSquared(portal.posA);
+            const distBSq = position.distanceToSquared(portal.posB);
+
+            if (distASq < triggerRadiusSq) {
+                // Teleport zu B
+                const dist = portal.posA.distanceTo(portal.posB);
+                const dynamicCooldown = Math.max(CONFIG.PORTAL.COOLDOWN, dist / 80);
+                portal.cooldowns.set(entityId, dynamicCooldown);
+                return { target: portal.posB, portal };
+            }
+            if (distBSq < triggerRadiusSq) {
+                // Teleport zu A
+                const dist = portal.posA.distanceTo(portal.posB);
+                const dynamicCooldown = Math.max(CONFIG.PORTAL.COOLDOWN, dist / 80);
+                portal.cooldowns.set(entityId, dynamicCooldown);
+                return { target: portal.posA, portal };
+            }
+        }
+
+        return null;
+    }
+
+    _createCheckerTexture(lightColor, darkColor) {
+        const size = 128;
+        const half = size / 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+
+        const ctx = canvas.getContext('2d');
+        const light = `#${lightColor.toString(16).padStart(6, '0')}`;
+        const dark = `#${darkColor.toString(16).padStart(6, '0')}`;
+
+        ctx.fillStyle = light;
+        ctx.fillRect(0, 0, half, half);
+        ctx.fillRect(half, half, half, half);
+
+        ctx.fillStyle = dark;
+        ctx.fillRect(half, 0, half, half);
+        ctx.fillRect(0, half, half, half);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.magFilter = THREE.NearestFilter;
+        texture.minFilter = THREE.NearestMipmapLinearFilter;
+        return texture;
+    }
+
+    _addWall(x, y, z, w, h, d, material) {
+        const geo = new THREE.BoxGeometry(w, h, d);
+        const mesh = new THREE.Mesh(geo, material);
+        mesh.position.set(x, y, z);
+        mesh.matrixAutoUpdate = false; // Optimierung
+        mesh.updateMatrix();
+        this.renderer.addToScene(mesh);
+
+        const box = new THREE.Box3().setFromObject(mesh);
+        this.obstacles.push({ mesh, box, isWall: true });
+    }
+
+    _addObstacle(x, y, z, w, h, d, material) {
+        const geo = new THREE.BoxGeometry(w, h, d);
+
+        // Kanten sichtbar machen
+        const edges = new THREE.EdgesGeometry(geo);
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x4466aa, transparent: true, opacity: 0.5 });
+
+        const mesh = new THREE.Mesh(geo, material.clone());
+        mesh.position.set(x, y, z);
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+        mesh.matrixAutoUpdate = false; // Optimierung
+        mesh.updateMatrix();
+        this.renderer.addToScene(mesh);
+
+        const line = new THREE.LineSegments(edges, lineMat);
+        line.position.copy(mesh.position);
+        line.matrixAutoUpdate = false; // Optimierung
+        line.updateMatrix();
+        this.renderer.addToScene(line);
+
+        const box = new THREE.Box3().setFromObject(mesh);
+        this.obstacles.push({ mesh, box, isWall: false });
+    }
+
+    _addParticles(sx, sy, sz) {
+        // Schwebende Partikel für Atmosphäre
+        const count = 200;
+        const geo = new THREE.BufferGeometry();
+        const positions = new Float32Array(count * 3);
+
+        for (let i = 0; i < count; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * sx;
+            positions[i * 3 + 1] = Math.random() * sy;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * sz;
+        }
+
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+        const mat = new THREE.PointsMaterial({
+            color: 0x4488ff,
+            size: 0.15,
+            transparent: true,
+            opacity: 0.4,
+            sizeAttenuation: true,
+            sizeAttenuation: true, // Fixed redundant property in original? No, it's ok.
+        });
+
+        this.particles = new THREE.Points(geo, mat);
+        this.renderer.addToScene(this.particles);
+    }
+
+    /** Prüft Kollision eines Punktes mit Arena-Grenzen und Hindernissen */
+    checkCollision(position, radius) {
+        const b = this.bounds;
+
+        // Grenzen-Check
+        if (position.x - radius < b.minX || position.x + radius > b.maxX ||
+            position.y - radius < b.minY || position.y + radius > b.maxY ||
+            position.z - radius < b.minZ || position.z + radius > b.maxZ) {
+            return true;
+        }
+
+        // Hindernis-Check (wiederverwendbare Sphere)
+        this._tmpSphere.center.copy(position);
+        this._tmpSphere.radius = radius;
+        for (const obs of this.obstacles) {
+            if (obs.box.intersectsSphere(this._tmpSphere)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Gibt eine zufällige freie Position in der Arena zurück */
+    getRandomPosition(margin = 5) {
+        const b = this.bounds;
+        for (let attempts = 0; attempts < 50; attempts++) {
+            const x = b.minX + margin + Math.random() * (b.maxX - b.minX - 2 * margin);
+            const y = 3 + Math.random() * (b.maxY - 6);
+            const z = b.minZ + margin + Math.random() * (b.maxZ - b.minZ - 2 * margin);
+            const pos = new THREE.Vector3(x, y, z);
+
+            if (!this.checkCollision(pos, 3)) {
+                return pos;
+            }
+        }
+        return new THREE.Vector3(0, CONFIG.PLAYER.START_Y, 0);
+    }
+
+    getRandomPositionOnLevel(level, margin = 5) {
+        const b = this.bounds;
+        const clampedY = Math.max(b.minY + 3, Math.min(b.maxY - 3, level));
+        for (let attempts = 0; attempts < 50; attempts++) {
+            const x = b.minX + margin + Math.random() * (b.maxX - b.minX - 2 * margin);
+            const z = b.minZ + margin + Math.random() * (b.maxZ - b.minZ - 2 * margin);
+            const pos = new THREE.Vector3(x, clampedY, z);
+
+            if (!this.checkCollision(pos, 3)) {
+                return pos;
+            }
+        }
+        return new THREE.Vector3(0, clampedY, 0);
+    }
+
+    getPortalLevelsFallback() {
+        const b = this.bounds;
+        const span = Math.max(1, b.maxY - b.minY);
+        const levelCount = Math.max(2, Math.floor(CONFIG.GAMEPLAY.PLANAR_LEVEL_COUNT || 5));
+        const minRatio = 0.18;
+        const maxRatio = 0.82;
+        const levels = [];
+
+        for (let i = 0; i < levelCount; i++) {
+            const t = levelCount <= 1 ? 0.5 : i / (levelCount - 1);
+            const ratio = minRatio + (maxRatio - minRatio) * t;
+            levels.push(b.minY + span * ratio);
+        }
+
+        return levels;
+    }
+
+    getPortalLevels() {
+        const levels = [];
+        const epsilon = 0.35;
+
+        for (const portal of this.portals) {
+            for (const y of [portal.posA.y, portal.posB.y]) {
+                let exists = false;
+                for (const value of levels) {
+                    if (Math.abs(value - y) <= epsilon) {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists) {
+                    levels.push(y);
                 }
             }
         }
-        // Gitterlinien
-        g.globalAlpha = 0.08;
-        g.strokeStyle = "#ffffff";
-        for (let i = 0; i <= cells; i++) {
-            const p = i * cell;
-            g.beginPath(); g.moveTo(p, 0); g.lineTo(p, size); g.stroke();
-            g.beginPath(); g.moveTo(0, p); g.lineTo(size, p); g.stroke();
+
+        if (levels.length === 0) {
+            return this.getPortalLevelsFallback();
         }
-        g.globalAlpha = 1;
-
-        const tex = new THREE.CanvasTexture(c);
-        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.anisotropy = 4;
-        return tex;
+        levels.sort((a, b) => a - b);
+        return levels;
     }
 
-    arenaMat() {
-        return new THREE.MeshStandardMaterial({
-            color: 0xffffff, map: this.arenaTex, roughness: 0.95, metalness: 0,
-            side: THREE.DoubleSide, transparent: true, opacity: 1
-        });
-    }
-
-    buildBox() {
-        const halfW = CONFIG.ARENA_W / 2;
-        const halfD = CONFIG.ARENA_D / 2;
-        const wallH = CONFIG.ARENA_H;
-
-        // Walls
-        this.wallLeft = new THREE.Mesh(this.wallLRGeo, this.arenaMat());
-        this.wallLeft.position.set(-halfW, wallH / 2, 0);
-        this.wallLeft.rotation.y = Math.PI / 2;
-        this.scene.add(this.wallLeft); this.walls.push(this.wallLeft);
-
-        this.wallRight = new THREE.Mesh(this.wallLRGeo, this.arenaMat());
-        this.wallRight.position.set(halfW, wallH / 2, 0);
-        this.wallRight.rotation.y = -Math.PI / 2;
-        this.scene.add(this.wallRight); this.walls.push(this.wallRight);
-
-        this.wallFront = new THREE.Mesh(this.wallFBGeo, this.arenaMat());
-        this.wallFront.position.set(0, wallH / 2, -halfD);
-        this.scene.add(this.wallFront); this.walls.push(this.wallFront);
-
-        this.wallBack = new THREE.Mesh(this.wallFBGeo, this.arenaMat());
-        this.wallBack.position.set(0, wallH / 2, halfD);
-        this.wallBack.rotation.y = Math.PI;
-        this.scene.add(this.wallBack); this.walls.push(this.wallBack);
-
-        // Floor / Ceiling
-        this.floor = new THREE.Mesh(this.planeGeo, new THREE.MeshStandardMaterial({
-            color: 0xffffff, map: this.floorTex, roughness: 0.98, metalness: 0, side: THREE.DoubleSide
-        }));
-        this.floor.rotation.x = -Math.PI / 2;
-        this.scene.add(this.floor);
-
-        this.ceiling = new THREE.Mesh(this.planeGeo, new THREE.MeshStandardMaterial({
-            color: 0xffffff, map: this.ceilTex, roughness: 0.98, metalness: 0, side: THREE.DoubleSide
-        }));
-        this.ceiling.rotation.x = Math.PI / 2;
-        this.ceiling.position.y = CONFIG.ARENA_H;
-        this.scene.add(this.ceiling);
-
-        // Initialization for opacity
-        for (const w of this.walls) {
-            w.userData.defaultOpacity = 1;
+    update(dt) {
+        // Partikel leicht bewegen
+        if (this.particles) {
+            this.particles.rotation.y += dt * 0.02;
         }
 
-        // Spawn Marker
-        const spawnMarkerGeo = new THREE.ConeGeometry(30, 80, 4);
-        const spawnMarkerMat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0x888800 });
-        this.spawnMarker = new THREE.Mesh(spawnMarkerGeo, spawnMarkerMat);
-        this.spawnMarker.rotation.x = Math.PI; // Point down
-        this.spawnMarker.visible = false;
-        this.scene.add(this.spawnMarker);
-    }
+        // Portale animieren
+        const rotSpeed = CONFIG.PORTAL.ROTATION_SPEED;
+        for (const portal of this.portals) {
+            // Ringe rotieren
+            if (portal.meshA) {
+                portal.meshA.rotation.z += dt * rotSpeed;
+                portal.meshA.rotation.y += dt * rotSpeed * 0.3;
+            }
+            if (portal.meshB) {
+                portal.meshB.rotation.z -= dt * rotSpeed;
+                portal.meshB.rotation.y -= dt * rotSpeed * 0.3;
+            }
 
-    setOuterWallsInspect(isInspect) {
-        const op = isInspect ? CONFIG.WALL_INSPECT_OPACITY : 1;
-        for (const w of this.walls) {
-            w.material.opacity = op;
-            w.material.needsUpdate = true;
-        }
-    }
-
-    updateDimensions(w, h, d) {
-        CONFIG.ARENA_W = w; CONFIG.ARENA_H = h; CONFIG.ARENA_D = d;
-        const halfW = w / 2;
-        const halfD = d / 2;
-        const wallH = h;
-
-        if (this.wallLeft) {
-            this.wallLeft.position.set(-halfW, wallH / 2, 0);
-            this.wallLeft.scale.set(d / 2400, h / 950, 1);
-            if (this.wallLeft.material.map) this.wallLeft.material.map.repeat.set(d / 400, h / 400);
-        }
-        if (this.wallRight) {
-            this.wallRight.position.set(halfW, wallH / 2, 0);
-            this.wallRight.scale.set(d / 2400, h / 950, 1);
-            if (this.wallRight.material.map) this.wallRight.material.map.repeat.set(d / 400, h / 400);
-        }
-        if (this.wallFront) {
-            this.wallFront.position.set(0, wallH / 2, -halfD);
-            this.wallFront.scale.set(w / 2800, h / 950, 1);
-            if (this.wallFront.material.map) this.wallFront.material.map.repeat.set(w / 400, h / 400);
-        }
-        if (this.wallBack) {
-            this.wallBack.position.set(0, wallH / 2, halfD);
-            this.wallBack.scale.set(w / 2800, h / 950, 1);
-            if (this.wallBack.material.map) this.wallBack.material.map.repeat.set(w / 400, h / 400);
-        }
-        if (this.floor) {
-            this.floor.scale.set(w / 2800, d / 2400, 1);
-            if (this.floor.material.map) this.floor.material.map.repeat.set(w / 350, d / 350);
-        }
-        if (this.ceiling) {
-            this.ceiling.position.y = wallH;
-            this.ceiling.scale.set(w / 2800, d / 2400, 1);
-            if (this.ceiling.material.map) this.ceiling.material.map.repeat.set(w / 400, d / 400);
-        }
-    }
-
-    // --- Portals ---
-
-    addPortalVisual(pos, normal, radius, color) {
-        const ringGeo = new THREE.RingGeometry(radius * 0.7, radius, 40);
-        const ringMat = new THREE.MeshBasicMaterial({
-            color, side: THREE.DoubleSide, transparent: true, opacity: 0.9
-        });
-        const ring = new THREE.Mesh(ringGeo, ringMat);
-        ring.position.copy(pos.clone().addScaledVector(normal, 1.0));
-        const lookTarget = pos.clone().add(normal);
-        ring.lookAt(lookTarget);
-
-        const glowGeo = new THREE.CircleGeometry(radius * 0.7, 40);
-        const glowMat = new THREE.MeshBasicMaterial({
-            color, transparent: true, opacity: 0.22
-        });
-        const glow = new THREE.Mesh(glowGeo, glowMat);
-        glow.position.set(0, 0, 0.5);
-        ring.add(glow);
-
-        this.portalGroup.add(ring);
-    }
-
-    addPortalPair(posA, normalA, colorA, posB, normalB, colorB, radius) {
-        const idxA = this.portals.length;
-        const idxB = idxA + 1;
-        this.portals.push({
-            pos: posA.clone(),
-            normal: normalA.clone().normalize(),
-            exitDir: normalA.clone().normalize(),
-            radius,
-            partnerIndex: idxB
-        });
-        this.portals.push({
-            pos: posB.clone(),
-            normal: normalB.clone().normalize(),
-            exitDir: normalB.clone().normalize(),
-            radius,
-            partnerIndex: idxA
-        });
-
-        this.addPortalVisual(posA, normalA, radius, colorA);
-        this.addPortalVisual(posB, normalB, radius, colorB);
-    }
-
-    rebuildPortals() {
-        // Clear old
-        while (this.portalGroup.children.length) {
-            const c = this.portalGroup.children.pop();
-            if (c.geometry) c.geometry.dispose();
-            if (c.material) c.material.dispose();
-        }
-        this.portals.length = 0;
-
-        const halfW = CONFIG.ARENA_W / 2;
-        const halfD = CONFIG.ARENA_D / 2;
-        const wallH = CONFIG.ARENA_H;
-        const portalRadius = 120; // Hardcoded or config?
-
-        // Add new based on current dimensions
-        this.addPortalPair(
-            new THREE.Vector3(-halfW + 0.5, wallH * 0.52, 0),
-            new THREE.Vector3(1, 0, 0), 0x22c55e,
-            new THREE.Vector3(halfW - 0.5, wallH * 0.52, 0),
-            new THREE.Vector3(-1, 0, 0), 0x3b82f6,
-            portalRadius
-        );
-        this.addPortalPair(
-            new THREE.Vector3(0, wallH * 0.6, -halfD + 0.5),
-            new THREE.Vector3(0, 0, 1), 0xf97316,
-            new THREE.Vector3(0, wallH * 0.6, halfD - 0.5),
-            new THREE.Vector3(0, 0, -1), 0xa855f7,
-            portalRadius
-        );
-    }
-
-    // --- Tunnels ---
-
-    clearTunnels() {
-        while (this.tunnelGroup.children.length) {
-            const m = this.tunnelGroup.children.pop();
-            m.geometry?.dispose?.();
-            const mats = Array.isArray(m.material) ? m.material : [m.material];
-            for (const mm of mats) { mm.map?.dispose?.(); }
-        }
-        this.tunnels.length = 0;
-    }
-
-    orientMeshToDir(mesh, dir) {
-        const up = new THREE.Vector3(0, 1, 0);
-        mesh.quaternion.copy(new THREE.Quaternion().setFromUnitVectors(up, dir.clone().normalize()));
-    }
-
-    makeTunnelWallMat() {
-        const tex = this.makeCheckerTexture({
-            cells: 10, c1: "#0a1636", c2: "#183b7a", accent: "#f59e0b", accentAlpha: 0.12
-        });
-        tex.repeat.set(10, 2);
-        return new THREE.MeshStandardMaterial({
-            color: 0xffffff, map: tex, roughness: 0.25, metalness: 0.2,
-            emissive: new THREE.Color(0x1b4d9a), emissiveIntensity: 1.0,
-            transparent: true, opacity: 0.62, side: THREE.DoubleSide
-        });
-    }
-
-    makeTunnelSafeMat() {
-        const tex = this.makeCheckerTexture({
-            cells: 8, c1: "#0a2a1f", c2: "#1d6b55", accent: "#bfe6ff", accentAlpha: 0.10
-        });
-        tex.repeat.set(8, 2);
-        return new THREE.MeshStandardMaterial({
-            color: 0xffffff, map: tex, roughness: 0.35, metalness: 0,
-            emissive: new THREE.Color(0x4fd2ff), emissiveIntensity: 0.85,
-            transparent: true, opacity: 0.50, side: THREE.DoubleSide
-        });
-    }
-
-    makeBoundaryRingMat() {
-        return new THREE.MeshStandardMaterial({
-            color: 0xffffff, roughness: 0.2, metalness: 0.1,
-            emissive: new THREE.Color(0x7dd3fc), emissiveIntensity: 1.1,
-            transparent: true, opacity: 0.75
-        });
-    }
-
-    addTunnel(A, B) {
-        const radius = CONFIG.TUNNEL_RADIUS;
-        const safeRadius = radius * CONFIG.TUNNEL_SAFE_FACTOR;
-
-        const dir = new THREE.Vector3().subVectors(B, A);
-        const len = dir.length();
-        const dirN = dir.clone().normalize();
-        const mid = new THREE.Vector3().addVectors(A, B).multiplyScalar(0.5);
-
-        const tunnelId = "tunnel-" + Math.random().toString(36).slice(2, 9);
-
-        const wallGeo = new THREE.CylinderGeometry(radius, radius, len, 40, 1, true);
-        const wallMesh = new THREE.Mesh(wallGeo, this.makeTunnelWallMat());
-        wallMesh.userData.tunnelId = tunnelId;
-        wallMesh.position.copy(mid);
-        this.orientMeshToDir(wallMesh, dirN);
-        this.tunnelGroup.add(wallMesh);
-
-        const safeGeo = new THREE.CylinderGeometry(safeRadius, safeRadius, len, 32, 1, true);
-        const safeMesh = new THREE.Mesh(safeGeo, this.makeTunnelSafeMat());
-        safeMesh.userData.tunnelId = tunnelId;
-        safeMesh.position.copy(mid);
-        this.orientMeshToDir(safeMesh, dirN);
-        this.tunnelGroup.add(safeMesh);
-
-        const ringMat = this.makeBoundaryRingMat();
-        const ringCount = Math.max(5, Math.floor(len / 220));
-        for (let i = 1; i < ringCount; i++) {
-            const t = i / ringCount;
-            const p = new THREE.Vector3().lerpVectors(A, B, t);
-            const torusGeo = new THREE.TorusGeometry(safeRadius, 3.5, 10, 50);
-            const ring = new THREE.Mesh(torusGeo, ringMat);
-            ring.userData.tunnelId = tunnelId;
-            ring.position.copy(p);
-            const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirN);
-            ring.quaternion.copy(q);
-            ring.rotateX(Math.PI / 2);
-            this.tunnelGroup.add(ring);
-        }
-
-        this.tunnels.push({ id: tunnelId, A: A.clone(), B: B.clone(), radius, safeRadius, dirN, len });
-    }
-
-    checkTunnelCollision(pos, tmpN, tmpClosest) {
-        // Assuming tmpN and tmpClosest are passed to avoid allocations, or created here
-        const _tmpN = tmpN || new THREE.Vector3();
-        const _tmpClosest = tmpClosest || new THREE.Vector3();
-        const endFade = CONFIG.TUNNEL_END_FADE;
-
-        for (const t of this.tunnels) {
-            const AP = _tmpN.copy(pos).sub(t.A);
-            const s = AP.dot(t.dirN);
-            if (s < 0 || s > t.len) continue;
-
-            const sClamped = Math.max(0, Math.min(t.len, s));
-            _tmpClosest.copy(t.A).addScaledVector(t.dirN, sClamped);
-
-            const d = _tmpClosest.distanceTo(pos);
-            const influence = t.radius * CONFIG.TUNNEL_INFLUENCE_PAD;
-            if (d > influence) continue;
-
-            const fadeIn = (t.len > 0) ? Math.max(0, Math.min(1, s / endFade)) : 0;
-            const fadeOut = (t.len > 0) ? Math.max(0, Math.min(1, (t.len - s) / endFade)) : 0;
-            // Simplified smooth step
-            const f1 = fadeIn * fadeIn * (3 - 2 * fadeIn);
-            const f2 = fadeOut * fadeOut * (3 - 2 * fadeOut);
-            const axialFade = Math.min(f1, f2);
-
-            const effectiveSafe = t.safeRadius + (t.radius - t.safeRadius) * (1 - axialFade);
-
-            if (d > effectiveSafe) return { hit: true, reason: "Tunnelwand" };
-        }
-        return { hit: false, reason: "" };
-    }
-
-
-    // --- Obstacles ---
-
-    clearObstacles() {
-        while (this.obstacleGroup.children.length) {
-            const m = this.obstacleGroup.children.pop();
-            m.geometry?.dispose?.();
-        }
-        this.obstacles.length = 0;
-    }
-
-    spawnBlock(type) {
-        const rand = (min, max) => Math.random() * (max - min) + min;
-        const size = rand(CONFIG.BLOCK_MIN, CONFIG.BLOCK_MAX);
-        const geo = new THREE.BoxGeometry(size, size, size);
-        const mesh = new THREE.Mesh(geo, type === "hard" ? this.hardMat : this.foamMat);
-
-        const halfWm = CONFIG.ARENA_W / 2 - CONFIG.WALL_MARGIN - 140;
-        const halfDm = CONFIG.ARENA_D / 2 - CONFIG.WALL_MARGIN - 140;
-
-        mesh.position.set(
-            rand(-halfWm, halfWm),
-            rand(CONFIG.ARENA_H * 0.18, CONFIG.ARENA_H * 0.82),
-            rand(-halfDm, halfDm)
-        );
-        mesh.rotation.set(rand(0, Math.PI), rand(0, Math.PI), rand(0, Math.PI));
-        this.obstacleGroup.add(mesh);
-
-        this.obstacles.push({ type, mesh, radius: size * 0.62 });
-    }
-
-    checkObstacleCollision(pos) {
-        const headR = CONFIG.HEAD_RADIUS;
-        for (const o of this.obstacles) {
-            const c = o.mesh.position;
-            const dx = pos.x - c.x, dy = pos.y - c.y, dz = pos.z - c.z;
-            const rr = (o.radius + headR) ** 2;
-            if (dx * dx + dy * dy + dz * dz <= rr) {
-                return { hit: true, type: o.type, obstacle: o };
+            // Cooldowns runterzählen (sichere Iteration)
+            const toDelete = [];
+            for (const [id, time] of portal.cooldowns) {
+                const remaining = time - dt;
+                if (remaining <= 0) {
+                    toDelete.push(id);
+                } else {
+                    portal.cooldowns.set(id, remaining);
+                }
+            }
+            for (let k = 0; k < toDelete.length; k++) {
+                portal.cooldowns.delete(toDelete[k]);
             }
         }
-        return { hit: false };
     }
 
-    // --- Maps ---
+    _validatePortalPlacements() {
+        if (!this.portals || this.portals.length === 0) return;
 
-    buildMap(mapId) {
-        this.clearTunnels();
-        this.clearObstacles();
-        let w = 2800, h = 950, d = 2400; // Defaults
-
-        if (mapId === "empty_small") {
-            w = 1400; h = 600; d = 1200;
-            this.updateDimensions(w, h, d);
-        } else if (mapId === "labyrinth") {
-            w = 1600; h = 800; d = 1400;
-            this.updateDimensions(w, h, d);
-            this.buildLabyrinth();
-        } else if (mapId === "complex") {
-            this.updateDimensions(w, h, d); // default
-            this.buildTunnelsComplex();
-            this.buildObstaclesComplex();
-        } else if (mapId === "pyramid") {
-            this.updateDimensions(w, h, d); // default
-            this.buildTunnelsPyramid();
-            this.buildObstaclesPyramid();
-        } else {
-            // Basic
-            this.updateDimensions(w, h, d);
-            this.buildTunnelsBasic();
-            this.buildObstaclesBasic();
-        }
-
-        this.rebuildPortals();
-    }
-
-    buildTunnelsBasic() {
-        const y1 = CONFIG.ARENA_H * 0.55;
-        const y2 = CONFIG.ARENA_H * 0.42;
-        const y3 = CONFIG.ARENA_H * 0.62;
-
-        this.addTunnel(new THREE.Vector3(-980, y1, 0), new THREE.Vector3(980, y1, 0));
-        this.addTunnel(new THREE.Vector3(-520, y2, -900), new THREE.Vector3(-520, y2, 900));
-        this.addTunnel(new THREE.Vector3(820, y3, -720), new THREE.Vector3(-220, y3, 720));
-    }
-
-    buildObstaclesBasic() {
-        for (let i = 0; i < CONFIG.HARD_BLOCK_COUNT; i++) this.spawnBlock("hard");
-        for (let i = 0; i < CONFIG.FOAM_BLOCK_COUNT; i++) this.spawnBlock("foam");
-    }
-
-    buildTunnelsComplex() {
-        const yMid = CONFIG.ARENA_H * 0.55;
-        const yLow = CONFIG.ARENA_H * 0.35;
-        const yHigh = CONFIG.ARENA_H * 0.75;
-
-        // GroÃŸes Kreuz im Zentrum
-        this.addTunnel(new THREE.Vector3(-1200, yMid, 0), new THREE.Vector3(1200, yMid, 0));
-        this.addTunnel(new THREE.Vector3(0, yMid, -900), new THREE.Vector3(0, yMid, 900));
-
-        // Diagonaler "Main"-Tunnel
-        this.addTunnel(new THREE.Vector3(-1100, yLow, -900), new THREE.Vector3(1100, yHigh, 900));
-
-        // Vertikaler Schacht
-        this.addTunnel(new THREE.Vector3(-600, yLow, 600), new THREE.Vector3(-600, yHigh + 260, 600));
-
-        // Quadratischer Tunnel-Ring
-        this.addTunnel(new THREE.Vector3(600, yLow, -600), new THREE.Vector3(900, yLow, -300));
-        this.addTunnel(new THREE.Vector3(900, yLow, -300), new THREE.Vector3(900, yLow, 300));
-        this.addTunnel(new THREE.Vector3(900, yLow, 300), new THREE.Vector3(600, yLow, 600));
-        this.addTunnel(new THREE.Vector3(600, yLow, 600), new THREE.Vector3(600, yLow, -600));
-    }
-
-    buildObstaclesComplex() {
-        const rand = (min, max) => Math.random() * (max - min) + min;
-        // Hartes Ring-Muster am Boden
-        const ringR = 750;
-        const ringY = CONFIG.ARENA_H * 0.22;
-        const ringCount = 10;
-        for (let i = 0; i < ringCount; i++) {
-            const angle = (i / ringCount) * Math.PI * 2;
-            const x = Math.cos(angle) * ringR;
-            const z = Math.sin(angle) * ringR;
-            const size = rand(CONFIG.BLOCK_MIN * 1.1, CONFIG.BLOCK_MAX * 1.4);
-            const geo = new THREE.BoxGeometry(size, size, size);
-            const mesh = new THREE.Mesh(geo, this.hardMat);
-            mesh.position.set(x, ringY, z);
-            mesh.rotation.set(rand(0, Math.PI), rand(0, Math.PI), rand(0, Math.PI));
-            this.obstacleGroup.add(mesh);
-            this.obstacles.push({ type: "hard", mesh, radius: size * 0.6 });
-        }
-
-        // ZusÃ¤tzliche zufÃ¤llige Hindernisse
-        for (let i = 0; i < CONFIG.HARD_BLOCK_COUNT + 12; i++) this.spawnBlock("hard");
-        for (let i = 0; i < CONFIG.FOAM_BLOCK_COUNT + 10; i++) this.spawnBlock("foam");
-    }
-
-    buildTunnelsPyramid() {
-        // Empty
-    }
-
-    buildObstaclesPyramid() {
-        // Eine groÃŸe Pyramide
-        const r = 450;
-        const h = 700;
-        const geo = new THREE.ConeGeometry(r, h, 4);
-        const mesh = new THREE.Mesh(geo, this.hardMat);
-        mesh.position.set(0, h * 0.35, 0);
-        mesh.rotation.y = Math.PI / 4;
-        this.obstacleGroup.add(mesh);
-        this.obstacles.push({ type: "hard", mesh, radius: r * 0.65 });
-    }
-
-    buildLabyrinth() {
-        const rand = (min, max) => Math.random() * (max - min) + min;
-        const halfW = CONFIG.ARENA_W / 2;
-        const halfD = CONFIG.ARENA_D / 2;
-        const cols = 5;
-        const rows = 5;
-        const cellW = (CONFIG.ARENA_W - 200) / cols;
-        const cellD = (CONFIG.ARENA_D - 200) / rows;
-
-        for (let r = 0; r <= rows; r++) {
-            for (let c = 0; c <= cols; c++) {
-                if (Math.random() > 0.35) continue;
-
-                const isHorz = Math.random() > 0.5;
-                const len = isHorz ? cellW : cellD;
-                const th = 60;
-                const h = 400;
-
-                const geo = new THREE.BoxGeometry(isHorz ? len : th, h, isHorz ? th : len);
-                const mesh = new THREE.Mesh(geo, this.hardMat);
-
-                const x = -halfW + 100 + c * cellW;
-                const z = -halfD + 100 + r * cellD;
-                const y = h / 2 + rand(0, 200);
-
-                mesh.position.set(x, y, z);
-                this.obstacleGroup.add(mesh);
-                this.obstacles.push({ type: "hard", mesh, radius: Math.max(len, th) * 0.4 });
+        const minPairDistance = CONFIG.GAMEPLAY.PLANAR_MODE
+            ? (CONFIG.PORTAL.MIN_PAIR_DISTANCE_PLANAR || CONFIG.PORTAL.MIN_PAIR_DISTANCE || 15)
+            : (CONFIG.PORTAL.MIN_PAIR_DISTANCE || 15);
+        const minDistSq = minPairDistance * minPairDistance;
+        for (let i = this.portals.length - 1; i >= 0; i--) {
+            const p = this.portals[i];
+            if (p.posA.distanceToSquared(p.posB) < minDistSq) {
+                console.warn(`[Arena] Portal pair ${i} too close together! Removing.`);
+                this.portals.splice(i, 1);
             }
         }
     }

@@ -1,119 +1,149 @@
+﻿// ============================================
+// InputManager.js - keyboard input and dynamic bindings
+// ============================================
+
 import { CONFIG } from './Config.js';
+
+const ACTION_KEYS = [
+    'UP',
+    'DOWN',
+    'LEFT',
+    'RIGHT',
+    'ROLL_LEFT',
+    'ROLL_RIGHT',
+    'BOOST',
+    'SHOOT',
+    'NEXT_ITEM',
+    'DROP',
+    'CAMERA',
+];
+
+function deepClone(obj) {
+    return JSON.parse(JSON.stringify(obj));
+}
 
 export class InputManager {
     constructor() {
-        this.keyBindings = {
-            1: {
-                up: "KeyW", down: "KeyS", left: "KeyA", right: "KeyD", rollL: "KeyQ", rollR: "KeyE",
-                boost: "ShiftLeft", shoot: "CapsLock", cycle: "Tab", useSelf: "Digit1", drop: "KeyG",
-                cam: "KeyC"
-            },
-            2: {
-                up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight", rollL: "KeyN", rollR: "KeyM",
-                boost: "ShiftRight", shoot: "Enter", cycle: "ControlRight", useSelf: "Digit0", drop: "KeyH",
-                cam: "KeyV"
-            }
+        this.keys = {};
+        this.justPressed = {};
+        this.bindings = deepClone(CONFIG.KEYS);
+
+        // GC Optimization: Reusable object
+        this._reuseInput = {
+            pitchUp: false,
+            pitchDown: false,
+            yawLeft: false,
+            yawRight: false,
+            rollLeft: false,
+            rollRight: false,
+            boost: false,
+            cameraSwitch: false,
+            dropItem: false,
+            shootItem: false,
+            nextItem: false,
         };
 
-        this.listeningBtn = null;
-        this.held = new Set();
-        this.pressed = new Set();
-        this.init();
-    }
-
-    init() {
-        // UI Binding
-        const btns = document.querySelectorAll(".keyBind");
-        btns.forEach(btn => {
-            const p = btn.dataset.player;
-            const a = btn.dataset.action;
-            if (this.keyBindings[p] && this.keyBindings[p][a]) {
-                btn.textContent = this.keyCodeToDisplayName(this.keyBindings[p][a]);
+        window.addEventListener('keydown', (e) => {
+            if (!this.keys[e.code]) {
+                this.justPressed[e.code] = true;
             }
-            btn.addEventListener("click", () => {
-                if (this.listeningBtn) {
-                    this.listeningBtn.classList.remove("listening");
-                    // If we were listening, cancel that previous listen action visually
-                    const prevP = this.listeningBtn.dataset.player;
-                    const prevA = this.listeningBtn.dataset.action;
-                    this.listeningBtn.textContent = this.keyCodeToDisplayName(this.keyBindings[prevP][prevA]);
-                }
-                this.listeningBtn = btn;
-                btn.classList.add("listening");
-                btn.textContent = "...";
-            });
+            this.keys[e.code] = true;
+            e.preventDefault();
         });
 
-        // Global Key Listener
-        window.addEventListener("keydown", (e) => this.handleKeyDown(e));
-        window.addEventListener("keyup", (e) => this.handleKeyUp(e));
-    }
-
-    handleKeyDown(e) {
-        if (this.listeningBtn) {
+        window.addEventListener('keyup', (e) => {
+            this.keys[e.code] = false;
             e.preventDefault();
-            e.stopPropagation();
-            const player = parseInt(this.listeningBtn.dataset.player);
-            const action = this.listeningBtn.dataset.action;
+        });
+    }
 
-            if (this.keyBindings[player]) {
-                this.keyBindings[player][action] = e.code;
-            }
+    setBindings(bindingsByPlayer) {
+        this.bindings = {
+            PLAYER_1: this._normalizePlayerBindings(bindingsByPlayer?.PLAYER_1, CONFIG.KEYS.PLAYER_1),
+            PLAYER_2: this._normalizePlayerBindings(bindingsByPlayer?.PLAYER_2, CONFIG.KEYS.PLAYER_2),
+        };
+    }
 
-            this.listeningBtn.textContent = this.keyCodeToDisplayName(e.code);
-            this.listeningBtn.classList.remove("listening");
-            this.listeningBtn = null;
-            // saveSettings(); // TODO: Implement settings persistence
-            return;
+    getBindings() {
+        return deepClone(this.bindings);
+    }
+
+    _normalizePlayerBindings(source, fallback) {
+        const fromSource = source || {};
+        const normalized = {};
+
+        for (const key of ACTION_KEYS) {
+            normalized[key] = fromSource[key] || fallback[key];
         }
 
-        if (["ArrowUp", "ArrowDown"].includes(e.code) && document.activeElement === document.body) {
-            e.preventDefault();
+        return normalized;
+    }
+
+    isDown(code) {
+        return !!this.keys[code];
+    }
+
+    wasPressed(code) {
+        if (this.justPressed[code]) {
+            this.justPressed[code] = false;
+            return true;
         }
+        return false;
+    }
 
-        if (!this.held.has(e.code)) {
-            this.pressed.add(e.code);
+    clearJustPressed() {
+        this.justPressed = {};
+    }
+
+    _resetInput(inputObj) {
+        inputObj.pitchUp = false;
+        inputObj.pitchDown = false;
+        inputObj.yawLeft = false;
+        inputObj.yawRight = false;
+        inputObj.rollLeft = false;
+        inputObj.rollRight = false;
+        inputObj.boost = false;
+        inputObj.cameraSwitch = false;
+        inputObj.dropItem = false;
+        inputObj.shootItem = false;
+        inputObj.nextItem = false;
+    }
+
+    _isActionDown(primaryCode, secondaryCode = '') {
+        if (this.isDown(primaryCode)) {
+            return true;
         }
-        this.held.add(e.code);
+        return !!secondaryCode && this.isDown(secondaryCode);
     }
 
-    handleKeyUp(e) {
-        this.held.delete(e.code);
+    _wasActionPressed(primaryCode, secondaryCode = '') {
+        let pressed = this.wasPressed(primaryCode);
+        if (secondaryCode && secondaryCode !== primaryCode) {
+            pressed = this.wasPressed(secondaryCode) || pressed;
+        }
+        return pressed;
     }
 
-    update() {
-        this.pressed.clear();
-    }
+    getPlayerInput(playerIndex, options = {}) {
+        const includeSecondaryBindings = !!options.includeSecondaryBindings && playerIndex === 0;
+        const keyMap = playerIndex === 0 ? this.bindings.PLAYER_1 : this.bindings.PLAYER_2;
+        const altKeyMap = includeSecondaryBindings ? this.bindings.PLAYER_2 : null;
 
-    isKeyDown(code) {
-        return this.held.has(code);
-    }
+        // Reset reused object
+        this._resetInput(this._reuseInput);
 
-    isKeyPressed(code) {
-        return this.pressed.has(code);
-    }
+        this._reuseInput.pitchUp = this._isActionDown(keyMap.UP, altKeyMap?.UP || '');
+        this._reuseInput.pitchDown = this._isActionDown(keyMap.DOWN, altKeyMap?.DOWN || '');
+        this._reuseInput.yawLeft = this._isActionDown(keyMap.LEFT, altKeyMap?.LEFT || '');
+        this._reuseInput.yawRight = this._isActionDown(keyMap.RIGHT, altKeyMap?.RIGHT || '');
+        this._reuseInput.rollLeft = this._isActionDown(keyMap.ROLL_LEFT, altKeyMap?.ROLL_LEFT || '');
+        this._reuseInput.rollRight = this._isActionDown(keyMap.ROLL_RIGHT, altKeyMap?.ROLL_RIGHT || '');
+        this._reuseInput.boost = this._isActionDown(keyMap.BOOST, altKeyMap?.BOOST || '');
+        this._reuseInput.cameraSwitch = this._wasActionPressed(keyMap.CAMERA, altKeyMap?.CAMERA || '');
+        this._reuseInput.dropItem = this._wasActionPressed(keyMap.DROP, altKeyMap?.DROP || '');
+        this._reuseInput.shootItem = this._wasActionPressed(keyMap.SHOOT, altKeyMap?.SHOOT || '');
+        this._reuseInput.nextItem = this._wasActionPressed(keyMap.NEXT_ITEM, altKeyMap?.NEXT_ITEM || '');
 
-    getKeysFor(playerId) {
-        return this.keyBindings[playerId];
-    }
-
-    keyCodeToDisplayName(code) {
-        if (!code) return "???";
-        if (code.startsWith("Key")) return code.slice(3);
-        if (code.startsWith("Digit")) return code.slice(5);
-        if (code === "ArrowUp") return "↑";
-        if (code === "ArrowDown") return "↓";
-        if (code === "ArrowLeft") return "←";
-        if (code === "ArrowRight") return "→";
-        if (code === "ShiftLeft") return "Shift";
-        if (code === "ShiftRight") return "ShiftR";
-        if (code === "ControlLeft") return "Ctrl";
-        if (code === "ControlRight") return "CtrlR";
-        if (code === "CapsLock") return "CapsL";
-        if (code === "Tab") return "Tab";
-        if (code === "Enter") return "Enter";
-        if (code === "Space") return "Space";
-        if (code === "Backspace") return "BSP";
-        return code;
+        return this._reuseInput;
     }
 }
