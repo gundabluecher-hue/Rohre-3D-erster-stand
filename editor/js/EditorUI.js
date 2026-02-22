@@ -7,6 +7,13 @@ import { bindEditorShortcutControls } from './ui/EditorShortcutControls.js';
 import { bindEditorViewportControls } from './ui/EditorViewportControls.js';
 import { bindEditorSessionControls } from './ui/EditorSessionControls.js';
 import { createEditorDomRefs } from './ui/EditorDomRefs.js';
+import {
+    hidePropertyPanelView,
+    showPropertyPanelView,
+    updateHudCountView,
+    updateTunnelVisualsView,
+    updateUndoRedoButtonsView
+} from './ui/EditorUiViews.js';
 
 export class EditorUI {
     constructor(core) {
@@ -237,23 +244,7 @@ export class EditorUI {
     }
 
     updateUndoRedoUi(state = null) {
-        const historyState = state || this.commandHistory?.getState?.();
-        if (!historyState) return;
-
-        const { btnUndo, btnRedo } = this.dom;
-
-        if (btnUndo) {
-            btnUndo.disabled = !historyState.canUndo;
-            btnUndo.title = historyState.undoLabel
-                ? `Undo: ${historyState.undoLabel} (Strg+Z)`
-                : 'Undo (Strg+Z)';
-        }
-        if (btnRedo) {
-            btnRedo.disabled = !historyState.canRedo;
-            btnRedo.title = historyState.redoLabel
-                ? `Redo: ${historyState.redoLabel} (Strg+Y / Strg+Shift+Z)`
-                : 'Redo (Strg+Y / Strg+Shift+Z)';
-        }
+        updateUndoRedoButtonsView(this, state);
     }
 
     beforeManagedObjectsCleared() {
@@ -323,26 +314,11 @@ export class EditorUI {
     }
 
     updateTunnelVisuals() {
-        while (this.core.tunnelLines.children.length > 0) {
-            const line = this.core.tunnelLines.children[0];
-            this.core.tunnelLines.remove(line);
-            line.geometry?.dispose?.();
-        }
-
-        this.core.objectsContainer.children.forEach(obj => {
-            if (obj.userData.type !== 'tunnel') return;
-            if (!obj.userData.pointA || !obj.userData.pointB) return;
-            const geometry = new THREE.BufferGeometry().setFromPoints([obj.userData.pointA, obj.userData.pointB]);
-            const line = new THREE.Line(geometry, this.matTunnelLine);
-            this.core.tunnelLines.add(line);
-        });
+        updateTunnelVisualsView(this);
     }
 
     updateHudCount() {
-        const count = this.mapManager?.getObjectCount?.() ?? this.core.objectsContainer.children.length;
-        if (this.dom.hudObjCount) {
-            this.dom.hudObjCount.textContent = `Objekte: ${count}`;
-        }
+        updateHudCountView(this);
     }
 
     getSelectionOutlines(object) {
@@ -452,59 +428,11 @@ export class EditorUI {
     }
 
     showPropPanel(obj) {
-        if (!obj || !obj.userData) {
-            this.hidePropPanel();
-            return;
-        }
-        const {
-            propPanel,
-            propSizeRow,
-            propWidthRow,
-            propDepthRow,
-            propHeightRow,
-            propScaleRow,
-            propSize,
-            propWidth,
-            propDepth,
-            propHeight,
-            propY,
-            propScale
-        } = this.dom;
-
-        if (!propPanel || !propY) {
-            this.hidePropPanel();
-            return;
-        }
-
-        propPanel.style.display = "block";
-        propY.value = Math.round(obj.position.y);
-
-        const u = obj.userData;
-
-        propSizeRow.style.display = "none";
-        propWidthRow.style.display = "none";
-        propDepthRow.style.display = "none";
-        propHeightRow.style.display = "none";
-        if (propScaleRow) propScaleRow.style.display = "none";
-
-        if (u.type === 'hard' || u.type === 'foam') {
-            propWidthRow.style.display = "flex";
-            propDepthRow.style.display = "flex";
-            propHeightRow.style.display = "flex";
-            propWidth.value = u.sizeX || u.sizeInfo * 2;
-            propDepth.value = u.sizeZ || u.sizeInfo * 2;
-            propHeight.value = u.sizeY || u.sizeInfo * 2;
-        } else if (u.type === 'tunnel' || u.type === 'portal') {
-            propSizeRow.style.display = "flex";
-            propSize.value = u.radius || u.sizeInfo;
-        } else if (u.type === 'aircraft') {
-            if (propScaleRow) propScaleRow.style.display = "flex";
-            if (propScale) propScale.value = u.modelScale || 50;
-        }
+        showPropertyPanelView(this, obj);
     }
 
     hidePropPanel() {
-        if (this.dom.propPanel) this.dom.propPanel.style.display = "none";
+        hidePropertyPanelView(this);
     }
 
     setupEventListeners() {
