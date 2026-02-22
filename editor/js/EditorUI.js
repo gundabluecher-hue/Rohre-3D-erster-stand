@@ -9,6 +9,18 @@ import { bindEditorSessionControls } from './ui/EditorSessionControls.js';
 import { createEditorDomRefs } from './ui/EditorDomRefs.js';
 import { isFlyModeChecked, readArenaSizeInputs, writeArenaSizeInputs } from './ui/EditorFormState.js';
 import {
+    beforeManagedObjectsClearedSelectionState,
+    clearAllManagedObjects,
+    createClipboardPayloadFromObject,
+    deleteSelectedManagedObject,
+    getSelectionOutlinesForObject,
+    onBeforeManagedObjectRemovedSelectionState,
+    resolveSelectableManagedObject,
+    selectManagedObject,
+    setSelectionOutlineForObject,
+    syncTransformControlAttachmentSelection
+} from './ui/EditorSelectionOps.js';
+import {
     hidePropertyPanelView,
     showPropertyPanelView,
     updateHudCountView,
@@ -239,41 +251,15 @@ export class EditorUI {
     }
 
     beforeManagedObjectsCleared() {
-        this.cancelHistoryGesture('transform');
-        this.clearDrawingState();
-        this.selectObject(null);
-        this.detachTransformControl();
+        beforeManagedObjectsClearedSelectionState(this);
     }
 
     onBeforeManagedObjectRemoved(object) {
-        if (!object) return;
-
-        if (this.previewMesh === object) {
-            this.clearDrawingState();
-        }
-
-        if (this.selectedObject === object) {
-            this.selectObject(null);
-            return;
-        }
-
-        if (this.core.transformControl.object === object) {
-            this.detachTransformControl();
-        }
+        onBeforeManagedObjectRemovedSelectionState(this, object);
     }
 
     syncTransformControlAttachment() {
-        const selected = this.isManagedObjectAlive(this.selectedObject) ? this.selectedObject : null;
-        const flyMode = !!this.flyModeEnabled;
-
-        if (!selected || flyMode) {
-            this.detachTransformControl();
-            return;
-        }
-
-        if (this.core.transformControl.object !== selected) {
-            this.core.transformControl.attach(selected);
-        }
+        syncTransformControlAttachmentSelection(this);
     }
 
     setupVisuals() {
@@ -313,109 +299,31 @@ export class EditorUI {
     }
 
     getSelectionOutlines(object) {
-        const outlines = [];
-        if (!object) return outlines;
-        object.traverse((child) => {
-            if (child.userData?.isSelectionOutline && child.material) outlines.push(child);
-        });
-        return outlines;
+        return getSelectionOutlinesForObject(this, object);
     }
 
     setSelectionOutline(object, color = 0x000000, opacity = 0.2) {
-        const outlines = this.getSelectionOutlines(object);
-        outlines.forEach((outline) => {
-            outline.material.color.setHex(color);
-            outline.material.opacity = opacity;
-            outline.material.transparent = true;
-            outline.material.needsUpdate = true;
-        });
+        setSelectionOutlineForObject(this, object, color, opacity);
     }
 
     resolveSelectableObject(hitObject) {
-        if (!hitObject) return null;
-        if (this.mapManager) {
-            return this.mapManager.resolveManagedObject(hitObject);
-        }
-
-        let node = hitObject;
-        while (node && node.parent && node.parent !== this.core.objectsContainer) {
-            node = node.parent;
-        }
-        if (node && node.parent === this.core.objectsContainer) return node;
-        return null;
+        return resolveSelectableManagedObject(this, hitObject);
     }
 
     createClipboardPayload(object) {
-        const payload = {
-            ...object.userData,
-            sourcePos: object.position.clone(),
-            rotateY: object.rotation.y || 0
-        };
-        delete payload.id;
-        delete payload.editorObjectId;
-        delete payload.editorManagedRoot;
-        if (payload.pointA?.isVector3) payload.pointA = payload.pointA.clone();
-        if (payload.pointB?.isVector3) payload.pointB = payload.pointB.clone();
-        return payload;
+        return createClipboardPayloadFromObject(this, object);
     }
 
     deleteSelectedObject() {
-        if (!this.selectedObject) return;
-        if (!this.isManagedObjectAlive(this.selectedObject)) {
-            this.selectObject(null);
-            return;
-        }
-        if (this.mapManager) {
-            this.executeHistoryMutation('Delete object', () => {
-                this.mapManager.removeObject(this.selectedObject);
-            });
-            return;
-        }
-
-        const removed = this.selectedObject;
-        this.core.objectsContainer.remove(removed);
-        this.detachTransformControl();
-        if (removed.userData.type === 'tunnel') this.updateTunnelVisuals();
-        this.selectedObject = null;
-        this.hidePropPanel();
-        this.updateHudCount();
+        deleteSelectedManagedObject(this);
     }
 
     selectObject(obj) {
-        const nextObject = this.mapManager ? this.mapManager.resolveManagedObject(obj) : obj;
-
-        if (this.selectedObject && !this.isManagedObjectAlive(this.selectedObject)) {
-            this.selectedObject = null;
-        }
-
-        if (this.selectedObject) {
-            this.setSelectionOutline(this.selectedObject, 0x000000, 0.2);
-        }
-
-        this.selectedObject = nextObject && this.isManagedObjectAlive(nextObject) ? nextObject : null;
-
-        if (this.selectedObject) {
-            this.setSelectionOutline(this.selectedObject, 0xffffff, 0.8);
-            this.syncTransformControlAttachment();
-            this.showPropPanel(this.selectedObject);
-        } else {
-            this.detachTransformControl();
-            this.hidePropPanel();
-        }
+        selectManagedObject(this, obj);
     }
 
     clearAllObjects() {
-        if (this.mapManager) {
-            this.mapManager.clearAllObjects();
-            return;
-        }
-
-        while (this.core.objectsContainer.children.length > 0) {
-            this.core.objectsContainer.remove(this.core.objectsContainer.children[0]);
-        }
-        this.selectObject(null);
-        this.updateTunnelVisuals();
-        this.updateHudCount();
+        clearAllManagedObjects(this);
     }
 
     showPropPanel(obj) {
