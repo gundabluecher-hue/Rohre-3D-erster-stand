@@ -1,4 +1,3 @@
-import * as THREE from 'three';
 import { writePropertyFieldValue } from './EditorFormState.js';
 
 export function updateUndoRedoButtonsView(editor, state = null) {
@@ -78,20 +77,4 @@ export function showPropertyPanelView(editor, obj) {
 
 export function hidePropertyPanelView(editor) {
     if (editor.dom.propPanel) editor.dom.propPanel.style.display = "none";
-}
-
-export function updateTunnelVisualsView(editor) {
-    while (editor.core.tunnelLines.children.length > 0) {
-        const line = editor.core.tunnelLines.children[0];
-        editor.core.tunnelLines.remove(line);
-        line.geometry?.dispose?.();
-    }
-
-    editor.core.objectsContainer.children.forEach((obj) => {
-        if (obj.userData.type !== 'tunnel') return;
-        if (!obj.userData.pointA || !obj.userData.pointB) return;
-        const geometry = new THREE.BufferGeometry().setFromPoints([obj.userData.pointA, obj.userData.pointB]);
-        const line = new THREE.Line(geometry, editor.matTunnelLine);
-        editor.core.tunnelLines.add(line);
-    });
 }

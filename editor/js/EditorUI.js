@@ -9,6 +9,11 @@ import { bindEditorSessionControls } from './ui/EditorSessionControls.js';
 import { createEditorDomRefs } from './ui/EditorDomRefs.js';
 import { isFlyModeChecked, readArenaSizeInputs, writeArenaSizeInputs } from './ui/EditorFormState.js';
 import {
+    setupEditorSceneVisuals,
+    updateArenaBoundsVisual,
+    updateTunnelSegmentLineVisuals
+} from './ui/EditorSceneVisualOps.js';
+import {
     applyHistorySnapshot,
     beginHistoryGesture,
     cancelHistoryGesture,
@@ -37,7 +42,6 @@ import {
     hidePropertyPanelView,
     showPropertyPanelView,
     updateHudCountView,
-    updateTunnelVisualsView,
     updateUndoRedoButtonsView
 } from './ui/EditorUiViews.js';
 
@@ -179,35 +183,15 @@ export class EditorUI {
     }
 
     setupVisuals() {
-        // Arena Box Visual
-        const wallGeo = new THREE.BoxGeometry(1, 1, 1);
-        const wallMat = new THREE.MeshBasicMaterial({ color: 0x334155, wireframe: true, transparent: true, opacity: 0.1 });
-        this.arenaBoxWall = new THREE.Mesh(wallGeo, wallMat);
-        this.core.scene.add(this.arenaBoxWall);
-
-        this.arenaBox = new THREE.BoxHelper(this.arenaBoxWall, 0x3b82f6);
-        this.core.scene.add(this.arenaBox);
-
-        this.matTunnelLine = new THREE.LineBasicMaterial({
-            color: 0x60a5fa,
-            linewidth: 2,
-            transparent: true,
-            opacity: 0.5
-        });
-
-        this.updateArenaVisual();
+        setupEditorSceneVisuals(this);
     }
 
     updateArenaVisual() {
-        this.arenaBox.matrixAutoUpdate = false;
-        const matrix = new THREE.Matrix4().makeScale(this.ARENA_W, this.ARENA_H, this.ARENA_D);
-        matrix.setPosition(0, this.ARENA_H / 2, 0);
-        this.arenaBox.matrix.copy(matrix);
-        this.arenaBox.update();
+        updateArenaBoundsVisual(this);
     }
 
     updateTunnelVisuals() {
-        updateTunnelVisualsView(this);
+        updateTunnelSegmentLineVisuals(this);
     }
 
     updateHudCount() {
