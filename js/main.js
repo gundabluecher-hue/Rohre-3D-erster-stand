@@ -18,10 +18,7 @@ import { VEHICLE_DEFINITIONS } from './entities/vehicle-registry.js';
 import { CUSTOM_MAP_KEY } from './modules/MapSchema.js';
 import { resolveArenaMapSelection } from './modules/CustomMapLoader.js';
 import { UIManager } from './modules/UIManager.js';
-
-const SETTINGS_STORAGE_KEY = 'aero-arena-3d.settings.v1';
-const SETTINGS_STORAGE_LEGACY_KEYS = ['mini-curve-fever-3d.settings.v4', 'mini-curve-fever-3d.settings.v3'];
-const SETTINGS_PROFILES_STORAGE_KEY = 'aero-arena-3d.settings-profiles.v1';
+import { SettingsStore } from './modules/SettingsStore.js';
 
 /* global __APP_VERSION__, __BUILD_TIME__, __BUILD_ID__ */
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
@@ -53,6 +50,10 @@ const KEY_BIND_ACTIONS = [
 
 export class Game {
     constructor() {
+        this.settingsStore = new SettingsStore({
+            sanitizeSettings: (settings) => this._sanitizeSettings(settings),
+            createDefaultSettings: () => this._createDefaultSettings(),
+        });
         this.settings = this._loadSettings();
         this.settingsProfiles = this._loadProfiles();
         this.activeProfileName = '';
@@ -449,86 +450,34 @@ export class Game {
     }
 
     _loadSettings() {
-        try {
-            const keys = [SETTINGS_STORAGE_KEY, ...SETTINGS_STORAGE_LEGACY_KEYS];
-            for (const key of keys) {
-                const raw = localStorage.getItem(key);
-                if (!raw) continue;
-                const saved = JSON.parse(raw);
-                return this._sanitizeSettings(saved);
-            }
-        } catch {
-            // Ignore malformed storage and fall back to defaults.
-        }
-        return this._createDefaultSettings();
+        return this.settingsStore.loadSettings();
     }
 
     _saveSettings() {
-        try {
-            localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(this.settings));
+        const persisted = this.settingsStore.saveSettings(this.settings);
+        if (persisted) {
             this._markSettingsDirty(false);
-        } catch {
-            // Ignore persistence errors (private mode, quotas, etc.)
         }
     }
 
     _loadProfiles() {
-        try {
-            const raw = localStorage.getItem(SETTINGS_PROFILES_STORAGE_KEY);
-            if (!raw) return [];
-            const parsed = JSON.parse(raw);
-            if (!Array.isArray(parsed)) return [];
-
-            const out = [];
-            const used = new Set();
-            for (const entry of parsed) {
-                const name = this._normalizeProfileName(entry?.name || '');
-                const key = this._getProfileNameKey(name);
-                if (!name || used.has(key)) continue;
-                used.add(key);
-                out.push({
-                    name,
-                    updatedAt: Number(entry?.updatedAt || Date.now()),
-                    settings: this._sanitizeSettings(entry?.settings || {}),
-                });
-            }
-            out.sort((a, b) => b.updatedAt - a.updatedAt);
-            return out;
-        } catch {
-            return [];
-        }
+        return this.settingsStore.loadProfiles();
     }
 
     _saveProfiles() {
-        try {
-            localStorage.setItem(SETTINGS_PROFILES_STORAGE_KEY, JSON.stringify(this.settingsProfiles));
-            return true;
-        } catch {
-            // Ignore persistence errors.
-            return false;
-        }
+        return this.settingsStore.saveProfiles(this.settingsProfiles);
     }
 
     _normalizeProfileName(rawName) {
-        return String(rawName || '')
-            .trim()
-            .replace(/\s+/g, ' ')
-            .slice(0, 32);
-    }
-
-    _getProfileNameKey(rawName) {
-        return this._normalizeProfileName(rawName).toLocaleLowerCase();
+        return this.settingsStore.normalizeProfileName(rawName);
     }
 
     _findProfileIndexByName(profileName) {
-        const key = this._getProfileNameKey(profileName);
-        if (!key) return -1;
-        return this.settingsProfiles.findIndex((profile) => this._getProfileNameKey(profile.name) === key);
+        return this.settingsStore.findProfileIndexByName(this.settingsProfiles, profileName);
     }
 
     _findProfileByName(profileName) {
-        const index = this._findProfileIndexByName(profileName);
-        return index >= 0 ? this.settingsProfiles[index] : null;
+        return this.settingsStore.findProfileByName(this.settingsProfiles, profileName);
     }
 
     _applySettingsToRuntime() {
