@@ -6,7 +6,7 @@ export class EditorCore {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
 
-        this.keys = { w: false, a: false, s: false, d: false, q: false, e: false, shift: false };
+        this.keys = { w: false, a: false, s: false, d: false, q: false, e: false, x: false, y: false, shift: false };
         document.addEventListener('keydown', (e) => {
             const key = e.key.toLowerCase();
             if (this.keys.hasOwnProperty(key)) this.keys[key] = true;
@@ -118,6 +118,37 @@ export class EditorCore {
         const flyMode = document.getElementById("chkFly")?.checked;
         if (flyMode) {
             const speed = (this.keys.shift ? 600 : 250) * dt;
+            const orbitSpeed = (this.keys.shift ? 1.4 : 0.8) * dt;
+            const arenaHeight = parseFloat(document.getElementById("numArenaH")?.value) || 950;
+            const mapCenter = new THREE.Vector3(0, arenaHeight * 0.5, 0);
+
+            // W/S = vertical orbit (pitch), Q/E = horizontal orbit (yaw) around map center.
+            const pitchInput = (this.keys.w ? 1 : 0) - (this.keys.s ? 1 : 0);
+            const yawInput = (this.keys.e ? 1 : 0) - (this.keys.q ? 1 : 0);
+            if (pitchInput !== 0 || yawInput !== 0) {
+                const offset = this.camera.position.clone().sub(mapCenter);
+                if (offset.lengthSq() > 1e-6) {
+                    const spherical = new THREE.Spherical().setFromVector3(offset);
+
+                    if (yawInput !== 0) {
+                        spherical.theta -= yawInput * orbitSpeed;
+                    }
+
+                    if (pitchInput !== 0) {
+                        spherical.phi = THREE.MathUtils.clamp(
+                            spherical.phi - (pitchInput * orbitSpeed),
+                            0.05,
+                            Math.PI - 0.05
+                        );
+                    }
+
+                    offset.setFromSpherical(spherical);
+                    this.camera.position.copy(mapCenter).add(offset);
+                    this.orbit.target.copy(mapCenter);
+                    this.camera.lookAt(mapCenter);
+                }
+            }
+
             const dir = new THREE.Vector3();
             this.camera.getWorldDirection(dir);
             dir.normalize();
@@ -126,13 +157,10 @@ export class EditorCore {
             right.crossVectors(dir, this.camera.up).normalize();
 
             const move = new THREE.Vector3();
-            if (this.keys.w) move.add(dir);
-            if (this.keys.s) move.sub(dir);
             if (this.keys.d) move.add(right);
             if (this.keys.a) move.sub(right);
-            if (this.keys.e) move.y += 1;
-            if (this.keys.q) move.y -= 1;
-
+            if (this.keys.y) move.y += 1;
+            if (this.keys.x) move.y -= 1;
             if (move.lengthSq() > 0) {
                 move.normalize().multiplyScalar(speed);
                 this.camera.position.add(move);
