@@ -19,6 +19,9 @@ import { CUSTOM_MAP_KEY } from './modules/MapSchema.js';
 import { resolveArenaMapSelection } from './modules/CustomMapLoader.js';
 import { UIManager } from './modules/UIManager.js';
 import { SettingsStore } from './modules/SettingsStore.js';
+import { removeProfileByName, resolveActiveProfileName, upsertProfileEntry } from './modules/ProfileDataOps.js';
+import { deriveProfileControlSelectState } from './modules/ProfileControlStateOps.js';
+import { deriveProfileActionUiState } from './modules/ProfileUiStateOps.js';
 
 /* global __APP_VERSION__, __BUILD_TIME__, __BUILD_ID__ */
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
@@ -54,6 +57,18 @@ export class Game {
             sanitizeSettings: (settings) => this._sanitizeSettings(settings),
             createDefaultSettings: () => this._createDefaultSettings(),
         });
+        this.profileDataOps = {
+            findProfileIndexByName: (profiles, profileName) => this.settingsStore.findProfileIndexByName(profiles, profileName),
+            findProfileByName: (profiles, profileName) => this.settingsStore.findProfileByName(profiles, profileName),
+        };
+        this.profileUiStateOps = {
+            normalizeProfileName: (rawName) => this.settingsStore.normalizeProfileName(rawName),
+            ...this.profileDataOps,
+        };
+        this.profileControlStateOps = {
+            normalizeProfileName: (rawName) => this.settingsStore.normalizeProfileName(rawName),
+            resolveActiveProfileName: (profiles, profileName) => resolveActiveProfileName(profiles, profileName, this.profileDataOps),
+        };
         this.settings = this._loadSettings();
         this.settingsProfiles = this._loadProfiles();
         this.activeProfileName = '';
@@ -176,6 +191,7 @@ export class Game {
         this.uiManager.init();
 
         this._setupMenuListeners();
+        this._syncProfileControls();
         this._markSettingsDirty(false);
         this._renderBuildInfo();
 
@@ -814,57 +830,66 @@ export class Game {
     _syncProfileControls() {
         if (!this.ui.profileSelect) return;
 
-        const selectedName = this._normalizeProfileName(this.activeProfileName || this.ui.profileSelect.value || '');
-        const sortedProfiles = [...this.settingsProfiles].sort((a, b) => b.updatedAt - a.updatedAt);
+        const controlState = deriveProfileControlSelectState(
+            this.settingsProfiles,
+            {
+                activeProfileName: this.activeProfileName,
+                selectValue: this.ui.profileSelect.value,
+                isProfileNameInputFocused: this.ui.profileNameInput
+                    ? document.activeElement?.isSameNode(this.ui.profileNameInput)
+                    : false,
+            },
+            this.profileControlStateOps
+        );
         this.ui.profileSelect.innerHTML = '';
 
         const placeholder = document.createElement('option');
-        placeholder.value = '';
-        placeholder.textContent = 'Kein Profil gewaehlt';
+        placeholder.value = controlState.placeholderOption.value;
+        placeholder.textContent = controlState.placeholderOption.text;
         this.ui.profileSelect.appendChild(placeholder);
 
-        for (const profile of sortedProfiles) {
+        for (const optionData of controlState.profileOptions) {
             const opt = document.createElement('option');
-            opt.value = profile.name;
-            opt.textContent = profile.name;
+            opt.value = optionData.value;
+            opt.textContent = optionData.text;
             this.ui.profileSelect.appendChild(opt);
         }
 
-        const validSelectedProfile = this._findProfileByName(selectedName);
-        const validSelected = validSelectedProfile ? validSelectedProfile.name : '';
+        const validSelected = controlState.resolvedActiveProfileName;
         this.activeProfileName = validSelected;
         this.ui.profileSelect.value = validSelected;
 
-        if (this.ui.profileNameInput && !document.activeElement?.isSameNode(this.ui.profileNameInput)) {
+        if (this.ui.profileNameInput && controlState.shouldMirrorProfileNameInput) {
             this.ui.profileNameInput.value = validSelected;
         }
         this._syncProfileActionState();
     }
 
     _syncProfileActionState() {
-        const selectedProfile = this._findProfileByName(this.ui.profileSelect?.value || this.activeProfileName || '');
-        const typedName = this._normalizeProfileName(this.ui.profileNameInput?.value || '');
-        const typedProfileIdx = this._findProfileIndexByName(typedName);
-        const activeProfileIdx = this._findProfileIndexByName(this.activeProfileName);
-        const canUpdateActive = typedName && typedProfileIdx >= 0 && typedProfileIdx === activeProfileIdx;
+        const effectiveActiveProfileName = resolveActiveProfileName(
+            this.settingsProfiles,
+            this.activeProfileName || this.ui.profileSelect?.value || '',
+            this.profileDataOps
+        );
+        const actionState = deriveProfileActionUiState(
+            this.settingsProfiles,
+            {
+                selectedProfileName: this.ui.profileSelect?.value || this.activeProfileName || '',
+                typedName: this.ui.profileNameInput?.value || '',
+                activeProfileName: effectiveActiveProfileName,
+            },
+            this.profileUiStateOps
+        );
 
         if (this.ui.profileLoadButton) {
-            this.ui.profileLoadButton.disabled = !selectedProfile;
+            this.ui.profileLoadButton.disabled = !actionState.canLoadProfile;
         }
         if (this.ui.profileDeleteButton) {
-            this.ui.profileDeleteButton.disabled = !selectedProfile;
+            this.ui.profileDeleteButton.disabled = !actionState.canDeleteProfile;
         }
         if (this.ui.profileSaveButton) {
-            this.ui.profileSaveButton.disabled = !typedName;
-            if (!typedName) {
-                this.ui.profileSaveButton.textContent = 'Profil unter Namen speichern';
-            } else if (canUpdateActive) {
-                this.ui.profileSaveButton.textContent = 'Aktives Profil aktualisieren';
-            } else if (typedProfileIdx >= 0) {
-                this.ui.profileSaveButton.textContent = 'Name bereits vergeben';
-            } else {
-                this.ui.profileSaveButton.textContent = 'Neues Profil speichern';
-            }
+            this.ui.profileSaveButton.disabled = !actionState.canSaveProfile;
+            this.ui.profileSaveButton.textContent = actionState.saveButtonLabel;
         }
         this._updateMenuContext();
     }
@@ -877,7 +902,12 @@ export class Game {
         }
 
         const idx = this._findProfileIndexByName(name);
-        const activeIdx = this._findProfileIndexByName(this.activeProfileName);
+        const effectiveActiveProfileName = resolveActiveProfileName(
+            this.settingsProfiles,
+            this.activeProfileName || this.ui.profileSelect?.value || '',
+            this.profileDataOps
+        );
+        const activeIdx = this._findProfileIndexByName(effectiveActiveProfileName);
         const canOverwrite = idx >= 0 && idx === activeIdx;
         if (idx >= 0 && !canOverwrite) {
             this._showStatusToast('Name existiert bereits', 1500, 'error');
@@ -891,11 +921,7 @@ export class Game {
             settings: deepClone(this.settings),
         };
 
-        if (idx >= 0) {
-            this.settingsProfiles[idx] = entry;
-        } else {
-            this.settingsProfiles.push(entry);
-        }
+        this.settingsProfiles = upsertProfileEntry(this.settingsProfiles, entry, this.profileDataOps).profiles;
 
         this.activeProfileName = name;
         const persisted = this._saveProfiles();
@@ -937,12 +963,10 @@ export class Game {
             return false;
         }
 
-        const removedName = this.settingsProfiles[index].name;
-        this.settingsProfiles.splice(index, 1);
-
-        if (this._findProfileIndexByName(this.activeProfileName) < 0) {
-            this.activeProfileName = '';
-        }
+        const removeResult = removeProfileByName(this.settingsProfiles, name, this.profileDataOps);
+        const removedName = removeResult.removedProfile?.name || this.settingsProfiles[index].name;
+        this.settingsProfiles = removeResult.profiles;
+        this.activeProfileName = resolveActiveProfileName(this.settingsProfiles, this.activeProfileName, this.profileDataOps);
         const persisted = this._saveProfiles();
         this._syncProfileControls();
         if (!persisted) {

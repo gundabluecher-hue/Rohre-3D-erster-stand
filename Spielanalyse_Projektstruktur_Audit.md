@@ -566,3 +566,16 @@ Revalidierung vor Fortsetzung wurde durchgefuehrt (Git-Status/Diffs/Log + geziel
 
 - Kein echter Browser-Restart-Stresstest (mehrfach Start Match / Return to Menu mit DevTools-Memory-Profiling) in dieser Session
 - Naechster sinnvoller Schritt (Phase 1): kleine `SettingsStore`-Extraktion aus `main.js` (nur Load/Save/Profile-Persistenz + Profilname-Lookup, ohne UI-Logik und ohne `_applySettingsToRuntime()`-Umbau)
+
+### Zusatz-Append (Session 2026-02-22, Profil-UI / Phase 1e Verifikation)
+
+- Profil-/Settings-Refactor-Stand (`SettingsStore`, `ProfileDataOps`, `ProfileUiStateOps`, `ProfileControlStateOps`) erneut revalidiert (gezielte `rg`-Checks + Funktionsbloecke in `js/main.js`)
+- Browser-UI-Smoke fuer Profilbereich erfolgreich (headless Chromium via Playwright gegen `npm run dev`, ohne `npm run build`)
+- Verifizierte Use-Cases:
+  - Select eines vorhandenen Profils -> Save-Button zeigt `Aktives Profil aktualisieren`
+  - Speichern mit gleichem Namen aktualisiert Profil (kein `Name existiert bereits`)
+  - Mirror-Verhalten unveraendert (Input fokussiert = kein Mirror, unfokussiert = Mirror)
+  - Save / Load / Delete weiterhin funktional
+- Zusaetzlich browserseitig verifiziert:
+  - Profil-Update-Fallback funktioniert, wenn `activeProfileName` leer/inkonsistent ist, aber `profile-select` auf existierendes Profil zeigt (`_syncProfileActionState()` / `_saveProfile()` mit `resolveActiveProfileName(...)`-Fallback)
+- Ergebnis: keine beabsichtigte Verhaltensaenderung durch Phase 1e sichtbar; kein weiterer Fix in dieser Session notwendig
