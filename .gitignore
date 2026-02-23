@@ -1,2 +1,14 @@
 .editor-dev.err.log
 .editor-dev.out.log
+
+# Abhängigkeiten
+node_modules/
+
+# Build-Output
+dist/
+
+# Temporäre Patch-Skripte
+p1_*.ps1
+patch_phase1.py
+*.bak
+*.latest_commit
