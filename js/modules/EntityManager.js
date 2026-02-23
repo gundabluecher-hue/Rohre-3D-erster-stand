@@ -487,8 +487,8 @@ export class EntityManager {
             const portalResult = this.arena.checkPortal(player.position, player.hitboxRadius, player.index);
             if (portalResult) {
                 player.position.copy(portalResult.target);
-                player.getDirection(this._tmpVec).normalize().multiplyScalar(2.0);
-                player.position.add(this._tmpVec);
+                // Kein Vorwärts-Schub: Spieler landet exakt am Zielportal.
+                // Der Portal-Cooldown verhindert sofortigen Re-Teleport.
                 if (CONFIG.GAMEPLAY.PLANAR_MODE) player.currentPlanarY = portalResult.target.y;
                 player.trail.forceGap(0.5);
             }
@@ -996,7 +996,7 @@ export class EntityManager {
             radius: Number(data?.radius) || 0,
         });
 
-        return { key: keys.length === 1 ? keys[0] : keys, entry };
+        return { key: keys.length === 1 ? keys[0] : keys.slice(), entry };
     }
 
     unregisterTrailSegment(key, entry) {
@@ -1116,6 +1116,28 @@ export class EntityManager {
         return null;
     }
 
+    clear() {
+        for (const player of this.players) {
+            if (player) player.dispose();
+        }
+        this.players.length = 0;
+        this.humanPlayers.length = 0;
+        this.bots.length = 0;
+        this.botByPlayer.clear();
+
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            this._releaseProjectileMesh(this.projectiles[i]);
+        }
+        this.projectiles.length = 0;
+
+        if (this.powerupManager) {
+            this.powerupManager.clear();
+        }
+
+        this.spatialGrid.clear();
+        this._lockOnCache.clear();
+    }
+
     dispose() {
         this.clear();
         for (const assets of this._projectileAssets.values()) {
@@ -1132,3 +1154,4 @@ export class EntityManager {
         this._projectilePools.clear();
     }
 }
+

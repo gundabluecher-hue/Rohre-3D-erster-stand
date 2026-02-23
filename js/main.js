@@ -758,31 +758,16 @@ export class Game {
 
         if (this.ui.openEditorButton) {
             this.ui.openEditorButton.addEventListener('click', () => {
-                const editorUrl = 'editor/map-editor-3d.html';
-                const editorWindow = window.open(editorUrl, '_blank', 'noopener');
-                if (editorWindow) {
-                    editorWindow.focus?.();
-                    return;
-                }
-
-                // Popup blocker fallback: open in the current tab.
-                window.location.href = editorUrl;
+                window.open('editor/map-editor-3d.html', '_blank');
             });
         }
 
         if (this.ui.openVehicleEditorButton) {
             this.ui.openVehicleEditorButton.addEventListener('click', () => {
-                const editorUrl = 'prototypes/vehicle-lab/index.html';
-                const editorWindow = window.open(editorUrl, '_blank', 'noopener');
-                if (editorWindow) {
-                    editorWindow.focus?.();
-                    return;
-                }
-
-                // Popup blocker fallback: open in the current tab.
-                window.location.href = editorUrl;
+                window.open('prototypes/vehicle-lab/index.html', '_blank');
             });
         }
+
 
         if (this.ui.profileSaveButton) {
             this.ui.profileSaveButton.addEventListener('click', () => {

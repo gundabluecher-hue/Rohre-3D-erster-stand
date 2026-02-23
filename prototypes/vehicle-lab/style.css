@@ -34,6 +34,7 @@ body {
 
 /* Sidebar */
 .sidebar {
+    position: relative;
     background: linear-gradient(180deg, var(--bg-panel), #020617ee);
     border-right: 1px solid var(--border);
     padding: 20px;
@@ -41,7 +42,7 @@ body {
     flex-direction: column;
     gap: 16px;
     overflow-y: auto;
-    backdrop-filter: blur(10px);
+    z-index: 10;
 }
 
 .sidebar__eyebrow {
@@ -69,6 +70,7 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 12px;
     padding: 12px;
+    overflow: visible;
 }
 
 .sidebar__panel h2 {
@@ -103,6 +105,10 @@ body {
 }
 
 /* Form Elements */
+select {
+    height: 32px;
+}
+
 select,
 input[type="text"],
 input[type="number"] {
@@ -232,6 +238,7 @@ button:hover {
     position: relative;
     width: 100%;
     height: 100%;
+    z-index: 1;
 }
 
 #vehicleCanvas {

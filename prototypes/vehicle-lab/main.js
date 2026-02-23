@@ -6,13 +6,23 @@ import { VehicleHistory } from './src/VehicleHistory.js';
 import { ModularVehicleMesh } from './src/ModularVehicleMesh.js';
 import { VEHICLE_PRESETS } from './src/VehiclePresets.js';
 
+
 class VehicleLabApp {
     constructor() {
         this.canvas = document.getElementById('vehicleCanvas');
         this.core = new VehicleLabCore(this.canvas);
 
         const saved = localStorage.getItem('vehicle_lab_config');
-        const initialConfig = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(VEHICLE_PRESETS[0]));
+        let initialConfig = null;
+        try {
+            if (saved) initialConfig = JSON.parse(saved);
+        } catch (e) {
+            console.warn('Vehicle Lab: Invalid JSON in local storage, falling back to default.');
+        }
+
+        if (!initialConfig || !Array.isArray(initialConfig.parts) || initialConfig.parts.length === 0) {
+            initialConfig = JSON.parse(JSON.stringify(VEHICLE_PRESETS[0]));
+        }
 
         this.history = new VehicleHistory(initialConfig);
         this._saveTimeout = null;
@@ -37,6 +47,12 @@ class VehicleLabApp {
             onGlobalUpdate: (type, val) => this.onGlobalUpdate(type, val)
         });
         this.vehicle = new ModularVehicleMesh(initialConfig);
+        if (this.vehicle.children.length === 0) {
+            console.warn('Vehicle Lab: Loaded config generated empty mesh. Forcing default preset.');
+            initialConfig = JSON.parse(JSON.stringify(VEHICLE_PRESETS[0]));
+            this.vehicle = new ModularVehicleMesh(initialConfig);
+            localStorage.setItem('vehicle_lab_config', JSON.stringify(initialConfig));
+        }
         this.core.scene.add(this.vehicle);
 
         this.selectedIndex = null;
@@ -146,6 +162,14 @@ class VehicleLabApp {
         const vehicleId = String(vehicle?.id || '').trim();
         if (!vehicleId) return;
 
+        if (vehicle.readOnly) {
+            const preset = VEHICLE_PRESETS.find(p => p.id === vehicleId);
+            if (preset) {
+                this.applyVehicleConfigToEditor(preset);
+                return;
+            }
+        }
+
         try {
             const query = new URLSearchParams({ vehicleId });
             const response = await fetch(`/api/editor/get-vehicle-disk?${query.toString()}`, { method: 'GET' });
@@ -174,23 +198,6 @@ class VehicleLabApp {
         }
     }
 
-    undo() {
-        const config = this.history.undo();
-        if (config) {
-            this.vehicle.updateConfig(config);
-            this.updateUI();
-            this.selectPart(null);
-        }
-    }
-
-    redo() {
-        const config = this.history.redo();
-        if (config) {
-            this.vehicle.updateConfig(config);
-            this.updateUI();
-            this.selectPart(null);
-        }
-    }
 
     selectPart(index, path = []) {
         this.selectedIndex = index;

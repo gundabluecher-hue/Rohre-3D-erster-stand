@@ -87,12 +87,12 @@ export class MantaMesh extends THREE.Group {
     }
 
     createWings() {
-        // Linker Flügel (geschwungen)
+        // Linker Flügel (geschwungen) - gekürzt
         const leftShape = new THREE.Shape();
         leftShape.moveTo(0, 0);
-        leftShape.bezierCurveTo(-5, -3, -14, -8, -22, -4);
-        leftShape.bezierCurveTo(-26, -2, -26, 4, -22, 6);
-        leftShape.bezierCurveTo(-14, 8, -5, 4, 0, 2);
+        leftShape.bezierCurveTo(-3, -2, -8, -5, -13, -3);
+        leftShape.bezierCurveTo(-15, -1, -15, 3, -13, 4);
+        leftShape.bezierCurveTo(-8, 5, -3, 3, 0, 2);
 
         const leftGeo = new THREE.ExtrudeGeometry(leftShape, {
             depth: 1,
@@ -106,12 +106,13 @@ export class MantaMesh extends THREE.Group {
         leftWing.position.set(-5, -0.5, -6);
         this.add(leftWing);
 
-        // Rechter Flügel (Spiegelung)
+        // Rechter Flügel (Spiegelung) - gekürzt
         const rightShape = new THREE.Shape();
         rightShape.moveTo(0, 0);
-        rightShape.bezierCurveTo(5, -3, 14, -8, 22, -4);
-        rightShape.bezierCurveTo(26, -2, 26, 4, 22, 6);
-        rightShape.bezierCurveTo(14, 8, 5, 4, 0, 2);
+        rightShape.bezierCurveTo(3, -2, 8, -5, 13, -3);
+        rightShape.bezierCurveTo(15, -1, 15, 3, 13, 4);
+        rightShape.bezierCurveTo(8, 5, 3, 3, 0, 2);
+
 
         const rightGeo = new THREE.ExtrudeGeometry(rightShape, {
             depth: 1,
@@ -161,27 +162,27 @@ export class MantaMesh extends THREE.Group {
     }
 
     createEngines() {
-        const shroudGeo = new THREE.CylinderGeometry(0.12, 0.1, 0.35, 12);
+        const shroudGeo = new THREE.CylinderGeometry(0.08, 0.07, 0.25, 12);
         shroudGeo.rotateX(Math.PI / 2);
 
-        const nozzleGeo = new THREE.CylinderGeometry(0.08, 0.09, 0.1, 12, 1, true);
+        const nozzleGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.08, 12, 1, true);
         nozzleGeo.rotateX(Math.PI / 2);
 
-        const coreGeo = new THREE.SphereGeometry(0.05, 8, 8);
+        const coreGeo = new THREE.SphereGeometry(0.04, 8, 8);
 
         const createEngineAssembly = (side) => {
             const group = new THREE.Group();
-            group.position.set(side * 2.8, -0.05, 2.5);
+            group.position.set(side * 17.5, -0.2, -5.5);
 
             const shroud = new THREE.Mesh(shroudGeo, this.darkMat);
             group.add(shroud);
 
             const nozzle = new THREE.Mesh(nozzleGeo, new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 1, roughness: 0.2 }));
-            nozzle.position.z = 0.18;
+            nozzle.position.z = 0.15;
             group.add(nozzle);
 
             const core = new THREE.Mesh(coreGeo, this.engineCoreMat);
-            core.position.z = 0.13;
+            core.position.z = 0.1;
             group.add(core);
 
             this.add(group);
@@ -191,23 +192,8 @@ export class MantaMesh extends THREE.Group {
         const lEng = createEngineAssembly(-1);
         const rEng = createEngineAssembly(1);
 
-        // Force Fields
-        const fieldGeo = new THREE.CylinderGeometry(0.03, 0.03, 1.5, 8, 1, true);
-        fieldGeo.rotateZ(Math.PI / 2);
+        // Force Fields removed as requested
 
-        const createForceField = (side) => {
-            const field = new THREE.Mesh(fieldGeo, this.forceFieldMat.clone());
-            field.position.set(side * 2.8, -0.05, 1.5);
-            field.rotation.x = Math.PI / 2;
-            this.add(field);
-            this.forceFields.push(field);
-
-            const wire = new THREE.Mesh(fieldGeo, new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.2 }));
-            field.add(wire);
-        };
-
-        createForceField(-1);
-        createForceField(1);
 
         // Flame
         const glowGeo = new THREE.SphereGeometry(0.1, 8, 8);

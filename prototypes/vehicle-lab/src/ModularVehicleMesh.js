@@ -158,7 +158,7 @@ export class ModularVehicleMesh extends THREE.Group {
 
     createEngineCompound(data) {
         const group = new THREE.Group();
-        const s = data.size || [0.4, 0.4, 0.8]; // radiusTop, radiusBottom, height
+        const s = data.size || [0.28, 0.28, 0.5]; // radiusTop, radiusBottom, height
 
         // Shroud
         const shroudGeo = new THREE.CylinderGeometry(s[0], s[1], s[2], 12);

@@ -36,6 +36,8 @@ export class Arena {
         this._tmpVecGate2 = new THREE.Vector3();
         // Hilfsvektor fuer lookAt in _buildSpecialGates
         this._tmpVec = new THREE.Vector3();
+        // Hilfsvektor fuer Normalenberechnung (Pooling)
+        this._tmpNormal = new THREE.Vector3();
         // Phase 2: Geometry-Merging – temporaere Sammel-Arrays
         this._pendingWallGeos = [];
         this._pendingObstacleGeos = [];
@@ -46,6 +48,14 @@ export class Arena {
 
     /** Baut die Arena fuer die gewaehlte Map */
     build(mapKey) {
+        // Reset fuer neue Map
+        this.obstacles = [];
+        this._pendingWallGeos = [];
+        this._pendingObstacleGeos = [];
+        this._pendingFoamGeos = [];
+        this._pendingObstacleEdgeGeos = [];
+        this._pendingFoamEdgeGeos = [];
+
         const fallbackMap = CONFIG.MAPS.standard || Object.values(CONFIG.MAPS || {})[0] || {
             name: 'Fallback Map',
             size: [80, 30, 80],
@@ -151,7 +161,7 @@ export class Arena {
         this._addWall(0, halfY, -halfZ - t / 2, sx + 2 * t, sy, t, wallMat);
         this._addWall(-halfX - t / 2, halfY, 0, t, sy, sz, wallMat);
         this._addWall(halfX + t / 2, halfY, 0, t, sy, sz, wallMat);
-        this._addWall(0, sy, 0, sx, t, sz, wallMat);
+        this._addWall(0, sy + t / 2, 0, sx, t, sz, wallMat); // Korrigiert von sy (ragte hinein)
 
         // ---- Hindernisse ----
         const obstacleDefs = Array.isArray(map.obstacles) ? map.obstacles : [];
@@ -426,7 +436,7 @@ export class Arena {
     _buildFixedPlanarPortals(pairCount) {
         const colors = [0x00ffcc, 0xff00cc, 0xffff00, 0x00ccff, 0xff8844, 0x66ff44];
         const anchors = this._getMapPlanarAnchors();
-        const levels = this.getPortalLevelsFallback();
+        const levels = this.getPortalLevels();
         if (anchors.length === 0 || levels.length < 2) return;
 
         const transitionCount = levels.length - 1;
@@ -570,15 +580,15 @@ export class Arena {
         for (let i = 0; i < 20; i++) {
             const angle = (((seed + i * 37) % 360) * Math.PI) / 180;
             const dist = 2.5 + i * 1.3;
-            const yShift = ((i % 5) - 2) * 1.1;
+            // yShift absichtlich entfernt: Portal bleibt auf der definierten Y-Ebene
             probe.set(
                 pos.x + Math.cos(angle) * dist,
-                pos.y + yShift,
+                pos.y,
                 pos.z + Math.sin(angle) * dist
             );
 
             probe.x = Math.max(b.minX + margin, Math.min(b.maxX - margin, probe.x));
-            probe.y = Math.max(b.minY + margin, Math.min(b.maxY - margin, probe.y));
+            probe.y = Math.max(b.minY + margin, Math.min(b.maxY - margin, probe.y)); // Y-Clamp: verhindert Portale ausserhalb der Arena-Bounds
             probe.z = Math.max(b.minZ + margin, Math.min(b.maxZ - margin, probe.z));
 
             if (!this.checkCollision(probe, testRadius)) {
@@ -668,8 +678,16 @@ export class Arena {
         return group;
     }
 
-    toggleBeams() {
-        // Beams intentionally removed
+    toggleBeams(enabled) {
+        // Dummy falls Beams nicht existieren, verhindert Fehler
+    }
+
+    setWallVisibility(visible) {
+        if (this._mergedWallMesh) this._mergedWallMesh.visible = visible;
+        if (this._mergedObstacleMesh) this._mergedObstacleMesh.visible = visible;
+        if (this._mergedFoamMesh) this._mergedFoamMesh.visible = visible;
+        if (this._mergedObstacleEdges) this._mergedObstacleEdges.visible = visible;
+        if (this._mergedFoamEdges) this._mergedFoamEdges.visible = visible;
     }
 
     /** Prueft ob eine Position ein Portal beruehrt, gibt Zielposition zurueck oder null */
@@ -733,18 +751,21 @@ export class Arena {
 
     _addWall(x, y, z, w, h, d, material) {
         const geo = new THREE.BoxGeometry(w, h, d);
-        // Kollisions-Box aus Hilfsmesh berechnen (wird nicht zur Szene hinzugefuegt)
-        const tmpMesh = new THREE.Mesh(geo);
-        tmpMesh.position.set(x, y, z);
-        tmpMesh.matrixAutoUpdate = false;
-        tmpMesh.updateMatrix();
-        const box = new THREE.Box3().setFromObject(tmpMesh);
+
+        // Kollisions-Box direkt aus Position + Ausdehnung berechnen (kein matrixWorld noetig)
+        const box = new THREE.Box3(
+            new THREE.Vector3(x - w / 2, y - h / 2, z - d / 2),
+            new THREE.Vector3(x + w / 2, y + h / 2, z + d / 2)
+        );
         this.obstacles.push({ box, isWall: true, kind: 'wall' });
 
         // Geometrie in Weltkoordinaten transformieren und fuer Merging sammeln
         const worldGeo = geo.clone();
-        worldGeo.applyMatrix4(tmpMesh.matrix);
+        const translationMatrix = new THREE.Matrix4().makeTranslation(x, y, z);
+        worldGeo.applyMatrix4(translationMatrix);
         this._pendingWallGeos.push(worldGeo);
+
+        geo.dispose();
     }
 
     _addObstacle(x, y, z, w, h, d, material, options = {}) {
@@ -752,18 +773,18 @@ export class Arena {
         const isFoam = kind === 'foam';
 
         const geo = new THREE.BoxGeometry(w, h, d);
+        const translationMatrix = new THREE.Matrix4().makeTranslation(x, y, z);
 
-        // Kollisions-Box aus Hilfsmesh berechnen (wird nicht zur Szene hinzugefuegt)
-        const tmpMesh = new THREE.Mesh(geo);
-        tmpMesh.position.set(x, y, z);
-        tmpMesh.matrixAutoUpdate = false;
-        tmpMesh.updateMatrix();
-        const box = new THREE.Box3().setFromObject(tmpMesh);
+        // Kollisions-Box direkt aus Position + Ausdehnung berechnen (kein matrixWorld noetig)
+        const box = new THREE.Box3(
+            new THREE.Vector3(x - w / 2, y - h / 2, z - d / 2),
+            new THREE.Vector3(x + w / 2, y + h / 2, z + d / 2)
+        );
         this.obstacles.push({ box, isWall: false, kind });
 
         // Mesh-Geometrie in Weltkoordinaten und fuer Merging sammeln
         const worldGeo = geo.clone();
-        worldGeo.applyMatrix4(tmpMesh.matrix);
+        worldGeo.applyMatrix4(translationMatrix);
         if (isFoam) {
             this._pendingFoamGeos.push(worldGeo);
         } else {
@@ -772,14 +793,17 @@ export class Arena {
 
         // Kanten-Geometrie ebenfalls sammeln
         const edgeGeo = new THREE.EdgesGeometry(geo);
-        const worldEdgeGeo = edgeGeo.clone();
-        worldEdgeGeo.applyMatrix4(tmpMesh.matrix);
-        edgeGeo.dispose();
+        const worldEdgeGeo = edgeGeo.clone(); // Kopie fuer Merging (wird in _flush... disposed)
+        worldEdgeGeo.applyMatrix4(translationMatrix);
+
         if (isFoam) {
             this._pendingFoamEdgeGeos.push(worldEdgeGeo);
         } else {
             this._pendingObstacleEdgeGeos.push(worldEdgeGeo);
         }
+
+        edgeGeo.dispose();
+        geo.dispose();
     }
 
     _addParticles(sx, sy, sz) {
@@ -816,8 +840,9 @@ export class Arena {
             if (!merged) return null;
             const mesh = new THREE.Mesh(merged, material);
             mesh.castShadow = isShadowCaster;
-            mesh.receiveShadow = false;
+            mesh.receiveShadow = true;
             mesh.matrixAutoUpdate = false;
+            mesh.updateMatrix();
             this.renderer.addToScene(mesh);
             geos.forEach(g => g.dispose());
             return mesh;
@@ -829,19 +854,20 @@ export class Arena {
             if (!merged) return null;
             const lines = new THREE.LineSegments(merged, material);
             lines.matrixAutoUpdate = false;
+            lines.updateMatrix();
             this.renderer.addToScene(lines);
             geos.forEach(g => g.dispose());
             return lines;
         };
 
         // Waende → 1 Draw-Call
-        this._mergedWallMesh = addMergedMesh(this._pendingWallGeos, this._wallMat);
+        this._mergedWallMesh = addMergedMesh(this._pendingWallGeos, this._wallMat, true);
 
         // Harte Hindernisse → 1 Draw-Call
-        this._mergedObstacleMesh = addMergedMesh(this._pendingObstacleGeos, this._obstacleMat);
+        this._mergedObstacleMesh = addMergedMesh(this._pendingObstacleGeos, this._obstacleMat, true);
 
         // Foam-Hindernisse → 1 Draw-Call
-        this._mergedFoamMesh = addMergedMesh(this._pendingFoamGeos, this._foamMat);
+        this._mergedFoamMesh = addMergedMesh(this._pendingFoamGeos, this._foamMat, true);
 
         // Kanten harte Hindernisse → 1 Draw-Call
         this._mergedObstacleEdges = addMergedLines(this._pendingObstacleEdgeGeos, this._obstacleEdgeMat);
@@ -859,19 +885,6 @@ export class Arena {
 
     /** Prueft Kollision eines Punktes mit Arena-Grenzen und Hindernissen */
     _computeBoxCollisionNormal(box, point) {
-        const clampedX = Math.max(box.min.x, Math.min(box.max.x, point.x));
-        const clampedY = Math.max(box.min.y, Math.min(box.max.y, point.y));
-        const clampedZ = Math.max(box.min.z, Math.min(box.max.z, point.z));
-
-        const normal = new THREE.Vector3(
-            point.x - clampedX,
-            point.y - clampedY,
-            point.z - clampedZ
-        );
-        if (normal.lengthSq() > 1e-8) {
-            return normal.normalize();
-        }
-
         const dMinX = Math.abs(point.x - box.min.x);
         const dMaxX = Math.abs(box.max.x - point.x);
         const dMinY = Math.abs(point.y - box.min.y);
@@ -879,14 +892,17 @@ export class Arena {
         const dMinZ = Math.abs(point.z - box.min.z);
         const dMaxZ = Math.abs(box.max.z - point.z);
 
+        const normal = this._tmpNormal;
         let minDist = dMinX;
         normal.set(-1, 0, 0);
+
         if (dMaxX < minDist) { minDist = dMaxX; normal.set(1, 0, 0); }
         if (dMinY < minDist) { minDist = dMinY; normal.set(0, -1, 0); }
         if (dMaxY < minDist) { minDist = dMaxY; normal.set(0, 1, 0); }
         if (dMinZ < minDist) { minDist = dMinZ; normal.set(0, 0, -1); }
         if (dMaxZ < minDist) { normal.set(0, 0, 1); }
-        return normal;
+
+        return normal.clone();
     }
 
     getCollisionInfo(position, radius) {

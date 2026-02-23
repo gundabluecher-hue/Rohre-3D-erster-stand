@@ -70,6 +70,7 @@ export class Player {
         this._tmpDir = new THREE.Vector3();
         this._tmpAimRight = new THREE.Vector3();
         this._tmpAimUp = new THREE.Vector3();
+        this._tmpMat = new THREE.Matrix4();
 
         // Boost
         this.boostTimer = 0;
@@ -142,7 +143,7 @@ export class Player {
                 this.hitboxBox.copy(this.vehicleMesh.localBox);
             } else {
                 this.vehicleMesh.updateMatrixWorld(true);
-                const invMatrix = new THREE.Matrix4().copy(this.vehicleMesh.matrixWorld).invert();
+                const invMatrix = this._tmpMat.copy(this.vehicleMesh.matrixWorld).invert();
                 this.hitboxBox.setFromObject(this.vehicleMesh).applyMatrix4(invMatrix);
             }
 

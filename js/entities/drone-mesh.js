@@ -140,7 +140,8 @@ export class DroneMesh extends THREE.Group {
 
         const createEngineAssembly = (side) => {
             const group = new THREE.Group();
-            group.position.set(side * 2.0, 0.1, 2.5);
+            // Directly on the arms (reduced offset)
+            group.position.set(side * 1.6, 0.1, 1.5);
 
             const shroud = new THREE.Mesh(shroudGeo, this.darkMat);
             group.add(shroud);
@@ -160,22 +161,8 @@ export class DroneMesh extends THREE.Group {
         const lEng = createEngineAssembly(-1);
         const rEng = createEngineAssembly(1);
 
-        // Force Fields
-        const fieldGeo = new THREE.BoxGeometry(0.08, 0.08, 2.5);
+        // Force Fields removed as requested
 
-        const createForceField = (side) => {
-            const field = new THREE.Mesh(fieldGeo, this.forceFieldMat.clone());
-            field.position.set(side * 2.0, 0.1, 1.25);
-            field.rotation.x = Math.PI / 2;
-            this.add(field);
-            this.forceFields.push(field);
-
-            const wire = new THREE.Mesh(fieldGeo, new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.2 }));
-            field.add(wire);
-        };
-
-        createForceField(-1);
-        createForceField(1);
 
         // Flame
         const glowGeo = new THREE.BoxGeometry(0.3, 0.3, 0.1);

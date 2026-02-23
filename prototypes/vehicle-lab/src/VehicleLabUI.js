@@ -73,7 +73,8 @@ export class VehicleLabUI {
             }
         };
 
-        parts.forEach((part, index) => renderItem(part, index, 0, []));
+        const safeParts = Array.isArray(parts) ? parts : [];
+        safeParts.forEach((part, index) => renderItem(part, index, 0, []));
         document.getElementById('partCountBadge').textContent = `Parts: ${totalCount}`;
 
         // Update button states
@@ -277,8 +278,18 @@ export class VehicleLabUI {
                 badge.className = 'badge--readonly';
                 badge.textContent = 'Read-only';
 
+                const actions = document.createElement('div');
+                actions.className = 'saved-vehicle-actions';
+
+                const btnLoad = document.createElement('button');
+                btnLoad.type = 'button';
+                btnLoad.textContent = 'Load';
+                btnLoad.onclick = () => this.callbacks.onLoadSavedVehicle?.(vehicle);
+                actions.appendChild(btnLoad);
+
                 row.appendChild(labelWrap);
                 row.appendChild(badge);
+                row.appendChild(actions);
                 standardList.appendChild(row);
             });
         } else {

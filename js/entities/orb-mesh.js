@@ -159,28 +159,30 @@ export class OrbMesh extends THREE.Group {
     }
 
     createEngines() {
-        const shroudGeo = new THREE.CylinderGeometry(0.35, 0.3, 0.8, 12);
+        // Reduzierte Größe (30% kleiner)
+        const shroudGeo = new THREE.CylinderGeometry(0.24, 0.2, 0.5, 12);
         shroudGeo.rotateX(Math.PI / 2);
 
-        const nozzleGeo = new THREE.CylinderGeometry(0.25, 0.3, 0.2, 12, 1, true);
+        const nozzleGeo = new THREE.CylinderGeometry(0.18, 0.2, 0.15, 12, 1, true);
         nozzleGeo.rotateX(Math.PI / 2);
 
-        const coreGeo = new THREE.SphereGeometry(0.12, 8, 8);
+        const coreGeo = new THREE.SphereGeometry(0.08, 8, 8);
 
         const createEngineAssembly = (side) => {
             const group = new THREE.Group();
-            group.position.set(side * 2.5, 0, 1.2); // Scaled from 15
-            group.rotation.y = side * Math.PI / 2; // Rotate engines to face forward
+            // Positioned closer and without the Z-offset
+            group.position.set(side * 2.2, 0, 0);
+            group.rotation.y = side * Math.PI / 2;
 
             const shroud = new THREE.Mesh(shroudGeo, this.shellMat);
             group.add(shroud);
 
             const nozzle = new THREE.Mesh(nozzleGeo, new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 1, roughness: 0.2 }));
-            nozzle.position.z = 0.4;
+            nozzle.position.z = 0.25;
             group.add(nozzle);
 
             const core = new THREE.Mesh(coreGeo, this.engineCoreMat);
-            core.position.z = 0.3;
+            core.position.z = 0.2;
             group.add(core);
 
             this.add(group);
@@ -190,42 +192,20 @@ export class OrbMesh extends THREE.Group {
         const lEng = createEngineAssembly(-1);
         const rEng = createEngineAssembly(1);
 
-        // Force Fields (curved-ish connection simulation) - Scaled
-        const fieldGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.2, 8, 1, true);
-        fieldGeo.rotateZ(Math.PI / 2);
+        // Force Fields entfernt wie gewünscht
 
-        const createForceField = (side) => {
-            const field = new THREE.Mesh(fieldGeo, this.forceFieldMat.clone());
-            field.position.set(side * 2.5, 0, 0.6); // Scaled from 8
-            field.rotation.x = Math.PI / 2;
-            this.add(field);
-            this.forceFields.push(field);
-
-            const wire = new THREE.Mesh(fieldGeo, new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.2 }));
-            field.add(wire);
-        };
-
-        createForceField(-1);
-        createForceField(1);
-
-        // Flame - Scaled
-        const glowGeo = new THREE.SphereGeometry(0.25, 8, 8); // Scaled from 1.5
+        // Flame (Skalierung angepasst)
+        const glowGeo = new THREE.SphereGeometry(0.18, 8, 8);
         const addFlame = (parent) => {
             const flame = new THREE.Mesh(glowGeo, this.ringMat.clone());
             flame.name = 'flame';
-            flame.position.set(0, 0, 0.45); // Scaled from 2
+            flame.position.set(0, 0, 0.3);
             parent.add(flame);
         };
 
         addFlame(lEng);
         addFlame(rEng);
-
-
     }
-
-
-
-    // Animierbare Ringe (von außen aufrufbar)
     tick(dt) {
         this._time += dt;
         if (this.ring1) this.ring1.rotation.y += dt * 1.2;
@@ -240,13 +220,7 @@ export class OrbMesh extends THREE.Group {
             this.coreMesh.scale.setScalar(pulse);
         }
 
-        // Force Fields and Lights
-        this.forceFields.forEach((field, i) => {
-            const p = 0.2 + 0.1 * Math.sin(this._time * 10 + i);
-            field.material.opacity = p;
-        });
-
-
+        // Force Fields are removed, so no pulsing needed here
     }
-
 }
+

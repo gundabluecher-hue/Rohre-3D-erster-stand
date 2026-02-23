@@ -112,7 +112,8 @@ export class SpaceshipMesh extends THREE.Group {
 
         const createEngineAssembly = (side) => {
             const group = new THREE.Group();
-            group.position.set(side * 2.5, 0, 1.2);
+            // Directly on the saucer rim (reduced offset)
+            group.position.set(side * 1.35, 0, 0.4);
 
             const shroud = new THREE.Mesh(shroudGeo, this.darkMat);
             group.add(shroud);
@@ -132,28 +133,8 @@ export class SpaceshipMesh extends THREE.Group {
         const lEng = createEngineAssembly(-1);
         const rEng = createEngineAssembly(1);
 
-        // Force Fields
-        const fieldGeo = new THREE.CylinderGeometry(0.06, 0.06, 1.2, 8, 1, true);
-        fieldGeo.rotateZ(Math.PI / 2);
+        // Force Fields removed as requested
 
-        const createForceField = (side) => {
-            const field = new THREE.Mesh(fieldGeo, this.forceFieldMat.clone());
-            field.position.set(side * 2.5, 0, 0.6);
-            field.rotation.x = Math.PI / 2;
-            this.add(field);
-            this.forceFields.push(field);
-
-            const wire = new THREE.Mesh(fieldGeo, new THREE.MeshBasicMaterial({
-                color: 0x00ffff,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.2
-            }));
-            field.add(wire);
-        };
-
-        createForceField(-1);
-        createForceField(1);
 
         // Flame
         const glowGeo = new THREE.SphereGeometry(0.15, 8, 8);

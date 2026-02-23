@@ -139,9 +139,10 @@ export class ArrowMesh extends THREE.Group {
 
         const createEngineAssembly = (side) => {
             const group = new THREE.Group();
-            group.position.set(side * 1.6, 0, 4.0);
+            // Directly at the fins (reduced offset)
+            group.position.set(side * 0.45, 0, 3.2);
 
-            const shroud = new THREE.Mesh(shroudGeo, this.accentMat); // Using accentMat for consistency
+            const shroud = new THREE.Mesh(shroudGeo, this.accentMat);
             group.add(shroud);
 
             const nozzle = new THREE.Mesh(nozzleGeo, new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 1, roughness: 0.2 }));
@@ -159,23 +160,8 @@ export class ArrowMesh extends THREE.Group {
         const lEng = createEngineAssembly(-1);
         const rEng = createEngineAssembly(1);
 
-        // Force Fields
-        const fieldGeo = new THREE.CylinderGeometry(0.05, 0.05, 1.5, 8, 1, true);
-        fieldGeo.rotateZ(Math.PI / 2);
+        // Force Fields removed as requested
 
-        const createForceField = (side) => {
-            const field = new THREE.Mesh(fieldGeo, this.forceFieldMat.clone());
-            field.position.set(side * 1.6, 0, 3.25);
-            field.rotation.x = Math.PI / 2;
-            this.add(field);
-            this.forceFields.push(field);
-
-            const wire = new THREE.Mesh(fieldGeo, new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.2 }));
-            field.add(wire);
-        };
-
-        createForceField(-1);
-        createForceField(1);
 
         // Flame
         const glowGeo = new THREE.CylinderGeometry(0.15, 0.01, 0.5, 8);

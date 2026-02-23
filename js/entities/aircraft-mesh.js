@@ -117,24 +117,7 @@ export class AircraftMesh extends THREE.Group {
         rightWing.position.set(0.4, 0, 0.8);
         this.add(rightWing);
 
-        // Stabilizers (Canards)
-        const canardShape = new THREE.Shape();
-        canardShape.moveTo(0, 0);
-        canardShape.lineTo(0.8, 0.6);
-        canardShape.lineTo(0.8, 0.2);
-        canardShape.lineTo(0, -0.4);
-        const canardGeo = new THREE.ExtrudeGeometry(canardShape, { depth: 0.1, bevelEnabled: false });
-        canardGeo.rotateX(Math.PI / 2);
-        canardGeo.rotateY(-Math.PI / 2);
 
-        const leftCan = new THREE.Mesh(canardGeo, this.secondaryMat);
-        leftCan.position.set(-0.4, -0.1, -1.6);
-        leftCan.rotation.x = Math.PI;
-        this.add(leftCan);
-
-        const rightCan = new THREE.Mesh(canardGeo, this.secondaryMat);
-        rightCan.position.set(0.4, -0.1, -1.6);
-        this.add(rightCan);
     }
 
 
@@ -165,7 +148,7 @@ export class AircraftMesh extends THREE.Group {
     }
 
     createEngines() {
-        // Multi-part Engine Design (Scaled)
+        // Multi-part Engine Design (Scaled down by 30% from 0.7 -> 0.5)
         const shroudGeo = new THREE.CylinderGeometry(0.28, 0.24, 1.0, 12);
         shroudGeo.rotateX(Math.PI / 2);
 
@@ -177,6 +160,7 @@ export class AircraftMesh extends THREE.Group {
         const createEngineAssembly = (x, z) => {
             const group = new THREE.Group();
             group.position.set(x, 0.1, z);
+            group.scale.set(0.5, 0.5, 0.5);
 
             // Shroud (Outer shell)
             const shroud = new THREE.Mesh(shroudGeo, this.secondaryMat);
@@ -205,32 +189,11 @@ export class AircraftMesh extends THREE.Group {
             return group;
         };
 
-        const lEng = createEngineAssembly(-2.6, 4.4);
-        const rEng = createEngineAssembly(2.6, 4.4);
+        const lEng = createEngineAssembly(-2.3, 2.0);
+        const rEng = createEngineAssembly(2.3, 2.0);
 
-        // Force Fields Linking fuselage and wing-tip engines
-        const createForceField = (startX, startZ, endX, endZ) => {
-            const dist = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endZ - startZ, 2));
-            const fieldGeo = new THREE.CylinderGeometry(0.06, 0.06, dist, 8, 1, true);
-            fieldGeo.rotateZ(Math.PI / 2);
+        // Force Fields removed as requested
 
-            const field = new THREE.Mesh(fieldGeo, this.forceFieldMat.clone());
-            field.position.set((startX + endX) / 2, 0.1, (startZ + endZ) / 2);
-            // Angling the field if needed, but for now simple X bridge
-            this.add(field);
-            this.forceFields.push(field);
-
-            const wire = new THREE.Mesh(fieldGeo, new THREE.MeshBasicMaterial({
-                color: 0x00ffff,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.2
-            }));
-            field.add(wire);
-        };
-
-        createForceField(-2.4, 2.0, -2.6, 4.4);
-        createForceField(2.4, 2.0, 2.6, 4.4);
 
         // Glow / Flame (extracted to standard 'flame' objects)
         const glowGeo = new THREE.CylinderGeometry(0.16, 0.002, 0.6, 8);

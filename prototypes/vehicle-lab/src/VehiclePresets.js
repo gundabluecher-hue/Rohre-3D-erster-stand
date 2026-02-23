@@ -10,10 +10,8 @@ export const VEHICLE_PRESETS = [
             { name: 'L-Wing', geo: 'box', size: [2.4, 0.08, 1.2], pos: [-1.4, 0, 0.8], rot: [0, 0, 0], material: 'primary' },
             { name: 'R-Wing', geo: 'box', size: [2.4, 0.08, 1.2], pos: [1.4, 0, 0.8], rot: [0, 0, 0], material: 'primary' },
             { name: 'Tail Fin', geo: 'box', size: [0.08, 1.2, 0.8], pos: [0, 0.6, 1.6], rot: [0, 0, 0], material: 'primary' },
-            { name: 'L-Engine', geo: 'engine', size: [0.28, 0.24, 1.0], pos: [-2.6, 0.1, 4.4] },
-            { name: 'R-Engine', geo: 'engine', size: [0.28, 0.24, 1.0], pos: [2.6, 0.1, 4.4] },
-            { name: 'L-Bridge', geo: 'forcefield', size: [0.06, 0.06, 1.4], pos: [-2.5, 0.1, 3.2], rot: [0, 0, 0] },
-            { name: 'R-Bridge', geo: 'forcefield', size: [0.06, 0.06, 1.4], pos: [2.5, 0.1, 3.2], rot: [0, 0, 0] }
+            { name: 'L-Engine', geo: 'engine', size: [0.2, 0.17, 0.7], pos: [-2.4, 0.1, 0.8] },
+            { name: 'R-Engine', geo: 'engine', size: [0.2, 0.17, 0.7], pos: [2.4, 0.1, 0.8] }
         ]
     },
     {
@@ -25,27 +23,25 @@ export const VEHICLE_PRESETS = [
             { name: 'Rim', geo: 'torus', size: [1.2, 0.08], pos: [0, 0, 0], rot: [90, 0, 0], material: 'secondary' },
             { name: 'Bottom', geo: 'sphere', size: [1.2], pos: [0, -0.2, 0], material: 'secondary' },
             { name: 'Cockpit', geo: 'sphere', size: [0.62], pos: [0, 0.25, -0.5], material: 'glass' },
-            { name: 'L-Engine', geo: 'engine', size: [0.2, 0.18, 0.5], pos: [-2.5, 0, 1.2] },
-            { name: 'R-Engine', geo: 'engine', size: [0.2, 0.18, 0.5], pos: [2.5, 0, 1.2] },
-            { name: 'L-Link', geo: 'forcefield', size: [0.06, 0.06, 1.2], pos: [-2.5, 0, 0.6], rot: [90, 0, 0] },
-            { name: 'R-Link', geo: 'forcefield', size: [0.06, 0.06, 1.2], pos: [2.5, 0, 0.6], rot: [90, 0, 0] }
+            { name: 'L-Engine', geo: 'engine', size: [0.14, 0.12, 0.35], pos: [-1.35, 0, 0.4] },
+            { name: 'R-Engine', geo: 'engine', size: [0.14, 0.12, 0.35], pos: [1.35, 0, 0.4] }
         ]
     },
+
     {
         id: 'manta',
         label: 'Manta-Ray',
         primaryColor: 0x7e22ce,
         parts: [
             { name: 'Body', geo: 'capsule', size: [1.2, 3], pos: [0, 0, 0], rot: [90, 0, 0], material: 'primary' },
-            { name: 'L-Wing', geo: 'box', size: [4, 0.1, 2], pos: [-2.5, 0, 0], rot: [0, 0, 15], material: 'primary' },
-            { name: 'R-Wing', geo: 'box', size: [4, 0.1, 2], pos: [2.5, 0, 0], rot: [0, 0, -15], material: 'primary' },
+            { name: 'L-Wing', geo: 'box', size: [2.2, 0.1, 1.2], pos: [-1.4, -0.1, -0.6], rot: [0, 0, 15], material: 'primary' },
+            { name: 'R-Wing', geo: 'box', size: [2.2, 0.1, 1.2], pos: [1.4, -0.1, -0.6], rot: [0, 0, -15], material: 'primary' },
             { name: 'Tail', geo: 'cylinder', size: [0.05, 0.15, 1.2], pos: [0, 0, 1.8], rot: [90, 0, 0], material: 'secondary' },
-            { name: 'L-Engine', geo: 'engine', size: [0.12, 0.1, 0.35], pos: [-2.8, -0.05, 2.5] },
-            { name: 'R-Engine', geo: 'engine', size: [0.12, 0.1, 0.35], pos: [2.8, -0.05, 2.5] },
-            { name: 'L-FF', geo: 'forcefield', size: [0.03, 0.03, 1.5], pos: [-2.8, -0.05, 1.5], rot: [90, 0, 0] },
-            { name: 'R-FF', geo: 'forcefield', size: [0.03, 0.03, 1.5], pos: [2.8, -0.05, 1.5], rot: [90, 0, 0] }
+            { name: 'L-Engine', geo: 'engine', size: [0.1, 0.08, 0.25], pos: [-2.5, -0.2, -0.6] },
+            { name: 'R-Engine', geo: 'engine', size: [0.1, 0.08, 0.25], pos: [2.5, -0.2, -0.6] }
         ]
     },
+
     {
         id: 'drone',
         label: 'Combat Drone',
@@ -55,12 +51,11 @@ export const VEHICLE_PRESETS = [
             { name: 'Top', geo: 'box', size: [1.2, 0.3, 2.0], pos: [0, 0.55, 0], material: 'secondary' },
             { name: 'Arm-BL', geo: 'box', size: [3.2, 0.2, 0.4], pos: [0, 0.1, 0], rot: [0, 45, 0], material: 'primary' },
             { name: 'Arm-BR', geo: 'box', size: [3.2, 0.2, 0.4], pos: [0, 0.1, 0], rot: [0, -45, 0], material: 'primary' },
-            { name: 'L-Engine', geo: 'engine', size: [0.4, 0.4, 0.8], pos: [-2.0, 0.1, 2.5] },
-            { name: 'R-Engine', geo: 'engine', size: [0.4, 0.4, 0.8], pos: [2.0, 0.1, 2.5] },
-            { name: 'L-FF', geo: 'forcefield', size: [0.08, 0.08, 2.5], pos: [-2.0, 0.1, 1.25], rot: [90, 0, 0] },
-            { name: 'R-FF', geo: 'forcefield', size: [0.08, 0.08, 2.5], pos: [2.0, 0.1, 1.25], rot: [90, 0, 0] }
+            { name: 'L-Engine', geo: 'engine', size: [0.28, 0.28, 0.5], pos: [-1.6, 0.1, 1.5] },
+            { name: 'R-Engine', geo: 'engine', size: [0.28, 0.28, 0.5], pos: [1.6, 0.1, 1.5] }
         ]
     },
+
     {
         id: 'orb',
         label: 'Energy Orb',
@@ -70,12 +65,11 @@ export const VEHICLE_PRESETS = [
             { name: 'Ring-1', geo: 'torus', size: [2.0, 0.04], rot: [0, 0, 0], material: 'secondary' },
             { name: 'Ring-2', geo: 'torus', size: [2.0, 0.04], rot: [90, 0, 0], material: 'secondary' },
             { name: 'Ring-3', geo: 'torus', size: [2.4, 0.03], rot: [0, 45, 0], material: 'secondary' },
-            { name: 'L-Engine', geo: 'engine', size: [0.35, 0.3, 0.8], pos: [-2.5, 0, 1.2], rot: [0, -90, 0] },
-            { name: 'R-Engine', geo: 'engine', size: [0.35, 0.3, 0.8], pos: [2.5, 0, 1.2], rot: [0, 90, 0] },
-            { name: 'L-Link', geo: 'forcefield', size: [0.08, 0.08, 1.2], pos: [-2.5, 0, 0.6], rot: [90, 0, 0] },
-            { name: 'R-Link', geo: 'forcefield', size: [0.08, 0.08, 1.2], pos: [2.5, 0, 0.6], rot: [90, 0, 0] }
+            { name: 'L-Engine', geo: 'engine', size: [0.25, 0.2, 0.5], pos: [-2.2, 0, 0], rot: [0, -90, 0] },
+            { name: 'R-Engine', geo: 'engine', size: [0.25, 0.2, 0.5], pos: [2.2, 0, 0], rot: [0, 90, 0] }
         ]
     },
+
     {
         id: 'arrow',
         label: 'Arrow',
@@ -87,10 +81,9 @@ export const VEHICLE_PRESETS = [
             { name: 'Fin-2', geo: 'box', size: [0.1, 1.5, 0.8], pos: [0, -0.4, 2.5], material: 'primary' },
             { name: 'Fin-3', geo: 'box', size: [1.5, 0.1, 0.8], pos: [0.4, 0, 2.5], material: 'primary' },
             { name: 'Fin-4', geo: 'box', size: [1.5, 0.1, 0.8], pos: [-0.4, 0, 2.5], material: 'primary' },
-            { name: 'L-Engine', geo: 'engine', size: [0.25, 0.2, 0.8], pos: [-1.6, 0, 4.0] },
-            { name: 'R-Engine', geo: 'engine', size: [0.25, 0.2, 0.8], pos: [1.6, 0, 4.0] },
-            { name: 'L-Link', geo: 'forcefield', size: [0.05, 0.05, 1.5], pos: [-1.6, 0, 3.25], rot: [90, 0, 0] },
-            { name: 'R-Link', geo: 'forcefield', size: [0.05, 0.05, 1.5], pos: [1.6, 0, 3.25], rot: [90, 0, 0] }
+            { name: 'L-Engine', geo: 'engine', size: [0.18, 0.14, 0.5], pos: [-0.45, 0, 3.2] },
+            { name: 'R-Engine', geo: 'engine', size: [0.18, 0.14, 0.5], pos: [0.45, 0, 3.2] }
         ]
     }
+
 ];
