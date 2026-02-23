@@ -3,6 +3,24 @@
 Stand: 2026-02-22  
 Projekt: `Rohre-3D-erster-stand`
 
+## Schnellstatus (Stand 2026-02-23)
+
+- `Phase 0 (Stabilisierung)`: `ABGESCHLOSSEN`
+  - Bot-Crashfix, Particle-Lifecycle-Fix, TimeScale-Reset, Trail-Alt-API-Bereinigung revalidiert (`Umsetzungsstatus`-Append)
+- `Phase 1 (strukturelle Entkopplung)`: `TEILWEISE ABGESCHLOSSEN`
+  - erledigt: `SettingsStore`-Extraktion, Profil-Refactor-Verifikation, `RoundStateOps`-Auslagerung, `MatchSessionFactory`-Extraktionsschritte (Aufbau + Runtime-Wiring + Map-Feedback-Plan + `initializeMatchSession(...)` + symmetrischer Teardown-Helper), `MatchUiStateOps` fuer Start-/Round-/Return-UI-Orchestrierung (inkl. Round-End-Countdown-Helper), `startMatch()`/`_returnToMenu()`-Cleanup-Helper im `Game`, `update()`-State-Branch-Helper (`PLAYING`/`ROUND_END`/`MATCH_END`), `RoundStateControllerOps`-Vorbereitung (Tick-/Transition-Entscheidungen fuer `ROUND_END`/`MATCH_END`)
+  - offen: vollstaendiger `MatchSession`-/`MatchFactory`-Ausbau, vollstaendiger `RoundStateController`, Abschluss `UIManager`-Migration
+- `Phase 2 (Renderer + Scene Lifecycle)`: `TEILWEISE ABGESCHLOSSEN`
+  - erledigt: Scene-Roots, `clearMatchScene()`, mehrere Disposal-Verbesserungen
+  - offen: weitere Zentralisierung des Resource-Disposals / restliche Lifecycle-Entkopplung
+- `Phase 3 (Qualitaetssicherung)`: `TEILWEISE ABGESCHLOSSEN`
+  - erledigt: mehrere Node-/Headless-Smokes inkl. reproduzierbarer Self-Trail-Debug-Smoke
+  - offen: dauerhafte Testabdeckung fuer BotAI/MapSchema/CustomMapLoader + Settings/Profile-Regressionschecks + optionaler Snapshot-Check
+
+Hinweis:
+- Die zuletzt offenen Self-Trail-Verifikationspunkte wurden per reproduzierbarem Headless-Smoke praktisch geschlossen (siehe letzter Audit-Append).
+- Ein echter manueller Ingame-Praxistest bleibt optionaler Zusatztest, aber kein Blocker fuer den Self-Trail-Fixstand.
+
 ## Ziel
 
 Dieses Dokument fasst eine tiefe Analyse des Spiels zusammen:
@@ -628,3 +646,587 @@ Revalidierung vor Fortsetzung wurde durchgefuehrt (Git-Status/Diffs/Log + geziel
 - Ergebnis:
   - gezielter Kollisions-Bugfix fuer Long-Segment/Grid-Randfaelle umgesetzt und technisch verifiziert
   - manueller Ingame-Smoke mit echten engen Loopings / FPS-Schwankungen weiterhin als naechster sinnvoller Schritt offen
+
+### Zusatz-Append (Session 2026-02-22, Self-Trail Debug-Log-Auswertung / Headless-Fallback-Smoke)
+
+- Verbindliche Revalidierung erneut durchgefuehrt:
+  - Audit-Abschnitte gelesen (inkl. Phase 1e / 1f / Self-Trail-Append)
+  - Git-Status/Diffs/Cached-Diffs/Log geprueft
+  - gezielte `rg`-Checks bestaetigen weiterhin vorhandene Marker in `main.js`, `RoundStateOps.js`, `EntityManager.js`, `Renderer.js`, `SettingsStore.js`
+- Revalidiert als weiterhin vorhanden / unveraendert (bezogen auf Self-Trail-Round-Refactor-Zielbereich):
+  - `deriveRoundEndOutcome(...)`-Auslagerung aktiv (`js/modules/RoundStateOps.js`)
+  - `main.js` nutzt weiterhin `deriveRoundEndOutcome(...)`, `clearMatchScene()`, `particles.dispose()`, `setTimeScale(1.0)` und States `ROUND_END`/`MATCH_END`
+  - `EntityManager` enthaelt weiterhin:
+    - dynamisches `deriveSelfTrailSkipRecentSegments(player)`
+    - Multi-Cell-Grid-Registrierung via `_getSegmentGridKeys(...)`
+    - Debug-Flags `?traildebug=1` / `?collisiondebug=1` und Log-Typen `register-segment` / `skip-recent` / `self-hit`
+- Seit letztem validierten Audit-Stand neu sichtbar (Repo-Historie):
+  - neuer Top-Commit `3cf085b` (`fix(trail): harden self-trail grid detection and add debug logs`)
+  - mehrere neuere Editor-Commits oberhalb des frueher genannten Bereichs (z. B. `816231e`, `b97f9eb`, `86d0529`, `7b0eabf`)
+- Worktree-Beobachtung (uncommitted, nicht von diesem Schritt eingefuehrt):
+  - runtime-relevante Source-Aenderungen in `js/main.js`, `js/modules/CustomMapLoader.js`, `js/modules/MapSchema.js`
+  - Editor-UI-Aenderung in `editor/js/ui/EditorSessionControls.js`
+  - umfangreicher lokaler Churn in `dist/` und `node_modules/` (inkl. Vite-/Rollup-/Playwright-Dateien)
+  - keine uncommitted Aenderungen in `js/modules/EntityManager.js`, `js/modules/RoundStateOps.js`, `js/modules/Renderer.js`, `js/modules/SettingsStore.js`
+- Browser-/Runtime-Verifikation (Headless-Fallback statt manuellem Ingame-Test, da Session ohne interaktives GUI-Handling):
+  - `npm run dev` auf `127.0.0.1:4173` gestartet, Playwright-Headless gegen `?playtest=1&traildebug=1`
+  - `GAME_INSTANCE`/Runtime erfolgreich initialisiert, Spielstatus `PLAYING`, keine `pageerror`
+  - natuerliche Debug-Logs traten sofort auf (insb. viele `skip-recent`-Logs von Bot-Trail-Kandidaten)
+  - in einem ersten Lauf wurde die Log-Cap (`80`) schnell erreicht; dadurch konnten spaetere `self-hit`-Logs im Capture unterdrueckt werden
+  - zweiter gezielter Lauf mit erhobener Runtime-Log-Cap (`_trailCollisionDebugMaxLogs=500`) und frueher Injektion lieferte klare Payloads:
+    - `register-segment`: langer Segment-Test mit `segmentLength=180`, `keyCount=19` (Multi-Cell-Registrierung sichtbar)
+    - `skip-recent`: Self-Trail-Kandidat fuer Spieler 0 mit `dist=0`, `skipRecent=6`, Treffer korrekt unterdrueckt (`preHit=null`)
+    - `self-hit`: anschliessend aelterer Segment-Kandidat fuer Spieler 0 mit `skipRecent=6`, Treffer korrekt erkannt (`hit={ hit:true, playerIndex:0 }`)
+- Ergebnis:
+  - Debug-Instrumentierung funktioniert praktisch im Runtime-Kontext und liefert auswertbare Payloads fuer alle drei Log-Typen
+  - Self-Trail-Skip-Recent-Verhalten zeigt plausiblen Wert (`skipRecent=6` im getesteten Runtime-Zustand)
+  - kein Follow-up-Fix erforderlich in dieser Session; keine beabsichtigte Verhaltensaenderung vorgenommen
+  - echter manueller Ingame-Smoke mit engen Loopings / verschiedenen Schiffsgroessen / instabilerer FPS bleibt weiterhin sinnvoller naechster Praxistest
+
+### Zusatz-Append (Session 2026-02-22, Self-Trail offene Punkte per reproduzierbarem Headless-Smoke geschlossen)
+
+- Ziel der offenen Punkte praktisch abgeschlossen (CLI-/Headless-tauglicher Ersatz fuer manuellen GUI-Smoke):
+  - reproduzierbarer Runtime-Smoke fuer Self-Trail/Debug-Logs ueber mehrere Schiffsgroessen
+  - Long-Segment-/Frame-Drop-aehnliche Faelle synthetisch im echten Runtime-Kontext geprueft
+  - keine Runtime-Injektion fuer Log-Cap mehr notwendig
+- Kleine verhaltensneutrale Runtime-Erweiterung in `js/modules/EntityManager.js`:
+  - neuer URL-Param `?traildebugmax=<n>` (alternativ `?collisiondebugmax=<n>`) fuer Debug-Log-Cap
+  - Start-Info loggt jetzt effektives `maxLogs`
+- Neuer reproduzierbarer Smoke-Workflow:
+  - Script `scripts/self-trail-debug-smoke.mjs`
+  - npm-Shortcut `npm run smoke:selftrail`
+  - startet lokalen Vite-Dev-Server, oeffnet Playwright Headless gegen `?playtest=1&traildebug=1&traildebugmax=600`
+  - prueft pro Fahrzeug:
+    - `deriveSelfTrailSkipRecentSegments(player)` (per Browser-Modulimport)
+    - `register-segment`-Logs mit mehrzelligen Long-Segmenten
+    - `skip-recent`-Log + unterdrueckter Treffer (`preHit=null`)
+    - `self-hit`-Log + erkannter Treffer (`hit=true`)
+- Verifikation (gruen, keine Failures) mit mehreren Schiffen:
+  - `drone` (`hitboxRadius=0.8`) -> `derivedSkipRecent=6`
+  - `aircraft` (`hitboxRadius=1.1`) -> `derivedSkipRecent=10`
+  - `manta` (`hitboxRadius=1.4`) -> `derivedSkipRecent=12`
+  - Long-Segment-Test bis `segmentLength=180`, Multi-Cell-Registrierung bestaetigt (je nach Fall `keyCount` >= 20)
+  - alle drei Debug-Log-Typen pro Fahrzeug nachweisbar (`register-segment`, `skip-recent`, `self-hit`)
+- Ergebnis / Status:
+  - die im letzten Append offenen technisch validierbaren Punkte sind damit abgeschlossen
+  - ein echter manueller Ingame-Praxistest (menschliches Fluggefuehl, enge Loopings unter realer Eingabe/FPS) bleibt optionaler Zusatztest, aber kein blocker fuer diesen Fix-/Verifikationsstand
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 kleiner MatchSessionFactory-Extraktionsschritt)
+
+- Ziel:
+  - `startMatch()`-Aufbau weiter entkoppeln (naechster Restpunkt aus Phase 1), ohne UI-/Gameplay-Verhalten zu aendern
+- Umsetzung (verhaltensneutraler Refactor):
+  - neues Modul `js/modules/MatchSessionFactory.js` mit `createMatchSession(...)`
+  - kapselt Match-Session-Assembly aus `Game.startMatch()`:
+    - Entsorgung vorheriger Match-Systeme (`EntityManager`, `PowerupManager`, `ParticleSystem`) + `renderer.clearMatchScene()`
+    - Neuaufbau von `ParticleSystem`, `Arena`, `PowerupManager`, `EntityManager`
+    - Map-Aufloesung via `resolveArenaMapSelection(...)` inkl. Custom-Map-Definition in `CONFIG.MAPS[CUSTOM_MAP_KEY]`
+    - `EntityManager.setup(...)` inkl. human/bot-Setup-Optionen
+    - Rueckgabe eines Match-Session-Objekts (`particles`, `arena`, `powerupManager`, `entityManager`, `mapResolution`, `effectiveMapKey`, `numHumans`, `numBots`, `winsNeeded`)
+  - `js/main.js` nutzt jetzt `createMatchSession(...)` und behaelt bewusst:
+    - UI-Sichtbarkeiten / HUD
+    - Map-Warn-/Fallback-Toasts
+    - Callback-Wiring (`onPlayerFeedback`, `onPlayerDied`, `onRoundEnd`)
+    - Kamera-Erzeugung, Score-Reset, `_startRound()`
+- Nicht Teil dieses Schritts (weiterhin offen):
+  - vollstaendige `MatchSession`-/`MatchFactory`-Abstraktion fuer Lifecycle + Callback-Wiring
+  - `RoundStateController` statt Helper-only `RoundStateOps`
+  - Abschluss `UIManager`-Migration
+- Verifikation:
+  - Syntaxchecks erfolgreich (`node --check js/modules/MatchSessionFactory.js`, `node --check js/main.js`)
+  - Regressions-Smoke erfolgreich: `npm run smoke:selftrail`
+    - `startMatch()`/Match-Neuaufbau mehrfach durchlaufen (mehrere Fahrzeuge)
+    - Self-Trail-Debug-Logs weiter intakt (`register-segment`, `skip-recent`, `self-hit`)
+    - keine Failures im Smoke-JSON
+- Ergebnis:
+  - Phase 1 Restpunkt `MatchFactory/MatchSession` wurde begonnen und sichtbar vorangetrieben
+  - `startMatch()` ist kleiner und klarer, ohne beabsichtigte Verhaltensaenderung
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 MatchSessionFactory-Wiring-Fortsetzung)
+
+- Ziel (Fortsetzung des vorherigen Phase-1-Schritts):
+  - weiteres Entkoppeln von `Game.startMatch()` durch Auslagerung von Runtime-Wiring (Callbacks/Kameras/Score-Reset)
+- Umsetzung (verhaltensneutraler Refactor):
+  - `js/modules/MatchSessionFactory.js` erweitert um `wireMatchSessionRuntime(...)`
+  - kapselt jetzt:
+    - `entityManager.onPlayerFeedback`
+    - `entityManager.onPlayerDied`
+    - `entityManager.onRoundEnd`
+    - Kamera-Erzeugung (`renderer.createCamera(...)` je Human-Player)
+    - initialen Score-Reset aller Player
+  - `js/main.js` uebergibt weiterhin UI-/Game-spezifische Closures (Toast-/Message-/Round-End-Verhalten), aber das Verkabeln selbst passiert im Helper
+- Nicht Teil dieses Schritts (weiterhin offen):
+  - vollstaendige `MatchSession`-Lifecycle-Kapselung (inkl. UI/HUD-Orchestrierung)
+  - `RoundStateController` (State-Transitions + DOM/HUD-Schreibpfade) statt Helper-only `RoundStateOps`
+  - Abschluss `UIManager`-Migration
+- Verifikation:
+  - Syntaxchecks erfolgreich (`node --check js/modules/MatchSessionFactory.js`, `node --check js/main.js`)
+  - Regressions-Smoke erfolgreich: `npm run smoke:selftrail`
+    - mehrfacher `startMatch()`-/Match-Neuaufbau im Headless-Lauf weiterhin stabil
+    - keine Failures, Self-Trail-Debug-Logs unveraendert vorhanden
+- Ergebnis:
+  - `startMatch()` wurde weiter verkleinert (weniger Verdrahtungs-/Setup-Details im `Game`)
+  - Phase-1-Restpunkt `MatchFactory/MatchSession` weiter reduziert, aber noch nicht vollstaendig abgeschlossen
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 MapResolution-Feedback-Helper + initializeMatchSession)
+
+- Ziel (Reihenfolge wie geplant: erst 1 dann 2):
+  - 1) Map-Warn-/Fallback-Toast-Logik aus `startMatch()` auslagern (ohne UI-Aufruf im Helper)
+  - 2) `createMatchSession(...)` + `wireMatchSessionRuntime(...)` zu `initializeMatchSession(...)` zusammenfassen
+- Umsetzung (verhaltensneutraler Refactor):
+  - `js/modules/MatchSessionFactory.js` erweitert um `deriveMapResolutionFeedbackPlan(...)`
+    - liefert `consoleEntries` + `toasts` als reinen Message-Plan (keine direkten `console`-/UI-Aufrufe erforderlich)
+    - bildet die bisherige Logik fuer:
+      - Fallback-/Custom-Map-Warnungen
+      - Hinweis-Toast bei Custom-Map-Warnings
+      - "nur nicht unterstuetzte Editor-Objekte"
+      - "nur Portale, aber Portale deaktiviert"
+  - `js/modules/MatchSessionFactory.js` erweitert um `initializeMatchSession(...)`
+    - orchestriert intern:
+      - `createMatchSession(...)`
+      - `wireMatchSessionRuntime(...)`
+      - `deriveMapResolutionFeedbackPlan(...)`
+    - gibt `{ session, runtime, feedbackPlan }` zurueck
+  - `js/main.js` (`startMatch()`) nutzt jetzt `initializeMatchSession(...)`
+    - UI-spezifische Closures bleiben im `Game`
+    - `feedbackPlan.consoleEntries` und `feedbackPlan.toasts` werden im `Game` angewendet
+- Ergebnis in `startMatch()`:
+  - deutlich weniger Inline-Details fuer Session-Aufbau, Runtime-Wiring und Map-Feedback-Bedingungen
+  - Fokus bleibt auf UI-Orchestrierung + Startsequenz
+- Verifikation:
+  - Syntaxchecks erfolgreich (`node --check js/modules/MatchSessionFactory.js`, `node --check js/main.js`)
+  - Regressions-Smoke erfolgreich: `npm run smoke:selftrail`
+    - mehrfacher `startMatch()`-Pfad weiterhin stabil
+    - keine Failures, Self-Trail-Debug-Logs unveraendert vorhanden
+- Reststatus Phase 1:
+  - `MatchFactory/MatchSession`-Restpunkt weiter reduziert, aber noch offen (vollstaendige Lifecycle-/UI-Orchestrierungskapselung fehlt weiterhin)
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 Start-Match-UI-Orchestrierung via MatchUiStateOps)
+
+- Ziel:
+  - `startMatch()` weiter verkleinern durch Auslagerung der Start-UI-Entscheidungen (Menu/HUD/Overlay/Toast/Splitscreen/P2-HUD)
+- Umsetzung (verhaltensneutraler Refactor):
+  - neues Pure-Helper-Modul `js/modules/MatchUiStateOps.js` mit `deriveMatchStartUiState({ numHumans })`
+  - liefert einen kleinen UI-Plan:
+    - `splitScreenEnabled`
+    - `p2HudVisible`
+    - Sichtbarkeiten fuer `mainMenu`, `hud`, `messageOverlay`, `statusToast`
+  - `js/main.js` erweitert um `_applyMatchStartUiState(uiState)` fuer DOM-/Renderer-Anwendung
+  - `startMatch()` nutzt nun `deriveMatchStartUiState(...)` + `_applyMatchStartUiState(...)` statt mehrerer Inline-UI-Zeilen
+- Nicht Teil dieses Schritts:
+  - Rueckweg-/Ende-UI-Orchestrierung (`_returnToMenu()`, Round/Match-End Overlays) ist noch nicht im selben Stil extrahiert
+  - vollstaendige `UIManager`-Migration bleibt weiterhin offen
+- Verifikation:
+  - Syntaxchecks erfolgreich (`node --check js/modules/MatchUiStateOps.js`, `node --check js/main.js`)
+  - Regressions-Smoke erfolgreich: `npm run smoke:selftrail`
+    - mehrfacher `startMatch()`-Pfad weiterhin stabil
+    - keine Failures, Self-Trail-Debug-Logs unveraendert vorhanden
+- Ergebnis:
+  - `startMatch()` enthaelt weniger UI-Detaillogik und ist als Ablaufsteuerung klarer lesbar
+  - Phase-1-Entkopplung weiter vorangetrieben, aber noch nicht abgeschlossen
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 startMatch-Game-Helper-Cleanup)
+
+- Ziel:
+  - `startMatch()` weiter auf Ablaufsteuerung reduzieren, ohne neue Module mit UI-Seiteneffekten zu ueberladen
+- Umsetzung (verhaltensneutral):
+  - `js/main.js` erweitert um `_applyInitializedMatchSession(initializedMatch)`
+    - uebernimmt Session-Objekte/Felder (`particles`, `arena`, `powerupManager`, `entityManager`, `mapKey`, `numHumans`, `numBots`, `winsNeeded`)
+  - `js/main.js` erweitert um `_applyMatchFeedbackPlan(feedbackPlan)`
+    - wendet `consoleEntries` und `toasts` aus dem bereits ausgelagerten Feedback-Plan an
+  - `startMatch()` ruft diese Helper jetzt direkt nach `initializeMatchSession(...)` auf
+- Verifikation:
+  - Syntaxcheck erfolgreich (`node --check js/main.js`)
+  - Regressions-Smoke erfolgreich (`npm run smoke:selftrail`), keine Failures
+- Ergebnis:
+  - `startMatch()` ist lesbarer und naeher an einer reinen Startsequenz-Orchestrierung
+  - Phase-1-Restpunkt `MatchFactory/MatchSession` weiter reduziert, aber weiterhin nicht vollstaendig abgeschlossen
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 MatchUiStateOps-Erweiterung fuer Round/Return-UI)
+
+- Ziel:
+  - gleiche UI-State-Helper-Logik nicht nur fuer `startMatch()`, sondern auch fuer `_startRound()`, `_onRoundEnd()` und `_returnToMenu()` nutzen
+- Umsetzung (verhaltensneutraler Refactor):
+  - `js/modules/MatchUiStateOps.js` erweitert um:
+    - `deriveReturnToMenuUiState()`
+    - `deriveRoundStartUiState()`
+    - `deriveRoundEndOverlayUiState(roundEndOutcome)`
+  - `js/main.js`:
+    - `_applyMatchStartUiState(...)` intern auf generischen `_applyMatchUiState(...)` umgestellt
+    - `_applyMatchUiState(...)` kann jetzt partielle Visibility-Patches sowie `messageText`/`messageSub` anwenden
+    - `_startRound()` nutzt `deriveRoundStartUiState()` (Overlay/Toast ausblenden)
+    - `_onRoundEnd()` nutzt `deriveRoundEndOverlayUiState(...)` (Message-Overlay-Text + Sichtbarkeit)
+    - `_returnToMenu()` nutzt `deriveReturnToMenuUiState()`
+    - Crosshair-Reset in Game-Helper ausgelagert (`_resetCrosshairUi()`)
+- Verifikation:
+  - Syntaxchecks erfolgreich (`node --check js/modules/MatchUiStateOps.js`, `node --check js/main.js`)
+  - Regressions-Smoke erfolgreich: `npm run smoke:selftrail` (mehrfacher `startMatch()` + `_returnToMenu()`-Pfad)
+    - keine Failures
+    - Self-Trail-Debug-Logs unveraendert vorhanden
+- Ergebnis:
+  - `startMatch()`, `_startRound()`, `_onRoundEnd()` und `_returnToMenu()` haben weniger direkte UI-Detaillogik
+  - UI-Zustandsentscheidungen sind konsistenter in Pure-Helpern gebuendelt
+  - Phase-1-Entkopplung weiter vorangetrieben, aber weiterhin nicht abgeschlossen
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 5er-Block: Teardown-Symmetrie + Countdown-UI + Session-Ref-Helper)
+
+- Ausgefuehrte 5 Schritte (hintereinander, verhaltensneutral):
+  - 1) `MatchSessionFactory`: bisher internes Dispose als exportierten, wiederverwendbaren Helper verallgemeinert (`disposeMatchSessionSystems(renderer, session)`)
+  - 2) `_returnToMenu()` auf den neuen Session-Teardown-Helper umgestellt (symmetrischer zu `create/initializeMatchSession`)
+  - 3) `MatchUiStateOps`: `deriveRoundEndCountdownUiState(roundPause)` hinzugefuegt (Pure-Helper fuer `ROUND_END`-Countdown-Subtext)
+  - 4) `Game`: Session-Referenz-Helper hinzugefuegt (`_getCurrentMatchSessionRefs()`, `_clearMatchSessionRefs()`) und in `startMatch()`/`_returnToMenu()` genutzt
+  - 5) Verifikation komplett durchgefuehrt (Syntaxchecks + voller Multi-Vehicle-Self-Trail-Smoke)
+- Umsetzung im Detail:
+  - `js/modules/MatchSessionFactory.js`
+    - `disposeMatchSessionSystems(...)` wird jetzt sowohl beim Match-Neuaufbau als auch beim Menue-Rueckweg wiederverwendbar
+  - `js/modules/MatchUiStateOps.js`
+    - `deriveRoundEndCountdownUiState(...)` liefert nur bei `countdown > 0` einen UI-Patch fuer `messageSub`
+  - `js/main.js`
+    - `startMatch()` uebergibt `currentSession` jetzt via `_getCurrentMatchSessionRefs()`
+    - `ROUND_END`-Update nutzt `deriveRoundEndCountdownUiState(...)` + `_applyMatchUiState(...)`
+    - `_returnToMenu()` nutzt `disposeMatchSessionSystems(...)` + `_clearMatchSessionRefs()`
+- Verifikation:
+  - Syntaxchecks erfolgreich:
+    - `node --check js/modules/MatchSessionFactory.js`
+    - `node --check js/modules/MatchUiStateOps.js`
+    - `node --check js/main.js`
+  - Regressions-Smoke erfolgreich:
+    - `npm run smoke:selftrail`
+    - 3 Fahrzeuge (`drone`, `manta`, `aircraft`)
+    - keine Failures
+    - Self-Trail-Debug-Logs (`register-segment`, `skip-recent`, `self-hit`) weiterhin vorhanden
+- Ergebnis:
+  - Match-Session Start/Stop-Pfade sind symmetrischer und klarer
+  - `ROUND_END`-UI-Update folgt nun ebenfalls dem Pure-Helper-/Apply-Muster
+  - Phase 1 weiter reduziert, aber noch nicht abgeschlossen
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 5er-Block: update()-State-Branch-Entkopplung)
+
+- Ausgefuehrte 5 Schritte (hintereinander, verhaltensneutral mit kleinem Sicherheits-Guard):
+  - 1) `Game`: zentrale Teardown-Wiederverwendung weitergezogen (`disposeMatchSessionSystems(...)` + Session-Ref-Helper bereits aktiv in Start/Stop-Pfaden genutzt)
+  - 2) `ROUND_END`-Branch aus `update(dt)` in `_updateRoundEndState(dt)` extrahiert
+  - 3) `MATCH_END`-Branch aus `update(dt)` in `_updateMatchEndState(dt)` extrahiert
+  - 4) `PLAYING`-Branch in mehrere Helper zerlegt:
+    - `_updatePlayingState(dt)` (Orchestrierung)
+    - `_updatePlayingHudTick(dt)` (HUD/Fighter-HUD/Lock-Farben)
+    - `_applyPlayingTimeScaleFromEffects()` (TimeScale-Reset + `SLOW_TIME`)
+  - 5) Vollverifikation (Syntax + Self-Trail-Multi-Vehicle-Smoke) erfolgreich
+- Umsetzung im Detail:
+  - `js/main.js`
+    - `update(dt)` delegiert State-spezifische Logik jetzt nur noch an `_updatePlayingState`, `_updateRoundEndState`, `_updateMatchEndState`
+    - `ROUND_END`-Countdown nutzt weiterhin den bereits ausgelagerten `deriveRoundEndCountdownUiState(...)`-Pfad
+    - `MATCH_END`-Helper enthaelt einen kleinen Sicherheits-Guard:
+      - nach `Escape` -> `_returnToMenu()` wird frueh `return`ed, damit kein `updateCameras()` auf bereits freigegebener Session ausgefuehrt wird
+      - das ist eine kleine Robustheitsverbesserung, keine beabsichtigte UX-/Gameplay-Aenderung
+- Verifikation:
+  - Syntaxchecks erfolgreich:
+    - `node --check js/main.js`
+    - `node --check js/modules/MatchSessionFactory.js`
+    - `node --check js/modules/MatchUiStateOps.js`
+  - Regressions-Smoke erfolgreich:
+    - `npm run smoke:selftrail`
+    - 3 Fahrzeuge (`drone`, `manta`, `aircraft`)
+    - keine Failures
+    - Self-Trail-Debug-Logs unveraendert vorhanden
+- Ergebnis:
+  - `update(dt)` ist als Top-Level-Orchestrierung deutlich lesbarer
+  - Phase-1-Entkopplung im Runtime-Controller weiter vorangetrieben
+  - grosser Restpunkt (`RoundStateController`/weitere Orchestrierungskapselung) bleibt weiterhin offen
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 RoundStateControllerOps-Vorbereitung (Tick-/Transition-Helper))
+
+- Ziel:
+  - naechsten grossen Phase-1-Restpunkt vorbereiten (`RoundStateController`), ohne sofort einen kompletten Controller einzufuehren
+  - Round-/Match-End Tick-Entscheidungen aus `Game` in Pure-Helper verlagern
+- Umsetzung (verhaltensneutral mit kleinem bestehenden Sicherheits-Guard im `MATCH_END`-Pfad):
+  - neues Modul `js/modules/RoundStateControllerOps.js` mit Pure-Helpern:
+    - `deriveRoundEndControllerTransition(roundEndOutcome, { defaultRoundPause })`
+    - `deriveRoundEndTickStep({ dt, roundPause, enterPressed, escapePressed })`
+    - `deriveMatchEndTickStep({ enterPressed, escapePressed })`
+  - `js/main.js` nutzt diese Helper in:
+    - `_onRoundEnd()` (Controller-Transition / `roundPause` + `state` + Overlay-Textdaten)
+    - `_updateRoundEndState(dt)` (Tick-Decision fuer Return/Menu vs. Wait vs. Start-Round)
+    - `_updateMatchEndState(dt)` (Tick-Decision fuer Restart/Return/Wait)
+- Beibehaltener Verhaltensrahmen:
+  - Overlay-Rendering bleibt ueber `MatchUiStateOps` + `_applyMatchUiState(...)`
+  - `deriveRoundEndOutcome(...)` aus `RoundStateOps.js` bleibt die fachliche Ergebnisquelle
+  - `MATCH_END`-Escape-Pfad bleibt robust (kein `updateCameras()` nach `_returnToMenu()`)
+- Verifikation:
+  - Syntaxchecks erfolgreich (`node --check js/modules/RoundStateControllerOps.js`, `node --check js/main.js`)
+  - gezielter Node-Check fuer neue Pure-Helper erfolgreich (Transitions + Tick-Aktionen inkl. `RETURN_TO_MENU`/`START_ROUND`/`RESTART_MATCH`)
+  - Hinweis zum bestehenden Headless-Smoke-Runner:
+    - `npm run smoke:selftrail` zeigte in dieser Session mehrfach einen Runner-Timeout / `page.waitForFunction`-Timeout im Playwright-Skript (`GAME_INSTANCE`/`PLAYING`-Warten), ohne direkten Code-Fehler im Refactor-Pfad
+    - daher fuer diesen Schritt primaer Syntax + Node-Helper-Verifikation genutzt; erneuter Runtime-Smoke bleibt sinnvoll nach Runner-Stabilisierung
+- Ergebnis:
+  - Round-/Match-End Tick-Entscheidungen sind sichtbar aus `Game`-Imperativcode herausgeloest
+  - klarer Vorbau fuer spaeteren vollstaendigen `RoundStateController`, aber Restpunkt bleibt offen
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 5er-Block: erster `RoundStateController` + Smoke-Runner-Reha)
+
+- Kontext (vor Verifikation behoben):
+  - Runtime-Regression blockierte Spielstart (nur Menue erreichbar):
+    - doppelter `THREE`-Import in `js/modules/Arena.js`
+    - fehlende Arena-Methoden (`getRandomPosition*`, `getPortalLevels*`, `update(dt)`)
+  - Startup-Blocker wurde behoben; Spielstart (`PLAYING`) wieder verifiziert
+- Ausgefuehrte 5 Schritte (hintereinander, verhaltensneutral im Refactor-Teil):
+  - 1) neues Modul `js/modules/RoundStateController.js` eingefuehrt (dunner Wrapper ueber `RoundStateControllerOps`)
+  - 2) `Game` instanziiert Controller frueh im Konstruktor (`this.roundStateController`)
+  - 3) `_onRoundEnd()` nutzt jetzt `roundStateController.deriveRoundEndTransition(...)`
+  - 4) `_updateRoundEndState(dt)` und `_updateMatchEndState(dt)` nutzen jetzt Controller-Tick-Methoden statt direkter Ops-Calls
+  - 5) gemeinsame Action-Ausfuehrung in `Game` eingefuehrt (`_executeRoundStateTickAction`) fuer `RETURN_TO_MENU` / `START_ROUND` / `RESTART_MATCH`
+- Zusaetzliche Regressions-/Tooling-Fixes (zur belastbaren Verifikation):
+  - `js/modules/EntityManager.js`
+    - fehlender Self-Trail-Debug-Log `register-segment` in `registerTrailSegment(...)` wiederhergestellt
+    - dadurch prueft der Headless-Smoke wieder `keyCount`/Long-Segment-Multi-Cell-Registrierung
+  - `scripts/self-trail-debug-smoke.mjs`
+    - bestehende Runner-Stabilisierung (Lockfile + Existing-Server-Probe) weiter verifiziert
+    - Cleanup-Fix: Playwright-Browser wird jetzt auch bei Fehlern im `finally` geschlossen (verhindert Haenger nach `waitForFunction`-Timeout)
+- Verifikation:
+  - Syntaxchecks erfolgreich:
+    - `node --check js/modules/RoundStateController.js`
+    - `node --check js/main.js`
+    - `node --check js/modules/EntityManager.js`
+    - `node --check scripts/self-trail-debug-smoke.mjs`
+  - Regressions-Smoke erfolgreich:
+    - `npm run smoke:selftrail`
+    - `serverMode: spawned-local` (Lock/Server-Probe/Cleanup-Pfad mitgetestet)
+    - 3 Fahrzeuge (`drone`, `manta`, `aircraft`)
+    - keine Failures
+    - erwartete Debug-Logs wieder vorhanden (`register-segment`, `skip-recent`, `self-hit`)
+    - Long-Segment-/Multi-Cell-Nachweis wieder gruen (`maxRegisterKeyCount=20`, `maxRegisterSegmentLength=180`)
+- Ergebnis:
+  - erster echter `RoundStateController`-Baustein ist im Projekt vorhanden (wenn auch noch duenn)
+  - `Game` enthaelt weniger direkte Tick-/Transition-Entscheidungsverdrahtung fuer Round/Match-End
+  - Phase-1-Restpunkt `RoundStateController` ist sichtbar reduziert, aber weiterhin nicht vollstaendig abgeschlossen
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 5er-Block: `_onRoundEnd()` weiter entschlackt + Controller kennt On-Round-End-Plan)
+
+- Ausgefuehrte 5 Schritte (hintereinander, verhaltensneutral):
+  - 1) `RoundStateController` um `deriveOnRoundEndPlan(players, inputs)` erweitert (kombiniert Outcome + Transition)
+  - 2) `Game._onRoundEnd()`-Recording-Dump in `_finalizeRoundRecording(winner)` ausgelagert
+  - 3) Gewinner-Score-Inkrement in `_applyRoundEndWinnerScore(winner)` ausgelagert
+  - 4) Controller-Inputs fuer Round-End in `_buildRoundEndControllerInputs(winner)` gekapselt
+  - 5) `_onRoundEnd()` nutzt jetzt `_deriveOnRoundEndPlan(winner)` + `_applyRoundEndControllerTransition(...)`
+- Wirkung:
+  - `Game` importiert `deriveRoundEndOutcome(...)` nicht mehr direkt
+  - fachliche Round-End-Outcome+Transition-Kette liegt naeher an der `RoundStateController`-Schicht
+- Zwischen-Verifikation:
+  - Syntaxchecks erfolgreich (`node --check js/modules/RoundStateController.js`, `node --check js/main.js`)
+  - Headless-Smoke zuerst mit transientem Playwright-Launch-Crash (Chromium-Prozess schliesst sofort), anschliessend Retry erfolgreich (kein Code-Fehler im Refactor-Pfad)
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 5er-Block: Round/Match-End-Tick-Anwendung in Game weiter zerlegt)
+
+- Ausgefuehrte 5 Schritte (hintereinander, verhaltensneutral):
+  - 1) Tick-Input-Lesen fuer `ROUND_END` in `_readRoundEndTickInputs(dt)` ausgelagert
+  - 2) Tick-Input-Lesen fuer `MATCH_END` in `_readMatchEndTickInputs()` ausgelagert
+  - 3) Countdown-UI-Anwendung in `_applyRoundEndTickUi(roundEndTick)` ausgelagert
+  - 4) Kamera-Update-Entscheidung in `_updateRoundStateCamerasIfNeeded(dt, shouldUpdateCameras)` zentralisiert
+  - 5) Schritt-Anwendung pro Tick in `_applyRoundEndTickStep(...)` und `_applyMatchEndTickStep(...)` gekapselt; `_updateRoundEndState()` / `_updateMatchEndState()` wurden weiter ausgeduennt
+- Verifikation:
+  - Syntaxchecks erfolgreich (`node --check js/main.js`, `node --check js/modules/RoundStateController.js`)
+  - Regressions-Smoke erfolgreich:
+    - `npm run smoke:selftrail`
+    - `serverMode: spawned-local`
+    - 3 Fahrzeuge (`drone`, `manta`, `aircraft`)
+    - keine Failures
+    - Self-Trail-Debug-Logs weiterhin vorhanden (`register-segment`, `skip-recent`, `self-hit`)
+- Ergebnis:
+  - `ROUND_END`/`MATCH_END`-Pfade in `Game` sind weiter in Input -> Controller -> Apply zerlegt
+  - naechster sinnvoller Schritt bleibt die weitere Verschiebung von Round-End-Orchestrierung (Recorder/Score/Outcome/UI) in eine dediziertere Controller-/Coordinator-Schicht
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 weiterer Block: `RoundEndCoordinator` + Node-Smoke fuer RoundState)
+
+- Ziel:
+  - `_onRoundEnd()` weiter von Recorder-/Score-/Plan-Orchestrierung entlasten
+  - einen kleinen, schnellen Node-Smoke fuer `RoundStateController`/Round-End-Orchestrierung etablieren (Phase-3-Testabdeckung vorbereiten)
+- Umsetzung (verhaltensneutral):
+  - neues Modul `js/modules/RoundEndCoordinator.js`
+    - `finalizeRoundRecording(...)` (inkl. Fehlerfang + Debug-Logging wie bisher im `Game`)
+    - `applyRoundEndWinnerScore(...)`
+    - `buildRoundEndControllerInputs(...)`
+    - `deriveOnRoundEndCoordinatorPlan(...)`
+    - `coordinateRoundEnd(...)` (Recorder + Score + Controller-Plan in einem Orchestrierungsschritt)
+  - `js/main.js`
+    - `_onRoundEnd()` nutzt jetzt `coordinateRoundEnd(...)`
+    - mehrere vorherige lokale Helfer (`_finalizeRoundRecording`, `_applyRoundEndWinnerScore`, `_buildRoundEndControllerInputs`, `_deriveOnRoundEndPlan`) entfallen aus `Game`
+  - neuer Node-Smoke `scripts/round-state-controller-smoke.mjs`
+    - testet `RoundStateController`-Tick-Aktionen (`WAIT`, `START_ROUND`, `RETURN_TO_MENU`, `RESTART_MATCH`)
+    - testet `coordinateRoundEnd(...)` Happy-Path (`ROUND_END`), Match-End-Pfad (`MATCH_END`) und Recorder-Fehlerfall (Fehler wird protokolliert, Ablauf bleibt stabil)
+  - `package.json`
+    - neuer Script-Shortcut `npm run smoke:roundstate`
+- Verifikation:
+  - Syntaxchecks erfolgreich:
+    - `node --check js/modules/RoundEndCoordinator.js`
+    - `node --check js/main.js`
+    - `node --check scripts/round-state-controller-smoke.mjs`
+  - Node-Smoke erfolgreich:
+    - `npm run smoke:roundstate` -> `ok: true`
+    - Hinweis: Node gibt weiterhin nur einen nicht-blockierenden `[MODULE_TYPELESS_PACKAGE_JSON]`-Warnhinweis aus (ESM-Reparse), kein Testfehler
+  - Regressions-Smoke erfolgreich:
+    - `npm run smoke:selftrail`
+    - 3 Fahrzeuge (`drone`, `manta`, `aircraft`)
+    - keine Failures
+- Ergebnis:
+  - `_onRoundEnd()` ist weiter reduziert und konsistenter als Orchestrierungspunkt
+  - Round-End-Recorder/Score/Controller-Plan-Logik liegt nun in einer dedizierten Schicht (`RoundEndCoordinator`)
+  - Phase 1 (RoundStateController/Orchestrierung) weiter reduziert; Phase 3-Testabdeckung leicht verbessert (neuer schneller Node-Smoke)
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 weiterer Block: UI-Plan im `RoundEndCoordinator` + gemeinsame Tick-Step-Basis)
+
+- Ziel:
+  - `Game` soll beim Round-End weniger Overlay-Feldwissen (`messageText`/`messageSub`) tragen
+  - weitere Reduktion doppelter Apply-Logik in `ROUND_END`/`MATCH_END` Tick-Pfaden
+- Umsetzung (verhaltensneutral):
+  - `js/modules/RoundEndCoordinator.js`
+    - importiert `deriveRoundEndOverlayUiState(...)` aus `MatchUiStateOps`
+    - neues `deriveRoundEndCoordinatorUiState(plan)` erzeugt fertigen Overlay-UI-State aus der Controller-Transition
+    - `coordinateRoundEnd(...)` liefert jetzt zusaetzlich `uiState`
+  - `js/main.js`
+    - `_onRoundEnd()` nutzt `_applyRoundEndCoordinatorPlan(roundEndPlan)` statt direktem Overlay-Feld-Mapping
+    - `_applyRoundEndControllerTransition(...)` wurde in state-fokussierte Variante aufgeteilt (`_applyRoundEndControllerTransitionState(...)`)
+    - neue gemeinsame Tick-Basis `_applyRoundStateTickStepBase(tickStep, dt)` kapselt `RETURN_TO_MENU`-Kurzpfad + Kamera-Update fuer `ROUND_END` und `MATCH_END`
+  - `scripts/round-state-controller-smoke.mjs`
+    - erweitert um Assertions fuer `result.uiState` (Overlay sichtbar + Texte vorhanden, auch im Recorder-Fehlerfall)
+- Verifikation:
+  - Syntaxchecks erfolgreich:
+    - `node --check js/modules/RoundEndCoordinator.js`
+    - `node --check js/main.js`
+    - `node --check scripts/round-state-controller-smoke.mjs`
+  - Node-Smoke erfolgreich:
+    - `npm run smoke:roundstate` -> `ok: true`
+    - `uiState`-Assertions gruen
+    - Hinweis: `[MODULE_TYPELESS_PACKAGE_JSON]` bleibt ein nicht-blockierender Node-Warnhinweis
+  - Regressions-Smoke erfolgreich:
+    - `npm run smoke:selftrail`
+    - 3 Fahrzeuge (`drone`, `manta`, `aircraft`)
+    - keine Failures
+- Ergebnis:
+  - `Game` kennt beim Round-End-Overlay weniger konkrete Textfeld-Verdrahtung
+  - `ROUND_END`/`MATCH_END` teilen nun mehr Apply-Infrastruktur im `Game`
+  - Phase-1-Restpunkt (RoundState-/UI-Orchestrierung) weiter reduziert, aber weiterhin offen
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 weiterer Block: gemeinsamer RoundState-Tick-Runner mit Hooks)
+
+- Ziel:
+  - verbleibende Duplikate in `_applyRoundEndTickStep(...)` / `_applyMatchEndTickStep(...)` weiter reduzieren
+  - Tick-Verhalten durch Node-Smoke staerker absichern (Countdown-Text + Camera-Flags)
+- Umsetzung (verhaltensneutral):
+  - `js/main.js`
+    - neuer gemeinsamer Tick-Core `_runRoundStateTickStepCore(tickStep, dt, hooks)`:
+      - optionaler `beforeBase`-Hook (z. B. `RESTART_MATCH`)
+      - gemeinsamer `RETURN_TO_MENU`-Kurzpfad
+      - gemeinsames Kamera-Update
+      - optionaler `afterBase`-Hook (z. B. `START_ROUND`)
+    - `_applyRoundEndTickMutableState(roundEndTick)` ausgelagert (`roundPause` + Countdown-UI)
+    - `_applyRoundEndTickStep(...)` nutzt jetzt Tick-Core + `afterBase`
+    - `_applyMatchEndTickStep(...)` nutzt jetzt Tick-Core + `beforeBase`
+  - `scripts/round-state-controller-smoke.mjs`
+    - Tick-Assertions erweitert:
+      - `countdownMessageSub` fuer `WAIT`
+      - `shouldUpdateCameras`-Flags fuer `START_ROUND`, `RETURN_TO_MENU`, `RESTART_MATCH`
+- Verifikation:
+  - Syntaxchecks erfolgreich:
+    - `node --check js/main.js`
+    - `node --check scripts/round-state-controller-smoke.mjs`
+  - Node-Smoke erfolgreich:
+    - `npm run smoke:roundstate` -> `ok: true`
+    - Tick-Assertions inkl. Camera-Flags/Countdown gruen
+    - `[MODULE_TYPELESS_PACKAGE_JSON]`-Warnhinweis weiterhin nicht-blockierend
+  - Regressions-Smoke erfolgreich:
+    - `npm run smoke:selftrail`
+    - 3 Fahrzeuge (`drone`, `manta`, `aircraft`)
+    - keine Failures
+- Ergebnis:
+  - `ROUND_END`/`MATCH_END`-Tick-Anwendung im `Game` ist nochmals symmetrischer
+  - Refactor-Risiko durch erweiterte `smoke:roundstate`-Tick-Assertions reduziert
+  - Phase-1-Restpunkt weiter verkleinert, aber nicht abgeschlossen
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 weiterer Block: generischer RoundState-Update-Runner)
+
+- Ziel:
+  - die letzten kleinen Duplikate zwischen `_updateRoundEndState(dt)` und `_updateMatchEndState(dt)` reduzieren
+  - Update-Pfade als deklarative Kombination aus `deriveTickStep` + `applyTickStep` lesbarer machen
+- Umsetzung (verhaltensneutral):
+  - `js/main.js`
+    - `_deriveRoundEndTickStep(dt)` extrahiert (Controller + `ROUND_END`-Input-Reader)
+    - `_deriveMatchEndTickStep()` extrahiert (Controller + `MATCH_END`-Input-Reader)
+    - neuer generischer Helper `_runRoundStateTickUpdate(dt, deriveTickStep, applyTickStep)`
+      - ruft Tick-Ableitung und Tick-Anwendung zentral auf
+      - gibt den booleschen Kurzpfad (`return`/weiterlaufen) an den Aufrufer zurueck
+    - `_updateRoundEndState(dt)` und `_updateMatchEndState(dt)` nutzen jetzt den generischen Runner
+- Verifikation:
+  - Syntaxcheck erfolgreich: `node --check js/main.js`
+  - Node-Smoke erfolgreich:
+    - `npm run smoke:roundstate` -> `ok: true`
+    - Tick-/Coordinator-Assertions unveraendert gruen
+    - `[MODULE_TYPELESS_PACKAGE_JSON]`-Warnhinweis weiterhin nicht-blockierend
+  - Regressions-Smoke erfolgreich:
+    - `npm run smoke:selftrail`
+    - 3 Fahrzeuge (`drone`, `manta`, `aircraft`)
+    - keine Failures
+- Ergebnis:
+  - `ROUND_END`/`MATCH_END`-Update-Pfade sind jetzt konsistenter als `derive -> apply` formuliert
+  - `Game`-RoundState-Update-Top-Level wurde weiter verschlankt
+  - Phase-1-Restpunkt weiter reduziert, aber weiterhin offen
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 weiterer 5er-Block: `RoundEndCoordinator` Effects-Plan + `_onRoundEnd()` Request/Apply-Entkopplung)
+
+- Ausgefuehrte 5 Schritte (hintereinander, verhaltensneutral):
+  - 1) `RoundEndCoordinator`: `deriveRoundEndCoordinatorEffectsPlan()` hinzugefuegt (zunaechst HUD-Update als expliziter PostAction-Plan)
+  - 2) `coordinateRoundEnd(...)` liefert jetzt `effectsPlan` zusaetzlich zu `transition`/`uiState`
+  - 3) `Game`: Request-Building fuer den Coordinator in `_buildRoundEndCoordinatorRequest(winner)` ausgelagert
+  - 4) `Game`: Effects-Anwendung in `_applyRoundEndCoordinatorEffects(effectsPlan)` ausgelagert (HUD-Update via Plan statt direktem `_updateHUD()` in `_onRoundEnd()`)
+  - 5) `Game`: UI-Anwendung in `_applyRoundEndCoordinatorUiState(uiState)` separiert; `_onRoundEnd()` arbeitet jetzt ueber `coordinateRoundEnd(...)` + `_applyRoundEndCoordinatorPlan(...)`
+- Umsetzung im Detail:
+  - `js/modules/RoundEndCoordinator.js`
+    - neues `effectsPlan` mit `shouldUpdateHud: true` und `reason: 'ROUND_END'`
+    - erleichtert spaetere Erweiterungen (weitere PostActions ohne direkte `Game`-Verdrahtung)
+  - `js/main.js`
+    - `_onRoundEnd()` kennt weniger Einzelteile (Recorder/HUD/UI-Details bleiben hinter Request-/Apply-Helpern)
+    - `roundEndPlan` wird konsistenter als strukturierter Coordinator-Output behandelt (`transition`, `effectsPlan`, `uiState`)
+  - `scripts/round-state-controller-smoke.mjs`
+    - neue Assertions fuer `effectsPlan` (inkl. Recorder-Fehlerfall), damit die neue Rueckgabeform abgesichert bleibt
+- Verifikation:
+  - Syntaxchecks erfolgreich:
+    - `node --check js/modules/RoundEndCoordinator.js`
+    - `node --check js/main.js`
+    - `node --check scripts/round-state-controller-smoke.mjs`
+  - Node-Smoke erfolgreich:
+    - `npm run smoke:roundstate` -> `ok: true`
+    - `effectsPlan`-Assertions gruen
+    - `[MODULE_TYPELESS_PACKAGE_JSON]`-Warnhinweis weiterhin nicht-blockierend
+  - Regressions-Smoke erfolgreich:
+    - `npm run smoke:selftrail`
+    - 3 Fahrzeuge (`drone`, `manta`, `aircraft`)
+    - keine Failures
+- Ergebnis:
+  - `_onRoundEnd()` ist weiter als schlanker Orchestrierungspunkt formuliert
+  - `RoundEndCoordinator` beschreibt jetzt nicht nur State/UI, sondern auch PostActions (HUD) explizit
+  - Phase-1-Restpunkt weiter reduziert, aber weiterhin nicht abgeschlossen
+
+### Zusatz-Append (Session 2026-02-23, Phase 1 weiterer 5er-Block: Descriptor-basierter RoundState-Tick-Update-Runner)
+
+- Ausgefuehrte 5 Schritte (hintereinander, verhaltensneutral):
+  - 1) `Game`: `_buildRoundEndStateTickDescriptor()` eingefuehrt (`deriveTickStep` + `applyTickStep` fuer `ROUND_END`)
+  - 2) `Game`: `_buildMatchEndStateTickDescriptor()` eingefuehrt (`deriveTickStep` + `applyTickStep` fuer `MATCH_END`)
+  - 3) `Game`: `_runRoundStateTickDescriptor(dt, descriptor)` als kleine Descriptor-Adapter-Schicht ueber dem bestehenden generischen Runner hinzugefuegt
+  - 4) `_updateRoundEndState(dt)` auf Descriptor-Pfad umgestellt
+  - 5) `_updateMatchEndState(dt)` auf Descriptor-Pfad umgestellt
+- Umsetzung im Detail:
+  - `js/main.js`
+    - RoundState-Update-Pfade sind jetzt noch klarer als zusammengesetzte Descriptoren formuliert
+    - bereitet spaetere weitere Vereinheitlichung vor (z. B. feste Descriptor-Tabellen / State-Mapping)
+- Verifikation:
+  - Syntaxcheck erfolgreich: `node --check js/main.js`
+  - Node-Smoke erfolgreich:
+    - `npm run smoke:roundstate` -> `ok: true`
+    - Coordinator-/Tick-Assertions weiterhin gruen
+    - `[MODULE_TYPELESS_PACKAGE_JSON]`-Warnhinweis weiterhin nicht-blockierend
+  - Regressions-Smoke erfolgreich:
+    - `npm run smoke:selftrail`
+    - 3 Fahrzeuge (`drone`, `manta`, `aircraft`)
+    - keine Failures
+- Ergebnis:
+  - `ROUND_END`/`MATCH_END`-Updatepfade sind weiter formalisiert (Descriptor-Ansatz)
+  - `Game`-RoundState-Orchestrierung nochmals etwas gleichfoermiger
+  - Phase-1-Restpunkt weiter reduziert, aber weiterhin offen

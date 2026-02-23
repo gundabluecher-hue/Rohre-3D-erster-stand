@@ -2,7 +2,14 @@ import * as THREE from 'three';
 import { DemoInput } from './DemoInput.js';
 import { DemoPlayer } from './DemoPlayer.js';
 import { EnergyShardField } from './EnergyShardField.js';
+import { ParticleSystem } from './Particles.js';
 import { PowerupPrototypeManager } from './PowerupPrototypeManager.js';
+
+// Post-processing
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import {
     ApexBrakeFieldPowerup,
     BlinkGatePowerup,
@@ -57,10 +64,15 @@ export class PowerupLabApp {
         this._elapsed = 0;
         this._worldTimeScale = 1;
 
+        this.particleSystem = new ParticleSystem(this.scene);
+
+        this._setupPostProcessing();
+
         this._bindHud();
         this._buildEnvironment();
 
         this.player = new DemoPlayer(this.scene);
+        this.player.setParticleSystem(this.particleSystem);
         this.shards = new EnergyShardField(this.scene, {
             count: 28,
             bounds: {
@@ -101,6 +113,8 @@ export class PowerupLabApp {
         this.shards?.dispose?.();
         this.player?.dispose?.();
         this.powerupManager?.dispose?.();
+        this.particleSystem?.dispose?.();
+        this.composer?.dispose?.();
         this._disposeSceneObjects();
         this.renderer?.dispose?.();
     }
@@ -114,6 +128,24 @@ export class PowerupLabApp {
             effects: document.getElementById('effectsValue'),
             eventLog: document.getElementById('eventLog'),
         };
+    }
+
+    _setupPostProcessing() {
+        const renderPass = new RenderPass(this.scene, this.camera);
+
+        const bloomPass = new UnrealBloomPass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            0.65,  // strength
+            0.4,   // radius
+            0.85   // threshold
+        );
+
+        const outputPass = new OutputPass();
+
+        this.composer = new EffectComposer(this.renderer);
+        this.composer.addPass(renderPass);
+        this.composer.addPass(bloomPass);
+        this.composer.addPass(outputPass);
     }
 
     _buildEnvironment() {
@@ -374,6 +406,8 @@ export class PowerupLabApp {
         this._updateDecorations(worldDt);
         this.shards.update(worldDt, this._elapsed, this.player, this._worldTimeScale);
 
+        this.particleSystem.update(worldDt);
+
         this.powerupManager.update(worldDt, this._elapsed, {
             player: this.player,
             scene: this.scene,
@@ -384,7 +418,12 @@ export class PowerupLabApp {
         this._updateCamera(dt);
         this._updateHud();
 
-        this.renderer.render(this.scene, this.camera);
+        // Use composer instead of renderer.render
+        if (this.composer) {
+            this.composer.render();
+        } else {
+            this.renderer.render(this.scene, this.camera);
+        }
     };
 
     _updateDecorations(worldDt) {
@@ -421,12 +460,24 @@ export class PowerupLabApp {
             .addScaledVector(worldUp, 3.4)
             .addScaledVector(playerForward, -11.5);
 
+        // Shake offset
+        this._tmpVec2.set(0, 0, 0);
+        this.player.getShakeOffset(this._tmpVec2);
+        this._camTargetPos.add(this._tmpVec2);
+
         this.camera.position.lerp(this._camTargetPos, 1 - Math.exp(-4.8 * dt));
 
         this._camLookAt.copy(playerPos)
             .addScaledVector(playerForward, 8.5)
             .addScaledVector(worldUp, 0.4);
+
         this.camera.lookAt(this._camLookAt);
+
+        // Dynamic FOV
+        const speedRatio = THREE.MathUtils.clamp((this.player.velocity.length() - 20) / 100, 0, 1);
+        const targetFov = 70 + speedRatio * 15;
+        this.camera.fov += (targetFov - this.camera.fov) * (1 - Math.exp(-3 * dt));
+        this.camera.updateProjectionMatrix();
     }
 
     _updateHud() {
@@ -439,8 +490,41 @@ export class PowerupLabApp {
             this.hud.position.textContent = `${state.position.x.toFixed(1)} / ${state.position.y.toFixed(1)} / ${state.position.z.toFixed(1)}`;
         }
         if (this.hud.effects) {
-            this.hud.effects.textContent = state.effects.length > 0 ? state.effects.join(' | ') : 'Keine';
+            this._renderEffectBars(state.activeEffects);
         }
+    }
+
+    _renderEffectBars(activeEffects) {
+        const container = this.hud.effects;
+        if (!container) return;
+
+        if (activeEffects.length === 0) {
+            container.textContent = 'Keine';
+            return;
+        }
+
+        container.innerHTML = '';
+        activeEffects.forEach(effect => {
+            const div = document.createElement('div');
+            div.className = 'hud__timer';
+
+            const label = document.createElement('div');
+            label.textContent = `${effect.name} (${effect.timeLeft.toFixed(1)}s)`;
+            div.appendChild(label);
+
+            const bg = document.createElement('div');
+            bg.className = 'hud__progress-bg';
+            const fill = document.createElement('div');
+            fill.className = 'hud__progress-fill';
+            if (effect.type === 'warm') fill.classList.add('is-warm');
+            if (effect.type === 'chrono') fill.classList.add('is-chrono');
+
+            fill.style.width = `${(effect.timeLeft / effect.maxTime) * 100}%`;
+            bg.appendChild(fill);
+            div.appendChild(bg);
+
+            container.appendChild(div);
+        });
     }
 
     _emitEvent(text, tone = 'cool') {
@@ -479,6 +563,7 @@ export class PowerupLabApp {
         const width = window.innerWidth;
         const height = window.innerHeight;
         this.renderer.setSize(width, height, false);
+        this.composer?.setSize(width, height);
         this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
     }

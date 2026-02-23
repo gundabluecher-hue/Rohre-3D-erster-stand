@@ -1,0 +1,29 @@
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m767[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m4173[22m/[39m
+[2m03:08:40[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/modules/Arena.js[22m
+[2m03:11:59[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/modules/Arena.js[22m
+[2m04:05:02[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/modules/EntityManager.js[22m
+[2m04:05:07[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mindex.html[22m
+[2m04:05:15[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/main.js[22m
+[2m04:05:24[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/index.html[22m
+[2m04:06:21[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m04:06:21[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m04:06:21[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m04:06:22[22m [36m[1m[vite][22m[39m server restarted.
+[2m04:06:34[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m04:06:34[22m [36m[1m[vite][22m[39m server restarted.
+[2m04:07:05[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m04:07:06[22m [36m[1m[vite][22m[39m server restarted.
+[2m04:09:29[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/entities/GeneratedVehicleConfigs.js[22m
+[2m04:10:34[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/entities/GeneratedVehicleConfigs.js[22m
+[2m04:16:43[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m04:16:46[22m [36m[1m[vite][22m[39m server restarted.
+[2m04:16:59[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m04:16:59[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m04:17:01[22m [36m[1m[vite][22m[39m server restarted.
+[2m04:17:17[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m04:17:17[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m04:17:18[22m [36m[1m[vite][22m[39m server restarted.
+[2m04:17:32[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/index.html[22m

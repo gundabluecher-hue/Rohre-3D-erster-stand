@@ -37,6 +37,11 @@ export class DemoPlayer {
         this.chronoWorldTimeScale = 1;
         this._slingshotDirection = new THREE.Vector3(0, 0, -1);
 
+        this.particleSystem = null;
+
+        this.shakeTimer = 0;
+        this.shakeIntensity = 0;
+
         this._tmpQuat = new THREE.Quaternion();
         this._tmpQuat2 = new THREE.Quaternion();
         this._tmpVec = new THREE.Vector3();
@@ -140,7 +145,15 @@ export class DemoPlayer {
         this.chronoWorldTimeScale = 1;
         this.energyCollected = 0;
         this._slingshotDirection.set(0, 0, -1);
+
+        this.shakeTimer = 0;
+        this.shakeIntensity = 0;
+
         this._syncTransform();
+    }
+
+    setParticleSystem(ps) {
+        this.particleSystem = ps;
     }
 
     update(dt, input, time = 0) {
@@ -153,6 +166,11 @@ export class DemoPlayer {
         this.resonanceTimer = Math.max(0, this.resonanceTimer - dt);
         this.apexTimer = Math.max(0, this.apexTimer - dt);
         this.chronoTimer = Math.max(0, this.chronoTimer - dt);
+
+        if (this.shakeTimer > 0) {
+            this.shakeTimer -= dt;
+            if (this.shakeTimer <= 0) this.shakeIntensity = 0;
+        }
 
         if (this.slingshotTimer <= 0) {
             this.slingshotAssistStrength = 0;
@@ -303,6 +321,9 @@ export class DemoPlayer {
         this.impulseVelocity.addScaledVector(dir, config.forwardImpulse ?? 40);
         this.boostPortalTimer = Math.max(this.boostPortalTimer, config.duration ?? 1.35);
         this.boostPortalBonusSpeed = Math.max(this.boostPortalBonusSpeed, config.bonusSpeed ?? 46);
+
+        this.shake(0.4, 0.25);
+        this._emitParticles(dir, 0xffb34d, 15);
     }
 
     activateBlink(config = {}, gateDirection = null) {
@@ -323,6 +344,9 @@ export class DemoPlayer {
         this.previousPosition.copy(this.position);
         this.blinkTimer = Math.max(this.blinkTimer, config.visualDuration ?? 0.9);
         this._syncTransform();
+
+        this.shake(0.2, 0.4);
+        this._emitParticles(dir, 0xffffff, 20);
     }
 
     activateSlingshot(config = {}, gateDirection = null, gateUp = null) {
@@ -380,38 +404,76 @@ export class DemoPlayer {
     }
 
     getHudState() {
-        const effects = [];
-        if (this.boostPortalTimer > 0) effects.push(`Boost Surge ${this.boostPortalTimer.toFixed(1)}s`);
-        if (this.blinkTimer > 0) effects.push(`Blink Wake ${this.blinkTimer.toFixed(1)}s`);
-        if (this.slingshotTimer > 0) effects.push(`Slingshot Assist ${this.slingshotTimer.toFixed(1)}s`);
-        if (this.magnetTimer > 0) effects.push(`Magnet Aura ${this.magnetTimer.toFixed(1)}s`);
-        if (this.resonanceTimer > 0) effects.push(`Resonance x${this.resonanceMultiplier} ${this.resonanceTimer.toFixed(1)}s`);
-        if (this.apexTimer > 0) effects.push(`Apex Handling ${this.apexTimer.toFixed(1)}s`);
-        if (this.chronoTimer > 0) effects.push(`Chrono Shift ${this.chronoTimer.toFixed(1)}s`);
+        const activeEffects = [];
+        const add = (name, timeLeft, maxTime, type) => {
+            if (timeLeft > 0) activeEffects.push({ name, timeLeft, maxTime, type });
+        };
+
+        add('Boost Surge', this.boostPortalTimer, 1.6, 'warm');
+        add('Blink Wake', this.blinkTimer, 0.9, 'cool');
+        add('Slingshot Assist', this.slingshotTimer, 2.1, 'cool');
+        add('Magnet Aura', this.magnetTimer, 8.0, 'cool');
+        add('Resonance', this.resonanceTimer, 7.0, 'cool');
+        add('Apex Handling', this.apexTimer, 3.2, 'cool');
+        add('Chrono Shift', this.chronoTimer, 4.8, 'chrono');
+
         return {
             speed: this.velocity.length(),
             worldTimeScale: this.getWorldTimeScale(),
             energy: this.energyCollected,
             position: this.position,
-            effects,
+            activeEffects,
         };
     }
 
-    _resolveDirection(direction) {
-        if (direction && direction.lengthSq() > 0.0001) {
-            return this._tmpDir.copy(direction).normalize();
-        }
         return this._getForward(this._tmpDir).normalize();
     }
 
-    dispose() {
-        this.scene.remove(this.group);
-        this.group.traverse((node) => {
-            if (node.geometry) node.geometry.dispose();
-            if (node.material) {
-                if (Array.isArray(node.material)) node.material.forEach((m) => m.dispose());
-                else node.material.dispose();
-            }
-        });
+shake(intensity, duration) {
+    this.shakeIntensity = Math.max(this.shakeIntensity, intensity);
+    this.shakeTimer = Math.max(this.shakeTimer, duration);
+}
+
+getShakeOffset(out = new THREE.Vector3()) {
+    if (this.shakeTimer <= 0) return out.set(0, 0, 0);
+    const s = this.shakeIntensity * (this.shakeTimer / 0.5); // Fade out
+    return out.set(
+        (Math.random() - 0.5) * s,
+        (Math.random() - 0.5) * s,
+        (Math.random() - 0.5) * s
+    );
+}
+
+_emitParticles(direction, colorHex, count) {
+    if (!this.particleSystem) return;
+    const col = new THREE.Color(colorHex);
+    const vel = direction.clone().multiplyScalar(15);
+    this.particleSystem.emit({
+        count,
+        position: this.position,
+        velocity: vel,
+        color: col,
+        spread: 0.8,
+        life: 0.8,
+        size: 0.4
+    });
+}
+
+_resolveDirection(direction) {
+    if (direction && direction.lengthSq() > 0.0001) {
+        return this._tmpDir.copy(direction).normalize();
     }
+    return this._getForward(this._tmpDir).normalize();
+}
+
+dispose() {
+    this.scene.remove(this.group);
+    this.group.traverse((node) => {
+        if (node.geometry) node.geometry.dispose();
+        if (node.material) {
+            if (Array.isArray(node.material)) node.material.forEach((m) => m.dispose());
+            else node.material.dispose();
+        }
+    });
+}
 }

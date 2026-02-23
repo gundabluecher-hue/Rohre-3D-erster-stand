@@ -1,0 +1,4 @@
+
+> aero-arena-3d@0.9.0 smoke:selftrail
+> node scripts/self-trail-debug-smoke.mjs
+

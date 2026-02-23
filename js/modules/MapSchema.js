@@ -39,6 +39,16 @@ function withOptionalId(target, rawId) {
     return target;
 }
 
+function withOptionalStringField(target, key, value) {
+    if (typeof key !== 'string' || key.length === 0) return target;
+    if (typeof value !== 'string') return target;
+    const normalized = value.trim();
+    if (normalized.length > 0) {
+        target[key] = normalized;
+    }
+    return target;
+}
+
 function sanitizeArenaSize(raw) {
     const source = raw && typeof raw === 'object' ? raw : {};
     return {
@@ -77,7 +87,7 @@ function sanitizeBlock(raw) {
 
 function sanitizeTunnel(raw) {
     const source = raw && typeof raw === 'object' ? raw : {};
-    return withOptionalId({
+    return withOptionalStringField(withOptionalId({
         ax: asFiniteNumber(source.ax, 0),
         ay: asFiniteNumber(source.ay, 0),
         az: asFiniteNumber(source.az, 0),
@@ -85,17 +95,17 @@ function sanitizeTunnel(raw) {
         by: asFiniteNumber(source.by, 0),
         bz: asFiniteNumber(source.bz, 0),
         radius: asPositiveNumber(source.radius, 160, 1),
-    }, source.id);
+    }, source.id), 'model', source.model);
 }
 
 function sanitizePortal(raw) {
     const source = raw && typeof raw === 'object' ? raw : {};
-    return withOptionalId({
+    return withOptionalStringField(withOptionalId({
         x: asFiniteNumber(source.x, 0),
         y: asFiniteNumber(source.y, 0),
         z: asFiniteNumber(source.z, 0),
         radius: asPositiveNumber(source.radius, 80, 1),
-    }, source.id);
+    }, source.id), 'model', source.model);
 }
 
 function sanitizeItem(raw) {
@@ -257,7 +267,7 @@ export function toArenaMapDefinition(mapDocument, options = {}) {
     const warnings = [];
 
     const obstacles = [];
-    const pushBlockAsObstacle = (block) => {
+    const pushBlockAsObstacle = (block, kind = 'hard') => {
         obstacles.push({
             pos: [
                 block.x * invScale,
@@ -269,14 +279,35 @@ export function toArenaMapDefinition(mapDocument, options = {}) {
                 block.height * invScale,
                 block.depth * invScale,
             ],
+            kind,
         });
     };
 
-    normalized.hardBlocks.forEach(pushBlockAsObstacle);
-    normalized.foamBlocks.forEach(pushBlockAsObstacle);
+    normalized.hardBlocks.forEach((block) => pushBlockAsObstacle(block, 'hard'));
+    normalized.foamBlocks.forEach((block) => pushBlockAsObstacle(block, 'foam'));
 
     if (normalized.tunnels.length > 0) {
         warnings.push('Tunnels are currently ignored by the game runtime.');
+    }
+    if (normalized.items.length > 0) {
+        warnings.push('Items are currently ignored by the game runtime.');
+    }
+    if (normalized.aircraft.length > 0) {
+        warnings.push('Aircraft props are currently ignored by the game runtime.');
+    }
+    const defaultPlayerSpawn = {
+        x: -800,
+        y: normalized.arenaSize.height * 0.55,
+        z: 0,
+    };
+    const hasCustomPlayerSpawn = !!normalized.playerSpawn && (
+        Math.abs(normalized.playerSpawn.x - defaultPlayerSpawn.x) > 0.001 ||
+        Math.abs(normalized.playerSpawn.y - defaultPlayerSpawn.y) > 0.001 ||
+        Math.abs(normalized.playerSpawn.z - defaultPlayerSpawn.z) > 0.001 ||
+        !!normalized.playerSpawn.id
+    );
+    if (normalized.botSpawns.length > 0 || hasCustomPlayerSpawn) {
+        warnings.push('Custom spawn points are currently ignored by the game runtime.');
     }
 
     const portals = [];

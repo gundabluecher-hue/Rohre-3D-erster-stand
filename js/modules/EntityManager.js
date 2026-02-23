@@ -1,4 +1,4 @@
-﻿// ============================================
+// ============================================
 // EntityManager.js - manages players, collisions and item projectiles
 // ============================================
 
@@ -52,15 +52,26 @@ function isTruthyFlag(value) {
     return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
 }
 
-function readTrailCollisionDebugFlagFromUrl() {
+function parsePositiveInt(value, fallback) {
+    const parsed = Number.parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+    return parsed;
+}
+
+function readTrailCollisionDebugConfigFromUrl() {
     if (typeof window === 'undefined' || !window.location) {
-        return false;
+        return { enabled: false, maxLogs: 80 };
     }
     try {
         const params = new URLSearchParams(window.location.search);
-        return isTruthyFlag(params.get('traildebug')) || isTruthyFlag(params.get('collisiondebug'));
+        const enabled = isTruthyFlag(params.get('traildebug')) || isTruthyFlag(params.get('collisiondebug'));
+        const maxLogs = parsePositiveInt(
+            params.get('traildebugmax') ?? params.get('collisiondebugmax'),
+            80
+        );
+        return { enabled, maxLogs };
     } catch {
-        return false;
+        return { enabled: false, maxLogs: 80 };
     }
 }
 
@@ -123,14 +134,16 @@ export class EntityManager {
         // Global Spatial Grid for trails and objects
         this.gridSize = 10;
         this.spatialGrid = new Map(); // Key: hash(cx, cz), Value: Set of segment data
+        this._keysBuffer = []; // Wiederverwendbarer Buffer fuer _getSegmentGridKeys
 
         // Optional runtime diagnostics for self-trail/grid edge cases
-        this._trailCollisionDebugEnabled = readTrailCollisionDebugFlagFromUrl();
+        const trailDebugConfig = readTrailCollisionDebugConfigFromUrl();
+        this._trailCollisionDebugEnabled = trailDebugConfig.enabled;
         this._trailCollisionDebugLogCount = 0;
-        this._trailCollisionDebugMaxLogs = 80;
+        this._trailCollisionDebugMaxLogs = trailDebugConfig.maxLogs;
         this._trailCollisionDebugSkipRecentSeen = 0;
         if (this._trailCollisionDebugEnabled) {
-            console.info('[TrailCollisionDebug] enabled via ?traildebug=1');
+            console.info(`[TrailCollisionDebug] enabled via ?traildebug=1 (maxLogs=${this._trailCollisionDebugMaxLogs})`);
         }
     }
 
@@ -185,6 +198,7 @@ export class EntityManager {
             });
             player.setControlOptions({ modelScale, invertPitch: false });
             const ai = new BotAI({ difficulty: this.botDifficulty, recorder: this.recorder });
+            ai._sensePhase = i % 3; // Time-Slicing: Bot-Scans auf verschiedene Frames verteilen
             this.players.push(player);
             this.bots.push({ player, ai });
             this.botByPlayer.set(player, ai);
@@ -358,51 +372,87 @@ export class EntityManager {
                 }
             }
 
+            const prevPos = player.position.clone();
             player.update(dt, input);
+
+            // Spezial-Gates Check
+            const gateResult = this.arena.checkSpecialGates(player.position, prevPos, player.hitboxRadius, player.index);
+            if (gateResult) {
+                if (gateResult.type === 'boost') {
+                    player.activateBoostPortal(gateResult.params, gateResult.forward);
+                    if (this.audio && !player.isBot) this.audio.play('POWERUP');
+                } else if (gateResult.type === 'slingshot') {
+                    player.activateSlingshot(gateResult.params, gateResult.forward, gateResult.up);
+                    if (this.audio && !player.isBot) this.audio.play('POWERUP');
+                }
+            }
 
             const spawnProtected = (player.spawnProtectionTimer || 0) > 0;
             if (!player.isGhost && !spawnProtected) {
                 const hRadius = player.hitboxRadius;
 
                 // Präzise Arena-Kollision (Nase, Flügel, Heck + Zentrum)
-                let wallHit = false;
+                let arenaCollision = null;
+                let bouncedOnFoam = false;
+                const probeArenaCollision = (point, probeRadius = 0.4) => {
+                    if (arenaCollision) return true;
+                    if (typeof this.arena.getCollisionInfo === 'function') {
+                        const info = this.arena.getCollisionInfo(point, probeRadius);
+                        if (info?.hit) {
+                            arenaCollision = info;
+                            return true;
+                        }
+                        return false;
+                    }
+                    if (this.arena.checkCollision(point, probeRadius)) {
+                        arenaCollision = { hit: true, kind: 'wall', isWall: true, normal: null };
+                        return true;
+                    }
+                    return false;
+                };
 
                 // Wir nutzen hier temporär Vektoren, um Array-Allokationen und .clone() zu vermeiden
                 // Punkt 0: Zentrum
-                if (this.arena.checkCollision(player.position, 0.4)) {
-                    wallHit = true;
+                if (probeArenaCollision(player.position, 0.4)) {
+                    // center hit captured in arenaCollision
                 }
 
-                if (!wallHit) {
+                if (!arenaCollision) {
                     // Punkt 1: Nase
                     player.getAimDirection(this._tmpDir).multiplyScalar(4).add(player.position);
-                    if (this.arena.checkCollision(this._tmpDir, 0.4)) wallHit = true;
+                    probeArenaCollision(this._tmpDir, 0.4);
                 }
 
-                if (!wallHit) {
+                if (!arenaCollision) {
                     // Punkt 2: Heck
                     player.getDirection(this._tmpVec).multiplyScalar(-1.5).add(player.position);
-                    if (this.arena.checkCollision(this._tmpVec, 0.4)) wallHit = true;
+                    probeArenaCollision(this._tmpVec, 0.4);
                 }
 
-                if (!wallHit) {
+                if (!arenaCollision) {
                     // Seitliche Flügel-Punkte
                     this._tmpVec.set(0, 1, 0).applyQuaternion(player.group.quaternion); // Up
                     this._tmpDir.crossVectors(this._tmpVec, player.getDirection(this._tmpVec2)).normalize(); // Right
 
                     // Rechts
                     this._tmpVec2.copy(this._tmpDir).multiplyScalar(2).add(player.position);
-                    if (this.arena.checkCollision(this._tmpVec2, 0.4)) wallHit = true;
+                    probeArenaCollision(this._tmpVec2, 0.4);
 
-                    if (!wallHit) {
+                    if (!arenaCollision) {
                         // Links
                         this._tmpVec2.copy(this._tmpDir).multiplyScalar(-2).add(player.position);
-                        if (this.arena.checkCollision(this._tmpVec2, 0.4)) wallHit = true;
+                        probeArenaCollision(this._tmpVec2, 0.4);
                     }
                 }
 
-                if (wallHit) {
-                    if (player.hasShield) {
+                if (arenaCollision?.hit) {
+                    const hitKind = String(arenaCollision.kind || 'wall').toLowerCase();
+                    if (hitKind === 'foam') {
+                        if (this.audio) this.audio.play('HIT');
+                        if (this.particles) this.particles.spawnHit(player.position, 0x34d399);
+                        this._bouncePlayerOnFoam(player, arenaCollision.normal || null);
+                        bouncedOnFoam = true;
+                    } else if (player.hasShield) {
                         player.hasShield = false;
                         player.getDirection(this._tmpDir).multiplyScalar(2.2);
                         player.position.sub(this._tmpDir);
@@ -415,16 +465,18 @@ export class EntityManager {
                 }
 
                 // Global Trail Collision (Nutzt OBB für Präzision)
-                const selfTrailSkipRecent = deriveSelfTrailSkipRecentSegments(player);
-                const collision = this.checkGlobalCollision(player.position, hRadius * 2.0, player.index, selfTrailSkipRecent, player);
-                if (collision && collision.hit) {
-                    if (player.hasShield) {
-                        player.hasShield = false;
-                    } else {
-                        if (this.audio) this.audio.play('HIT');
-                        if (this.particles) this.particles.spawnHit(player.position, player.color);
-                        this._killPlayer(player, collision.playerIndex === player.index ? 'TRAIL_SELF' : 'TRAIL_OTHER');
-                        continue;
+                if (!bouncedOnFoam) {
+                    const selfTrailSkipRecent = deriveSelfTrailSkipRecentSegments(player);
+                    const collision = this.checkGlobalCollision(player.position, hRadius * 2.0, player.index, selfTrailSkipRecent, player);
+                    if (collision && collision.hit) {
+                        if (player.hasShield) {
+                            player.hasShield = false;
+                        } else {
+                            if (this.audio) this.audio.play('HIT');
+                            if (this.particles) this.particles.spawnHit(player.position, player.color);
+                            this._killPlayer(player, collision.playerIndex === player.index ? 'TRAIL_SELF' : 'TRAIL_OTHER');
+                            continue;
+                        }
                     }
                 }
             }
@@ -525,6 +577,8 @@ export class EntityManager {
             ttl: CONFIG.PROJECTILE.LIFE_TIME,
             traveled: 0,
             target: this._checkLockOn(player),
+            foamBounces: 0,
+            foamBounceCooldown: 0,
         });
         player.shootCooldown = CONFIG.PROJECTILE.COOLDOWN;
         if (this.audio) this.audio.play('SHOOT');
@@ -606,10 +660,44 @@ export class EntityManager {
         return this._checkLockOn(player);
     }
 
+    _bounceProjectileOnFoam(projectile, collisionInfo) {
+        if (!projectile || !collisionInfo?.normal) return false;
+        const maxFoamBounces = 3;
+        if ((projectile.foamBounces || 0) >= maxFoamBounces) return false;
+        if ((projectile.foamBounceCooldown || 0) > 0) return false;
+
+        this._tmpVec.copy(projectile.velocity);
+        const speed = this._tmpVec.length();
+        if (speed <= 0.0001) return false;
+
+        this._tmpVec2.copy(collisionInfo.normal).normalize();
+        if (this._tmpVec.dot(this._tmpVec2) >= 0) {
+            this._tmpVec2.multiplyScalar(-1);
+        }
+
+        this._tmpVec.normalize().reflect(this._tmpVec2);
+        this._tmpVec.addScaledVector(this._tmpVec2, 0.08).normalize();
+        projectile.velocity.copy(this._tmpVec.multiplyScalar(speed * 1.02));
+
+        projectile.position.addScaledVector(this._tmpVec2, Math.max(0.2, projectile.radius * 1.25));
+        projectile.mesh.position.copy(projectile.position);
+        this._tmpVec.addVectors(projectile.position, projectile.velocity);
+        projectile.mesh.lookAt(this._tmpVec);
+
+        projectile.foamBounces = (projectile.foamBounces || 0) + 1;
+        projectile.foamBounceCooldown = 0.045;
+        projectile.ttl = Math.max(0, projectile.ttl - 0.02);
+
+        if (this.particles) this.particles.spawnHit(projectile.position, 0x34d399);
+        if (this.audio && !projectile.owner?.isBot) this.audio.play('HIT');
+        return true;
+    }
+
     _updateProjectiles(dt) {
         const time = performance.now() * 0.001;
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const projectile = this.projectiles[i];
+            projectile.foamBounceCooldown = Math.max(0, (projectile.foamBounceCooldown || 0) - dt);
             const vx = projectile.velocity.x * dt; const vy = projectile.velocity.y * dt; const vz = projectile.velocity.z * dt;
             projectile.position.x += vx; projectile.position.y += vy; projectile.position.z += vz;
             projectile.traveled += Math.sqrt(vx * vx + vy * vy + vz * vz);
@@ -637,10 +725,27 @@ export class EntityManager {
                 const flicker = 0.7 + Math.sin(time * 30 + i * 7) * 0.3;
                 projectile.flame.scale.set(1, 1, flicker);
             }
-            if (projectile.ttl <= 0 || projectile.traveled >= CONFIG.PROJECTILE.MAX_DISTANCE || this.arena.checkCollision(projectile.position, projectile.radius)) {
+            let arenaCollision = null;
+            if (typeof this.arena.getCollisionInfo === 'function') {
+                arenaCollision = this.arena.getCollisionInfo(projectile.position, projectile.radius);
+            } else if (this.arena.checkCollision(projectile.position, projectile.radius)) {
+                arenaCollision = { hit: true, kind: 'wall', normal: null };
+            }
+
+            const projectileExpired = projectile.ttl <= 0 || projectile.traveled >= CONFIG.PROJECTILE.MAX_DISTANCE;
+            const projectileHitArena = !!arenaCollision?.hit;
+            const arenaKind = String(arenaCollision?.kind || 'wall').toLowerCase();
+            const bouncedOnFoam = projectileHitArena && arenaKind === 'foam'
+                ? this._bounceProjectileOnFoam(projectile, arenaCollision)
+                : false;
+
+            if (projectileExpired || (projectileHitArena && !bouncedOnFoam)) {
                 if (this.particles) this.particles.spawnHit(projectile.position, 0xffff00);
                 if (this.audio && !projectile.owner.isBot) this.audio.play('HIT');
                 this._removeProjectileAt(i);
+                continue;
+            }
+            if (bouncedOnFoam) {
                 continue;
             }
             let hit = false;
@@ -707,9 +812,11 @@ export class EntityManager {
         vec.z = Math.max(b.minZ + 2, Math.min(b.maxZ - 2, vec.z));
     }
 
-    _findSafeBouncePosition(player, baseDirection, normal = null) {
+    _findSafeBouncePosition(player, baseDirection, normal = null, options = {}) {
         const pos = player.position;
-        const distances = [1.5, 3.0, 5.0, 0.5];
+        const distances = Array.isArray(options.distances) && options.distances.length > 0
+            ? options.distances
+            : [1.5, 3.0, 5.0, 0.5];
         for (const dist of distances) {
             this._tmpVec2.copy(pos).addScaledVector(baseDirection, dist);
             if (this._isBotPositionSafe(player, this._tmpVec2)) {
@@ -718,14 +825,15 @@ export class EntityManager {
             }
         }
         if (normal) {
-            pos.addScaledVector(normal, 2.0);
+            const normalPush = Number.isFinite(options.normalPush) ? options.normalPush : 2.0;
+            pos.addScaledVector(normal, normalPush);
             if (this._isBotPositionSafe(player, pos)) return;
         }
         const b = this.arena.bounds;
         pos.set((b.minX + b.maxX) * 0.5, (b.minY + b.maxY) * 0.5, (b.minZ + b.maxZ) * 0.5);
     }
 
-    _bounceBot(player, normalOverride = null, source = 'WALL') {
+    _bounceBot(player, normalOverride = null, source = 'WALL', options = {}) {
         const pos = player.position;
         let normal = normalOverride;
         if (!normal) {
@@ -745,22 +853,52 @@ export class EntityManager {
         const dot = this._tmpDir.dot(normal);
         this._tmpDir.x -= 2 * dot * normal.x; this._tmpDir.y -= 2 * dot * normal.y; this._tmpDir.z -= 2 * dot * normal.z;
         this._tmpDir.normalize();
-        this._tmpDir.addScaledVector(normal, 0.25);
-        const randomScale = source === 'TRAIL' ? 0.35 : 0.24;
+        const normalBias = Number.isFinite(options.normalBias) ? options.normalBias : 0.25;
+        this._tmpDir.addScaledVector(normal, normalBias);
+        const randomScale = Number.isFinite(options.randomScale)
+            ? options.randomScale
+            : (source === 'TRAIL' ? 0.35 : 0.24);
         this._tmpDir.x += (Math.random() - 0.5) * randomScale;
         this._tmpDir.y += (Math.random() - 0.5) * randomScale;
         this._tmpDir.z += (Math.random() - 0.5) * randomScale;
         if (CONFIG.GAMEPLAY.PLANAR_MODE) this._tmpDir.y = 0;
         this._tmpDir.normalize();
-        this._tmpDir.addScaledVector(this._tmpDir, 1); // Ein Stück weg von der Wand
-        this._tmpVec.copy(pos).add(this._tmpDir);
-        player.group.lookAt(this._tmpVec);
-        player.quaternion.copy(player.group.quaternion);
-        this._findSafeBouncePosition(player, this._tmpDir, normal);
-        player.trail.forceGap(0.3);
+        const preRotateShove = Number.isFinite(options.preRotateShove) ? options.preRotateShove : 1;
+        this._tmpDir.addScaledVector(this._tmpDir, preRotateShove);
+        this._tmpVec.copy(this._tmpDir).normalize();
+        player.quaternion.setFromUnitVectors(this._tmpVec2.set(0, 0, -1), this._tmpVec);
+        this._findSafeBouncePosition(player, this._tmpDir, normal, options);
+        if (Number.isFinite(options.extraPush) && options.extraPush > 0) {
+            this._tmpVec2.copy(player.position).addScaledVector(this._tmpDir, options.extraPush);
+            if (this._isBotPositionSafe(player, this._tmpVec2)) {
+                player.position.copy(this._tmpVec2);
+            }
+        }
+        player.trail.forceGap(Number.isFinite(options.trailGap) ? options.trailGap : 0.3);
+        if (Number.isFinite(options.spawnProtection) && options.spawnProtection > 0) {
+            player.spawnProtectionTimer = Math.max(player.spawnProtectionTimer || 0, options.spawnProtection);
+        }
         const botAI = this.botByPlayer.get(player);
         if (botAI?.onBounce) botAI.onBounce(source, normal);
         if (this.recorder) this.recorder.logEvent(source === 'TRAIL' ? 'BOUNCE_TRAIL' : 'BOUNCE_WALL', player.index);
+    }
+
+    _bouncePlayerOnFoam(player, normalOverride = null) {
+        this._bounceBot(player, normalOverride, 'FOAM', {
+            normalBias: 0.0,
+            randomScale: 0.0,
+            preRotateShove: 2.4,
+            distances: [4.0, 7.0, 10.0, 2.0],
+            normalPush: 4.8,
+            extraPush: 3.2,
+            trailGap: 0.45,
+            spawnProtection: 0.16,
+        });
+        if (typeof player?.lockSteering === 'function') {
+            player.lockSteering(0.28);
+        } else if (player) {
+            player.steeringLockTimer = Math.max(player.steeringLockTimer || 0, 0.28);
+        }
     }
 
     updateCameras(dt) {
@@ -797,7 +935,9 @@ export class EntityManager {
         const toZ = Number(data?.toZ);
 
         if (!Number.isFinite(fromX) || !Number.isFinite(toX) || !Number.isFinite(fromZ) || !Number.isFinite(toZ)) {
-            return [this._getGridKey(data.midX, data.midZ)];
+            this._keysBuffer.length = 0;
+            this._keysBuffer.push(this._getGridKey(data.midX, data.midZ));
+            return this._keysBuffer;
         }
 
         const radius = Math.max(0, Number(data?.radius) || 0);
@@ -805,14 +945,14 @@ export class EntityManager {
         const maxCellX = Math.floor((Math.max(fromX, toX) + radius) / this.gridSize);
         const minCellZ = Math.floor((Math.min(fromZ, toZ) - radius) / this.gridSize);
         const maxCellZ = Math.floor((Math.max(fromZ, toZ) + radius) / this.gridSize);
-        const keys = [];
+        this._keysBuffer.length = 0;
 
         for (let cx = minCellX; cx <= maxCellX; cx++) {
             for (let cz = minCellZ; cz <= maxCellZ; cz++) {
-                keys.push((cx + 1000) * 2000 + (cz + 1000));
+                this._keysBuffer.push((cx + 1000) * 2000 + (cz + 1000));
             }
         }
-        return keys;
+        return this._keysBuffer;
     }
 
     _debugTrailCollision(tag, payload) {
@@ -828,10 +968,10 @@ export class EntityManager {
     _shouldLogSkipRecentCandidate(dist, skipRecent) {
         if (!this._trailCollisionDebugEnabled) return false;
         this._trailCollisionDebugSkipRecentSeen++;
-        if (this._trailCollisionDebugSkipRecentSeen <= 8) return true; // early visibility
-        if (dist <= 1) return true; // freshly written head-near segments are interesting
-        if (dist >= Math.max(0, skipRecent - 2)) return true; // edge of blind window
-        return (this._trailCollisionDebugSkipRecentSeen % 20) === 0; // sampled stream
+        if (this._trailCollisionDebugSkipRecentSeen <= 8) return true;
+        if (dist <= 1) return true;
+        if (dist >= Math.max(0, skipRecent - 2)) return true;
+        return (this._trailCollisionDebugSkipRecentSeen % 20) === 0;
     }
 
     registerTrailSegment(playerIndex, segmentIdx, data) {
@@ -842,23 +982,19 @@ export class EntityManager {
         const dy = (Number(data.toY) || 0) - (Number(data.fromY) || 0);
         const dz = (Number(data.toZ) || 0) - (Number(data.fromZ) || 0);
         const segmentLength = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (keys.length > 1 || segmentLength > this.gridSize * 1.25) {
-            this._debugTrailCollision('register-segment', {
-                playerIndex,
-                segmentIdx,
-                segmentLength: Number(segmentLength.toFixed(3)),
-                keyCount: keys.length,
-                gridSize: this.gridSize,
-                from: [Number(data.fromX) || 0, Number(data.fromY) || 0, Number(data.fromZ) || 0],
-                to: [Number(data.toX) || 0, Number(data.toY) || 0, Number(data.toZ) || 0],
-                radius: Number(data.radius) || 0,
-            });
-        }
 
         for (const key of keys) {
             if (!this.spatialGrid.has(key)) this.spatialGrid.set(key, new Set());
             this.spatialGrid.get(key).add(entry);
         }
+
+        this._debugTrailCollision('register-segment', {
+            playerIndex,
+            segmentIdx,
+            keyCount: keys.length,
+            segmentLength,
+            radius: Number(data?.radius) || 0,
+        });
 
         return { key: keys.length === 1 ? keys[0] : keys, entry };
     }
@@ -908,7 +1044,6 @@ export class EntityManager {
                         }
                     }
 
-                    // AABB Vor-Check
                     const totalRadius = radius + seg.radius;
                     const minX = Math.min(seg.fromX, seg.toX) - seg.radius;
                     const maxX = Math.max(seg.fromX, seg.toX) + seg.radius;
@@ -922,7 +1057,6 @@ export class EntityManager {
                     const maxZ = Math.max(seg.fromZ, seg.toZ) + seg.radius;
                     if (position.z < minZ - radius || position.z > maxZ + radius) continue;
 
-                    // Präzise Linien-Abstandsprüfung
                     const vx = seg.toX - seg.fromX;
                     const vy = seg.toY - seg.fromY;
                     const vz = seg.toZ - seg.fromZ;
@@ -945,9 +1079,7 @@ export class EntityManager {
                     const dzp = position.z - closestZ;
 
                     if (dxp * dxp + dyp * dyp + dzp * dzp <= totalRadius * totalRadius) {
-                        // If OBB check is possible, then final check
                         if (playerRef && playerRef.isSphereInOBB) {
-                            // We use _tmpVec for the point check
                             this._tmpVec.set(closestX, closestY, closestZ);
                             if (playerRef.isSphereInOBB(this._tmpVec, seg.radius)) {
                                 if (seg.playerIndex === excludePlayerIndex) {
@@ -986,7 +1118,6 @@ export class EntityManager {
 
     dispose() {
         this.clear();
-        // Assets disposen, um GPU-Leaks zu verhindern
         for (const assets of this._projectileAssets.values()) {
             if (assets.bodyGeo) assets.bodyGeo.dispose();
             if (assets.tipGeo) assets.tipGeo.dispose();

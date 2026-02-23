@@ -36,6 +36,15 @@ export class EditorAssetLoader {
             { id: 'jet_ship9', file: '../assets/models/jets/cc0/spaceship_pack/dist/obj_mtl/ship9.obj' },
         ];
 
+        this.portalModelsToLoad = [
+            'portal_cross', 'portal_diamond', 'portal_hex', 'portal_octagon',
+            'portal_ring', 'portal_square', 'portal_star', 'portal_triangle'
+        ];
+
+        this.trailModelsToLoad = [
+            'trail_arrow', 'trail_segment'
+        ];
+
         // Specific colors per item to distinguish them in the editor before textures
         this.colors = {
             item_arrow: 0xff0000,
@@ -70,6 +79,18 @@ export class EditorAssetLoader {
             jet_ship7: 0x14b8a6,
             jet_ship8: 0xec4899,
             jet_ship9: 0xfcd34d,
+            // Portal colors
+            portal_cross: 0xc084fc,
+            portal_diamond: 0xe879f9,
+            portal_hex: 0xa78bfa,
+            portal_octagon: 0x8b5cf6,
+            portal_ring: 0xd8b4fe,
+            portal_square: 0xbfdbfe,
+            portal_star: 0xfde68a,
+            portal_triangle: 0xf9a8d4,
+            // Trail colors
+            trail_arrow: 0x60a5fa,
+            trail_segment: 0x34d399,
         };
     }
 
@@ -252,7 +273,9 @@ export class EditorAssetLoader {
     async loadAll() {
         const allEntries = [
             ...this.modelsToLoad.map((modelName) => ({ id: modelName, url: `../assets/items/${modelName}.obj` })),
-            ...this.jetsToLoad.map((jet) => ({ id: jet.id, url: jet.file }))
+            ...this.jetsToLoad.map((jet) => ({ id: jet.id, url: jet.file })),
+            ...this.portalModelsToLoad.map((modelName) => ({ id: modelName, url: `../assets/portals/${modelName}.obj` })),
+            ...this.trailModelsToLoad.map((modelName) => ({ id: modelName, url: `../assets/trails/${modelName}.obj` }))
         ];
 
         this._emitStatus('info', `Loading ${allEntries.length} 3D assets...`);

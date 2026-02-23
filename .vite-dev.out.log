@@ -1,0 +1,131 @@
+
+> aero-arena-3d@0.9.0 dev
+> vite --host 127.0.0.1 --port 5173
+
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m3094[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5173[22m/[39m
+[2m00:06:37[22m [36m[1m[vite][22m[39m [32m✨ new dependencies optimized: [33mthree/examples/jsm/controls/OrbitControls.js[32m[39m
+[2m00:06:37[22m [36m[1m[vite][22m[39m [32m✨ optimized dependencies changed. reloading[39m
+[2m00:06:42[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/modules/Player.js[22m
+[2m00:06:49[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/modules/EntityManager.js[22m
+[2m00:09:13[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/ModularVehicleMesh.js[22m
+[2m00:09:39[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehiclePresets.js[22m
+[2m00:09:51[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m00:10:07[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehiclePresets.js[22m
+[2m00:11:25[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/modules/EntityManager.js[22m
+[2m00:15:03[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/ModularVehicleMesh.js[22m
+[2m00:15:16[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m00:15:21[22m [36m[1m[vite][22m[39m [32m✨ new dependencies optimized: [33mthree/examples/jsm/controls/TransformControls.js[32m[39m
+[2m00:15:21[22m [36m[1m[vite][22m[39m [32m✨ optimized dependencies changed. reloading[39m
+[2m00:15:36[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m00:15:38[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m00:15:57[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m00:19:57[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/ModularVehicleMesh.js[22m
+[2m00:19:59[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m00:20:10[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabCore.js[22m
+[2m00:20:23[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabViewport.js[22m
+[2m00:23:03[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabCore.js[22m
+[2m00:23:16[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabViewport.js[22m
+[2m00:23:28[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabViewport.js[22m
+[2m00:23:31[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabUI.js[22m
+[2m00:23:35[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m00:23:51[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/index.html[22m
+[2m00:29:30[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2meditor/map-editor-3d.html[22m
+[2m00:29:38[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2meditor/js/ui/EditorDomRefs.js[22m
+[2m00:29:45[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2meditor/js/ui/EditorSessionControls.js[22m
+[2m00:29:57[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/main.js[22m
+[2m00:34:10[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabCore.js[22m
+[2m00:34:12[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m00:34:30[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m00:35:10[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m00:42:04[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m00:42:08[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m00:44:41[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabCore.js[22m
+[2m00:44:47[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabViewport.js[22m
+[2m00:44:55[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabUI.js[22m
+[2m00:47:00[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2meditor/js/EditorAssetLoader.js[22m
+[2m00:47:08[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2meditor/js/ui/EditorDomRefs.js[22m
+[2m00:47:15[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2meditor/js/ui/EditorFormState.js[22m
+[2m00:47:23[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2meditor/js/ui/EditorToolPaletteControls.js[22m
+[2m00:47:36[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2meditor/map-editor-3d.html[22m
+[2m00:48:12[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2meditor/js/EditorMapManager.js[22m
+[2m00:48:28[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2meditor/js/EditorMapManager.js[22m
+[2m00:48:44[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/modules/MapSchema.js[22m
+[2m00:48:53[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabViewport.js[22m
+[2m00:48:57[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/index.html[22m
+[2m00:49:59[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m00:50:00[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabUI.js[22m
+[2m00:50:29[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m00:50:30[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabViewport.js[22m
+[2m00:54:34[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/ModularVehicleMesh.js[22m
+[2m00:54:36[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/ModularVehicleMesh.js[22m
+[2m00:54:48[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabUI.js[22m
+[2m00:54:51[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m00:55:02[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabUI.js[22m
+[2m00:55:19[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/ModularVehicleMesh.js[22m
+[2m00:57:15[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabCore.js[22m
+[2m00:57:18[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m00:57:49[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabUI.js[22m
+[2m00:57:52[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m00:58:03[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/index.html[22m
+[2m01:03:04[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/main.js[22m
+[2m01:03:33[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m01:03:42[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabUI.js[22m
+[2m01:03:45[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/main.js[22m
+[2m01:04:03[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/index.html[22m
+[2m01:04:13[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/prototypes/vehicle-lab/style.css?direct[22m
+[2m01:06:47[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/main.js[22m
+[2m01:09:36[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/ModularVehicleMesh.js[22m
+[2m01:09:36[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/ModularVehicleMesh.js[22m
+[2m01:09:41[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/ModularVehicleMesh.js[22m
+[2m01:10:01[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabViewport.js[22m
+[2m01:10:22[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabUI.js[22m
+[2m01:11:03[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m01:12:32[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/ModularVehicleMesh.js[22m
+[2m01:12:35[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m01:12:49[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m01:12:55[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabViewport.js[22m
+[2m01:13:00[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/ModularVehicleMesh.js[22m
+[2m01:13:29[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/index.html[22m
+[2m01:13:33[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabUI.js[22m
+[2m01:13:36[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m01:13:45[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/modules/MatchSessionFactory.js[22m
+[2m01:13:54[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/main.js[22m
+[2m01:15:46[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/ModularVehicleMesh.js[22m
+[2m01:16:11[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/ModularVehicleMesh.js[22m
+[2m01:16:42[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabUI.js[22m
+[2m01:17:18[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m01:17:24[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabUI.js[22m
+[2m01:18:28[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/ModularVehicleMesh.js[22m
+[2m01:18:34[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m01:18:48[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/index.html[22m
+[2m01:18:48[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/index.html[22m
+[2m01:19:32[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m01:20:02[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m01:20:14[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/index.html[22m
+[2m01:20:18[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabUI.js[22m
+[2m01:21:48[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/ModularVehicleMesh.js[22m
+[2m01:24:19[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m01:24:46[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabViewport.js[22m
+[2m01:24:50[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabUI.js[22m
+[2m01:25:38[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m01:26:17[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/ModularVehicleMesh.js[22m
+[2m01:31:48[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/index.html[22m
+[2m01:31:54[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabUI.js[22m
+[2m01:32:22[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m01:34:27[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2meditor/js/ui/EditorDomRefs.js[22m
+[2m01:34:57[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2meditor/map-editor-3d.html[22m
+[2m01:35:02[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2meditor/map-editor-3d.html[22m
+[2m01:35:14[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabCore.js[22m
+[2m01:35:15[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2meditor/js/ui/EditorSessionControls.js[22m
+[2m01:35:19[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m01:35:28[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mindex.html[22m
+[2m01:35:39[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/modules/Config.js[22m
+[2m01:35:48[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mjs/modules/CustomMapLoader.js[22m
+[2m01:36:03[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/index.html[22m
+[2m01:39:04[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/main.js[22m
+[2m01:39:11[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabUI.js[22m
+[2m01:39:36[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/ModularVehicleMesh.js[22m
+[2m01:39:41[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mprototypes/vehicle-lab/src/VehicleLabViewport.js[22m

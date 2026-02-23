@@ -38,6 +38,8 @@ export function getCurrentToolSubtype(editor) {
     if (!editor) return null;
     const dom = editor.dom || {};
     if (editor.currentTool === 'spawn') return dom.selSpawnType?.value || null;
+    if (editor.currentTool === 'tunnel') return dom.selTunnelType?.value || null;
+    if (editor.currentTool === 'portal') return dom.selPortalType?.value || null;
     if (editor.currentTool === 'item') return dom.selItemType?.value || null;
     if (editor.currentTool === 'aircraft') return dom.selAircraftType?.value || null;
     return null;

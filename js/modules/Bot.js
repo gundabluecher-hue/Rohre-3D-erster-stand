@@ -173,6 +173,10 @@ export class BotAI {
         this._collisionCache = new Map();
         this._lastSensePos = new THREE.Vector3();
 
+        // Time-Slicing: Sensor-Scans auf verschiedene Frames verteilen
+        this._sensePhase = 0;         // Frame-Slot dieses Bots (0..2), von EntityManager gesetzt
+        this._sensePhaseCounter = 0;  // Hochzaehlender Frame-Zaehler
+
         this._setDifficulty(options.difficulty || CONFIG.BOT.ACTIVE_DIFFICULTY || CONFIG.BOT.DEFAULT_DIFFICULTY || 'NORMAL');
         this._checkStuckTimer = this.profile.stuckCheckInterval;
     }
@@ -1144,7 +1148,17 @@ export class BotAI {
         this.reactionTimer = Math.max(0.02, this.profile.reactionTime * jitter);
 
         this._resetDecision();
-        this._senseEnvironment(player, arena, allPlayers, projectiles);
+
+        // Time-Slicing: Vollstaendiger Scan nur in zugeordnetem Frame-Slot
+        this._sensePhaseCounter = (this._sensePhaseCounter + 1) % 3;
+        const shouldFullSense = this._sensePhaseCounter === this._sensePhase;
+        if (shouldFullSense) {
+            this._senseEnvironment(player, arena, allPlayers, projectiles);
+        } else {
+            // Nur kritische Checks in anderen Frames (Projektile + Hoehe)
+            this._senseProjectiles(player, projectiles);
+            this._senseHeight(player, arena);
+        }
 
         if (this.sense.immediateDanger && this.state.recoveryCooldown <= 0 && this._recentBouncePressure > 2.3) {
             this._enterRecovery(player, arena, allPlayers, 'collision-pressure');

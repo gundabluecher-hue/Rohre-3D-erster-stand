@@ -7,22 +7,26 @@ import { CONFIG } from './modules/Config.js';
 import { Renderer } from './modules/Renderer.js';
 import { GameLoop } from './modules/GameLoop.js';
 import { InputManager } from './modules/InputManager.js';
-import { Arena } from './modules/Arena.js';
-import { EntityManager } from './modules/EntityManager.js';
-import { PowerupManager } from './modules/Powerup.js';
 import { ParticleSystem } from './modules/Particles.js';
 import { AudioManager } from './modules/Audio.js';
 import { HUD } from './modules/HUD.js';
 import { RoundRecorder } from './modules/RoundRecorder.js';
 import { VEHICLE_DEFINITIONS } from './entities/vehicle-registry.js';
 import { CUSTOM_MAP_KEY } from './modules/MapSchema.js';
-import { resolveArenaMapSelection } from './modules/CustomMapLoader.js';
 import { UIManager } from './modules/UIManager.js';
 import { SettingsStore } from './modules/SettingsStore.js';
 import { removeProfileByName, resolveActiveProfileName, upsertProfileEntry } from './modules/ProfileDataOps.js';
 import { deriveProfileControlSelectState } from './modules/ProfileControlStateOps.js';
 import { deriveProfileActionUiState } from './modules/ProfileUiStateOps.js';
-import { deriveRoundEndOutcome } from './modules/RoundStateOps.js';
+import { createRoundStateController } from './modules/RoundStateController.js';
+import { coordinateRoundEnd } from './modules/RoundEndCoordinator.js';
+import { disposeMatchSessionSystems, initializeMatchSession } from './modules/MatchSessionFactory.js';
+import {
+    deriveMatchStartUiState,
+    deriveReturnToMenuUiState,
+    deriveRoundStartUiState,
+    deriveRoundEndCountdownUiState,
+} from './modules/MatchUiStateOps.js';
 
 /* global __APP_VERSION__, __BUILD_TIME__, __BUILD_ID__ */
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
@@ -77,6 +81,7 @@ export class Game {
 
         this.state = 'MENU';
         this.roundPause = 0;
+        this.roundStateController = createRoundStateController({ defaultRoundPause: 3.0 });
         this._hudTimer = 0;
         this._adaptiveTimer = 0;
         this._statsTimer = 0;
@@ -180,6 +185,8 @@ export class Game {
             vehicleP2Container: document.getElementById('vehicle-p2-container'),
 
             startButton: document.getElementById('btn-start'),
+            openEditorButton: document.getElementById('btn-open-editor'),
+            openVehicleEditorButton: document.getElementById('btn-open-vehicle-editor'),
         };
 
         this._navButtons = [];
@@ -246,12 +253,36 @@ export class Game {
         }
     }
 
+    _readPlaytestLaunchBoolParam(paramName) {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            if (!params.has(paramName)) return null;
+            const raw = String(params.get(paramName) || '').toLowerCase();
+            if (raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on') return true;
+            if (raw === '0' || raw === 'false' || raw === 'no' || raw === 'off') return false;
+            return null;
+        } catch {
+            return null;
+        }
+    }
+
     _autoStartPlaytestIfRequested() {
         if (!this._isPlaytestLaunchRequested()) {
             return;
         }
 
         this.settings.mapKey = CUSTOM_MAP_KEY;
+        const planarRequested = this._readPlaytestLaunchBoolParam('planar');
+        if (typeof planarRequested === 'boolean') {
+            if (!this.settings.gameplay) this.settings.gameplay = {};
+            this.settings.gameplay.planarMode = planarRequested;
+            if (planarRequested) {
+                if ((this.settings.gameplay.portalCount || 0) === 0) {
+                    this.settings.gameplay.portalCount = 4;
+                }
+                this.settings.portalsEnabled = true;
+            }
+        }
         this._onSettingsChanged();
 
         window.setTimeout(() => {
@@ -725,6 +756,34 @@ export class Game {
             this.startMatch();
         });
 
+        if (this.ui.openEditorButton) {
+            this.ui.openEditorButton.addEventListener('click', () => {
+                const editorUrl = 'editor/map-editor-3d.html';
+                const editorWindow = window.open(editorUrl, '_blank', 'noopener');
+                if (editorWindow) {
+                    editorWindow.focus?.();
+                    return;
+                }
+
+                // Popup blocker fallback: open in the current tab.
+                window.location.href = editorUrl;
+            });
+        }
+
+        if (this.ui.openVehicleEditorButton) {
+            this.ui.openVehicleEditorButton.addEventListener('click', () => {
+                const editorUrl = 'prototypes/vehicle-lab/index.html';
+                const editorWindow = window.open(editorUrl, '_blank', 'noopener');
+                if (editorWindow) {
+                    editorWindow.focus?.();
+                    return;
+                }
+
+                // Popup blocker fallback: open in the current tab.
+                window.location.href = editorUrl;
+            });
+        }
+
         if (this.ui.profileSaveButton) {
             this.ui.profileSaveButton.addEventListener('click', () => {
                 this._saveProfile(this.ui.profileNameInput?.value || '');
@@ -1156,96 +1215,134 @@ export class Game {
         this.ui.p2Hud.classList.toggle('hidden', this.numHumans !== 2);
     }
 
+    _applyMatchUiState(uiState) {
+        const visibility = uiState?.visibility || {};
+        const hasOwn = (key) => Object.prototype.hasOwnProperty.call(visibility, key);
+        if (this.ui.mainMenu) {
+            if (hasOwn('mainMenuHidden')) {
+                this.ui.mainMenu.classList.toggle('hidden', visibility.mainMenuHidden !== false);
+            }
+        }
+        if (this.ui.hud) {
+            if (hasOwn('hudHidden')) {
+                this.ui.hud.classList.toggle('hidden', visibility.hudHidden === true);
+            }
+        }
+        if (this.ui.messageOverlay) {
+            if (typeof uiState?.messageText === 'string' && this.ui.messageText) {
+                this.ui.messageText.textContent = uiState.messageText;
+            }
+            if (typeof uiState?.messageSub === 'string' && this.ui.messageSub) {
+                this.ui.messageSub.textContent = uiState.messageSub;
+            }
+            if (hasOwn('messageOverlayHidden')) {
+                this.ui.messageOverlay.classList.toggle('hidden', visibility.messageOverlayHidden !== false);
+            }
+        }
+        if (this.ui.statusToast) {
+            if (hasOwn('statusToastHidden')) {
+                this.ui.statusToast.classList.toggle('hidden', visibility.statusToastHidden !== false);
+            }
+        }
+
+        if (typeof uiState?.splitScreenEnabled === 'boolean') {
+            this.renderer.setSplitScreen(uiState.splitScreenEnabled);
+        }
+        if (typeof uiState?.p2HudVisible === 'boolean') {
+            if (this.ui.p2Hud) {
+                this.ui.p2Hud.classList.toggle('hidden', !uiState.p2HudVisible);
+            } else {
+                this._syncP2HudVisibility();
+            }
+        }
+    }
+
+    _applyMatchStartUiState(uiState) {
+        this._applyMatchUiState(uiState);
+    }
+
+    _applyInitializedMatchSession(initializedMatch) {
+        const matchSession = initializedMatch?.session;
+        if (!matchSession) return;
+
+        this.particles = matchSession.particles;
+        this.arena = matchSession.arena;
+        this.powerupManager = matchSession.powerupManager;
+        this.entityManager = matchSession.entityManager;
+        this.mapKey = matchSession.effectiveMapKey;
+        this.numHumans = matchSession.numHumans;
+        this.numBots = matchSession.numBots;
+        this.winsNeeded = matchSession.winsNeeded;
+    }
+
+    _getCurrentMatchSessionRefs() {
+        return {
+            entityManager: this.entityManager,
+            powerupManager: this.powerupManager,
+            particles: this.particles,
+        };
+    }
+
+    _clearMatchSessionRefs() {
+        this.particles = null;
+        this.arena = null;
+        this.entityManager = null;
+        this.powerupManager = null;
+    }
+
+    _applyMatchFeedbackPlan(feedbackPlan) {
+        if (!feedbackPlan) return;
+        for (const entry of feedbackPlan.consoleEntries || []) {
+            const level = entry?.level === 'warn' ? 'warn' : 'log';
+            const args = Array.isArray(entry?.args) ? entry.args : [entry];
+            console[level](...args);
+        }
+        for (const toast of feedbackPlan.toasts || []) {
+            this._showStatusToast(toast.message, toast.durationMs, toast.tone);
+        }
+    }
+
+    _resetCrosshairElementUi(element) {
+        if (!element) return;
+        element.style.display = 'none';
+        element.style.left = '50%';
+        element.style.top = '50%';
+        element.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+    }
+
+    _resetCrosshairUi() {
+        this._resetCrosshairElementUi(this.ui.crosshairP1);
+        this._resetCrosshairElementUi(this.ui.crosshairP2);
+    }
+
     startMatch() {
         this.keyCapture = null;
         this._applySettingsToRuntime();
 
-        this.ui.mainMenu.classList.add('hidden');
-        this.ui.hud.classList.remove('hidden');
-        this.ui.messageOverlay.classList.add('hidden');
-        this.ui.statusToast.classList.add('hidden');
+        this._applyMatchStartUiState(deriveMatchStartUiState({ numHumans: this.numHumans }));
 
-        this.renderer.setSplitScreen(this.numHumans === 2);
-        this._syncP2HudVisibility();
-
-        if (this.entityManager) {
-            this.entityManager.dispose();
-        }
-        if (this.powerupManager) {
-            this.powerupManager.dispose();
-        }
-        if (this.particles?.dispose) {
-            this.particles.dispose();
-            this.particles = null;
-        }
-        this.renderer.clearMatchScene();
-        this.particles = new ParticleSystem(this.renderer);
-        this.arena = new Arena(this.renderer);
-        this.arena.portalsEnabled = this.settings.portalsEnabled;
-
-        const mapResolution = resolveArenaMapSelection(this.mapKey);
-        if (mapResolution.isCustom && mapResolution.mapDefinition) {
-            CONFIG.MAPS[CUSTOM_MAP_KEY] = mapResolution.mapDefinition;
-        }
-        this.mapKey = mapResolution.effectiveMapKey;
-        this.arena.build(this.mapKey);
-
-        if (mapResolution.error) {
-            console.warn('[Game] Map loading fallback:', mapResolution.error);
-        }
-        if (Array.isArray(mapResolution.warnings) && mapResolution.warnings.length > 0) {
-            console.warn('[Game] Map loading warnings:', mapResolution.warnings);
-        }
-        if (mapResolution.isFallback && mapResolution.requestedMapKey === CUSTOM_MAP_KEY) {
-            this._showStatusToast('Custom-Map ungueltig, Standard-Map geladen', 2600, 'error');
-        } else if (mapResolution.isFallback) {
-            this._showStatusToast(`Map-Fallback aktiv: ${mapResolution.effectiveMapKey}`, 2200, 'error');
-        }
-
-        this.powerupManager = new PowerupManager(this.renderer, this.arena);
-        this.entityManager = new EntityManager(this.renderer, this.arena, this.powerupManager, this.particles, this.audio, this.recorder);
-        this.numHumans = this.settings.mode === '2p' ? 2 : 1;
-        this.numBots = this.settings.numBots;
-        this.winsNeeded = this.settings.winsNeeded || 5;
-
-        this.entityManager.setup(this.numHumans, this.numBots, {
-            modelScale: this.settings.gameplay.planeScale,
-            botDifficulty: this.settings.botDifficulty || 'NORMAL',
-            humanConfigs: [
-                {
-                    invertPitch: this.settings.invertPitch.PLAYER_1,
-                    cockpitCamera: this.settings.cockpitCamera.PLAYER_1,
-                    vehicleId: this.settings.vehicles.PLAYER_1
-                },
-                {
-                    invertPitch: this.settings.invertPitch.PLAYER_2,
-                    cockpitCamera: this.settings.cockpitCamera.PLAYER_2,
-                    vehicleId: this.settings.vehicles.PLAYER_2
-                },
-            ],
+        const initializedMatch = initializeMatchSession({
+            renderer: this.renderer,
+            audio: this.audio,
+            recorder: this.recorder,
+            settings: this.settings,
+            requestedMapKey: this.mapKey,
+            currentSession: this._getCurrentMatchSessionRefs(),
+            onPlayerFeedback: (player, message) => {
+                this._showPlayerFeedback(player, message);
+            },
+            onPlayerDied: (player, cause) => {
+                if (!player.isBot) {
+                    const msg = this._getDeathMessage(cause);
+                    this._showStatusToast(msg, 2500, 'error');
+                }
+            },
+            onRoundEnd: (winner) => {
+                this._onRoundEnd(winner);
+            },
         });
-        this.entityManager.onPlayerFeedback = (player, message) => {
-            this._showPlayerFeedback(player, message);
-        };
-
-        for (let i = 0; i < this.numHumans; i++) {
-            this.renderer.createCamera(i);
-        }
-
-        for (const player of this.entityManager.players) {
-            player.score = 0;
-        }
-
-        this.entityManager.onPlayerDied = (player, cause) => {
-            if (!player.isBot) {
-                const msg = this._getDeathMessage(cause);
-                this._showStatusToast(msg, 2500, 'error');
-            }
-        };
-
-        this.entityManager.onRoundEnd = (winner) => {
-            this._onRoundEnd(winner);
-        };
+        this._applyInitializedMatchSession(initializedMatch);
+        this._applyMatchFeedbackPlan(initializedMatch.feedbackPlan);
 
         this._startRound();
     }
@@ -1278,8 +1375,7 @@ export class Game {
         }
 
         this.gameLoop.setTimeScale(1.0);
-        this.ui.messageOverlay.classList.add('hidden');
-        this.ui.statusToast.classList.add('hidden');
+        this._applyMatchUiState(deriveRoundStartUiState());
         this._updateHUD();
     }
 
@@ -1287,39 +1383,42 @@ export class Game {
         this.state = 'ROUND_END';
         this.roundPause = 3.0;
 
-        // Recording Dump & Debug Text
-        // Recording Dump & Debug Text
-        // Recording Dump & Debug Text
-        console.log('--- ROUND END ---');
-        try {
-            const roundMetrics = this.recorder.finalizeRound(winner, this.entityManager.players);
-            if (roundMetrics) {
-                console.log('[Recorder] Round KPI:', roundMetrics);
-            }
-            // Recording Dump
-            this.recorder.dump(); // Log to console only
-        } catch (e) {
-            console.error('Recorder Dump Failed:', e);
-        }
+        const roundEndPlan = coordinateRoundEnd(this._buildRoundEndCoordinatorRequest(winner));
+        this._applyRoundEndCoordinatorPlan(roundEndPlan);
+    }
 
-        if (winner) {
-            winner.score++;
-        }
-
-        this._updateHUD();
-
-        // Match-Sieg nur wenn nicht Singleplayer-Solo (also entweder MP oder mit Bots)
-        const roundEndOutcome = deriveRoundEndOutcome(this.entityManager.players, {
+    _buildRoundEndCoordinatorRequest(winner) {
+        return {
+            recorder: this.recorder,
             winner,
+            players: this.entityManager.players,
+            roundStateController: this.roundStateController,
             humanPlayerCount: this.entityManager.getHumanPlayers().length,
             totalBots: this.numBots,
             winsNeeded: this.winsNeeded,
-        });
+            logger: console,
+        };
+    }
 
-        this.state = roundEndOutcome.state;
-        this.ui.messageText.textContent = roundEndOutcome.messageText;
-        this.ui.messageSub.textContent = roundEndOutcome.messageSub;
-        this.ui.messageOverlay.classList.remove('hidden');
+    _applyRoundEndCoordinatorPlan(roundEndPlan) {
+        this._applyRoundEndControllerTransitionState(roundEndPlan?.transition);
+        this._applyRoundEndCoordinatorEffects(roundEndPlan?.effectsPlan);
+        this._applyRoundEndCoordinatorUiState(roundEndPlan?.uiState);
+    }
+
+    _applyRoundEndCoordinatorEffects(effectsPlan) {
+        if (!effectsPlan?.shouldUpdateHud) return;
+        this._updateHUD();
+    }
+
+    _applyRoundEndCoordinatorUiState(uiState) {
+        if (!uiState) return;
+        this._applyMatchUiState(uiState);
+    }
+
+    _applyRoundEndControllerTransitionState(roundEndTransition) {
+        this.roundPause = roundEndTransition.roundPause;
+        this.state = roundEndTransition.nextState;
     }
 
     _updateHUD() {
@@ -1492,6 +1591,198 @@ export class Game {
         }
     }
 
+    _updatePlayingHudTick(dt) {
+        // HUD nur alle ~200ms aktualisieren (reicht für UI)
+        this._hudTimer += dt;
+        if (this._hudTimer >= 0.2) {
+            this._hudTimer = 0;
+            this._updateHUD();
+        }
+
+        // FIGHTER HUD UPDATE
+        const p1 = this.entityManager.players[0];
+        if (p1) this.hudP1.update(p1, dt, this.entityManager);
+
+        // Fadenkreuz Lock-On Farbe updaten (P1)
+        if (this.ui.crosshairP1) {
+            const lockTarget = this.entityManager.getLockOnTarget(0);
+            if (lockTarget) {
+                this.ui.crosshairP1.classList.add('locked');
+            } else {
+                this.ui.crosshairP1.classList.remove('locked');
+            }
+        }
+
+        // Fadenkreuz Lock-On Farbe updaten (P2)
+        if (this.ui.crosshairP2 && this.numHumans === 2) {
+            const lockTarget = this.entityManager.getLockOnTarget(1);
+            if (lockTarget) {
+                this.ui.crosshairP2.classList.add('locked');
+            } else {
+                this.ui.crosshairP2.classList.remove('locked');
+            }
+
+            const p2 = this.entityManager.players[1];
+            if (p2) this.hudP2.update(p2, dt, this.entityManager);
+        } else {
+            this.hudP2.setVisibility(false);
+        }
+    }
+
+    _applyPlayingTimeScaleFromEffects() {
+        this.gameLoop.setTimeScale(1.0);
+        for (const p of this.entityManager.players) {
+            for (const effect of p.activeEffects) {
+                if (effect.type === 'SLOW_TIME') {
+                    this.gameLoop.setTimeScale(CONFIG.POWERUP.TYPES.SLOW_TIME.timeScale);
+                }
+            }
+        }
+    }
+
+    _updatePlayingState(dt) {
+        if (this.input.wasPressed('Escape')) {
+            this._returnToMenu();
+            return;
+        }
+
+        this._updatePlanarAimAssist(dt);
+        this.entityManager.update(dt, this.input);
+        this.powerupManager.update(dt);
+        this.particles.update(dt);
+        this.arena.update(dt);
+        this.entityManager.updateCameras(dt);
+        this._updateCrosshairs();
+        this._updatePlayingHudTick(dt);
+        this._applyPlayingTimeScaleFromEffects();
+    }
+
+    _executeRoundStateTickAction(action) {
+        if (action === 'RETURN_TO_MENU') {
+            this._returnToMenu();
+            return true;
+        }
+        if (action === 'START_ROUND') {
+            this._startRound();
+            return true;
+        }
+        if (action === 'RESTART_MATCH') {
+            this.startMatch();
+            return true;
+        }
+        return false;
+    }
+
+    _readRoundEndTickInputs(dt) {
+        return {
+            dt,
+            roundPause: this.roundPause,
+            enterPressed: this.input.wasPressed('Enter'),
+            escapePressed: this.input.wasPressed('Escape'),
+        };
+    }
+
+    _readMatchEndTickInputs() {
+        return {
+            enterPressed: this.input.wasPressed('Enter'),
+            escapePressed: this.input.wasPressed('Escape'),
+        };
+    }
+
+    _deriveRoundEndTickStep(dt) {
+        return this.roundStateController.deriveRoundEndTick(this._readRoundEndTickInputs(dt));
+    }
+
+    _deriveMatchEndTickStep() {
+        return this.roundStateController.deriveMatchEndTick(this._readMatchEndTickInputs());
+    }
+
+    _applyRoundEndTickUi(roundEndTick) {
+        if (!roundEndTick.countdownMessageSub) return;
+        this._applyMatchUiState(deriveRoundEndCountdownUiState(this.roundPause));
+    }
+
+    _applyRoundEndTickMutableState(roundEndTick) {
+        this.roundPause = roundEndTick.nextRoundPause;
+        this._applyRoundEndTickUi(roundEndTick);
+    }
+
+    _updateRoundStateCamerasIfNeeded(dt, shouldUpdateCameras) {
+        if (!shouldUpdateCameras) return;
+        this.entityManager.updateCameras(dt);
+    }
+
+    _runRoundStateTickStepCore(tickStep, dt, hooks = {}) {
+        if (typeof hooks.beforeBase === 'function') {
+            const shouldStop = hooks.beforeBase(tickStep);
+            if (shouldStop) return true;
+        }
+        if (tickStep.action === 'RETURN_TO_MENU' && this._executeRoundStateTickAction(tickStep.action)) {
+            return true;
+        }
+        this._updateRoundStateCamerasIfNeeded(dt, tickStep.shouldUpdateCameras);
+        if (typeof hooks.afterBase === 'function') {
+            const shouldStop = hooks.afterBase(tickStep);
+            if (shouldStop) return true;
+        }
+        return false;
+    }
+
+    _applyRoundEndTickStep(roundEndTick, dt) {
+        this._applyRoundEndTickMutableState(roundEndTick);
+        return this._runRoundStateTickStepCore(roundEndTick, dt, {
+            afterBase: (tickStep) => {
+                this._executeRoundStateTickAction(tickStep.action);
+                return false;
+            },
+        });
+    }
+
+    _applyMatchEndTickStep(matchEndTick, dt) {
+        return this._runRoundStateTickStepCore(matchEndTick, dt, {
+            beforeBase: (tickStep) => {
+                if (tickStep.action === 'RESTART_MATCH') {
+                    this._executeRoundStateTickAction(tickStep.action);
+                }
+                return false;
+            },
+        });
+    }
+
+    _runRoundStateTickUpdate(dt, deriveTickStep, applyTickStep) {
+        const tickStep = deriveTickStep.call(this, dt);
+        return !!applyTickStep.call(this, tickStep, dt);
+    }
+
+    _buildRoundEndStateTickDescriptor() {
+        return {
+            deriveTickStep: this._deriveRoundEndTickStep,
+            applyTickStep: this._applyRoundEndTickStep,
+        };
+    }
+
+    _buildMatchEndStateTickDescriptor() {
+        return {
+            deriveTickStep: this._deriveMatchEndTickStep,
+            applyTickStep: this._applyMatchEndTickStep,
+        };
+    }
+
+    _runRoundStateTickDescriptor(dt, descriptor) {
+        if (!descriptor) return false;
+        return this._runRoundStateTickUpdate(dt, descriptor.deriveTickStep, descriptor.applyTickStep);
+    }
+
+    _updateRoundEndState(dt) {
+        const descriptor = this._buildRoundEndStateTickDescriptor();
+        if (this._runRoundStateTickDescriptor(dt, descriptor)) return;
+    }
+
+    _updateMatchEndState(dt) {
+        const descriptor = this._buildMatchEndStateTickDescriptor();
+        if (this._runRoundStateTickDescriptor(dt, descriptor)) return;
+    }
+
     update(dt) {
         // FPS-Tracker (immer aktiv, kein Performance-Overhead)
         this._fpsTracker.update(dt);
@@ -1537,93 +1828,11 @@ export class Game {
         }
 
         if (this.state === 'PLAYING') {
-            if (this.input.wasPressed('Escape')) {
-                this._returnToMenu();
-                return;
-            }
-
-            this._updatePlanarAimAssist(dt);
-            this.entityManager.update(dt, this.input);
-            this.powerupManager.update(dt);
-            this.particles.update(dt);
-            this.arena.update(dt);
-            this.entityManager.updateCameras(dt);
-            this._updateCrosshairs();
-
-            // HUD nur alle ~200ms aktualisieren (reicht für UI)
-            this._hudTimer += dt;
-            if (this._hudTimer >= 0.2) {
-                this._hudTimer = 0;
-                this._updateHUD();
-            }
-
-            // FIGHTER HUD UPDATE
-            const p1 = this.entityManager.players[0];
-            if (p1) this.hudP1.update(p1, dt, this.entityManager);
-
-            // Fadenkreuz Lock-On Farbe updaten (P1)
-            if (this.ui.crosshairP1) {
-                const lockTarget = this.entityManager.getLockOnTarget(0);
-                if (lockTarget) {
-                    this.ui.crosshairP1.classList.add('locked');
-                } else {
-                    this.ui.crosshairP1.classList.remove('locked');
-                }
-            }
-
-            // Fadenkreuz Lock-On Farbe updaten (P2)
-            if (this.ui.crosshairP2 && this.numHumans === 2) {
-                const lockTarget = this.entityManager.getLockOnTarget(1);
-                if (lockTarget) {
-                    this.ui.crosshairP2.classList.add('locked');
-                } else {
-                    this.ui.crosshairP2.classList.remove('locked');
-                }
-
-                const p2 = this.entityManager.players[1];
-                if (p2) this.hudP2.update(p2, dt, this.entityManager);
-            } else {
-                this.hudP2.setVisibility(false);
-            }
-
-            this.gameLoop.setTimeScale(1.0);
-            for (const p of this.entityManager.players) {
-                for (const effect of p.activeEffects) {
-                    if (effect.type === 'SLOW_TIME') {
-                        this.gameLoop.setTimeScale(CONFIG.POWERUP.TYPES.SLOW_TIME.timeScale);
-                    }
-                }
-            }
+            this._updatePlayingState(dt);
         } else if (this.state === 'ROUND_END') {
-            if (this.input.wasPressed('Escape')) {
-                this._returnToMenu();
-                return;
-            }
-
-            if (this.input.wasPressed('Enter')) {
-                this.roundPause = 0;
-            }
-
-            this.roundPause -= dt;
-
-            const countdown = Math.ceil(this.roundPause);
-            if (countdown > 0) {
-                this.ui.messageSub.textContent = `Naechste Runde in ${countdown}...`;
-            }
-
-            this.entityManager.updateCameras(dt);
-
-            if (this.roundPause <= 0) {
-                this._startRound();
-            }
+            this._updateRoundEndState(dt);
         } else if (this.state === 'MATCH_END') {
-            if (this.input.wasPressed('Enter')) {
-                this.startMatch();
-            } else if (this.input.wasPressed('Escape')) {
-                this._returnToMenu();
-            }
-
-            this.entityManager.updateCameras(dt);
+            this._updateMatchEndState(dt);
         }
     }
 
@@ -1633,38 +1842,11 @@ export class Game {
 
     _returnToMenu() {
         this.state = 'MENU';
-        if (this.entityManager) {
-            this.entityManager.dispose();
-        }
-        if (this.powerupManager) {
-            this.powerupManager.dispose();
-        }
-        if (this.particles?.dispose) {
-            this.particles.dispose();
-            this.particles = null;
-        }
-        this.renderer.clearMatchScene();
-        this.arena = null;
-        this.entityManager = null;
-        this.powerupManager = null;
-        this.ui.mainMenu.classList.remove('hidden');
+        disposeMatchSessionSystems(this.renderer, this._getCurrentMatchSessionRefs());
+        this._clearMatchSessionRefs();
+        this._applyMatchUiState(deriveReturnToMenuUiState());
         this._showMainNav(); // Reset to main navigation
-        this.ui.hud.classList.add('hidden');
-        this.ui.messageOverlay.classList.add('hidden');
-        this.ui.statusToast.classList.add('hidden');
-        // Fadenkreuz verstecken
-        if (this.ui.crosshairP1) {
-            this.ui.crosshairP1.style.display = 'none';
-            this.ui.crosshairP1.style.left = '50%';
-            this.ui.crosshairP1.style.top = '50%';
-            this.ui.crosshairP1.style.transform = 'translate(-50%, -50%) rotate(0deg)';
-        }
-        if (this.ui.crosshairP2) {
-            this.ui.crosshairP2.style.display = 'none';
-            this.ui.crosshairP2.style.left = '50%';
-            this.ui.crosshairP2.style.top = '50%';
-            this.ui.crosshairP2.style.transform = 'translate(-50%, -50%) rotate(0deg)';
-        }
+        this._resetCrosshairUi();
         this.uiManager.syncAll();
     }
     _showDebugLog(recorderDump) {

@@ -12,6 +12,8 @@ export function bindEditorToolPaletteControls(editor) {
                 menu.style.display = 'none';
             });
             if (editor.currentTool === 'spawn' && dom.subSpawn) dom.subSpawn.style.display = "flex";
+            if (editor.currentTool === 'tunnel' && dom.subTunnel) dom.subTunnel.style.display = "flex";
+            if (editor.currentTool === 'portal' && dom.subPortal) dom.subPortal.style.display = "flex";
             if (editor.currentTool === 'item' && dom.subItem) dom.subItem.style.display = "flex";
             if (editor.currentTool === 'aircraft' && dom.subAircraft) dom.subAircraft.style.display = "flex";
 

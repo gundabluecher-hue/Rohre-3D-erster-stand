@@ -5,8 +5,10 @@ import { MantaMesh } from './manta-mesh.js';
 import { DroneMesh } from './drone-mesh.js';
 import { OrbMesh } from './orb-mesh.js';
 import { OBJVehicleMesh } from './obj-vehicle-mesh.js';
+import { RuntimeModularVehicleMesh } from './runtime-modular-vehicle-mesh.js';
+import { GENERATED_VEHICLE_CONFIGS } from './GeneratedVehicleConfigs.js';
 
-export const VEHICLE_DEFINITIONS = [
+const BASE_VEHICLE_DEFINITIONS = [
     { id: 'ship5', label: 'Star-Cruiser (Ship 5)', MeshClass: OBJVehicleMesh, isObj: true, hitbox: { radius: 1.2 } },
     { id: 'aircraft', label: 'Jet-Fighter', MeshClass: AircraftMesh, hitbox: { radius: 1.1 } },
     { id: 'spaceship', label: 'Raumschiff', MeshClass: SpaceshipMesh, hitbox: { radius: 1.3 } },
@@ -25,6 +27,25 @@ export const VEHICLE_DEFINITIONS = [
     { id: 'ship9', label: 'Recon (Ship 9)', MeshClass: OBJVehicleMesh, isObj: true, hitbox: { radius: 1.0 } },
 ];
 
+const GENERATED_CUSTOM_VEHICLE_DEFINITIONS = (Array.isArray(GENERATED_VEHICLE_CONFIGS) ? GENERATED_VEHICLE_CONFIGS : [])
+    .filter((entry) => entry && typeof entry === 'object' && Array.isArray(entry.config?.parts))
+    .map((entry) => ({
+        id: String(entry.id || '').trim(),
+        label: String(entry.label || entry.id || 'Custom Vehicle'),
+        MeshClass: RuntimeModularVehicleMesh,
+        isGeneratedModular: true,
+        modularConfig: entry.config,
+        hitbox: {
+            radius: Number(entry.hitbox?.radius) || 1.2
+        }
+    }))
+    .filter((entry) => entry.id.length > 0);
+
+export const VEHICLE_DEFINITIONS = [
+    ...BASE_VEHICLE_DEFINITIONS,
+    ...GENERATED_CUSTOM_VEHICLE_DEFINITIONS,
+];
+
 const VEHICLE_BY_ID = new Map(VEHICLE_DEFINITIONS.map((entry) => [entry.id, entry]));
 
 export function getVehicleIds() {
@@ -38,6 +59,9 @@ export function isValidVehicleId(vehicleId) {
 export function createVehicleMesh(vehicleId, color) {
     const key = String(vehicleId || '').trim();
     const selected = VEHICLE_BY_ID.get(key) || VEHICLE_DEFINITIONS[0];
+    if (selected.isGeneratedModular) {
+        return new selected.MeshClass(color, selected.modularConfig);
+    }
     if (selected.isObj) {
         return new selected.MeshClass(color, selected.id);
     }

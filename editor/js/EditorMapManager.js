@@ -206,6 +206,27 @@ export class EditorMapManager {
         return resource;
     }
 
+    createTunnelTrailMesh(subType) {
+        if (typeof subType !== 'string' || !subType.startsWith('trail_')) return null;
+        const asset = this.assetLoader?.getClone?.(subType);
+        if (!asset) return null;
+
+        // Trail OBJ meshes are modeled along Z; rotate to Y so alignTunnelSegment() can orient/stretch them.
+        asset.rotation.x = -Math.PI / 2;
+
+        // Normalize base dimensions so wrapper scaling maps roughly to radius/length semantics.
+        if (subType === 'trail_segment') {
+            asset.scale.set(1, 1, 0.4);
+        } else if (subType === 'trail_arrow') {
+            asset.scale.set(0.625, 0.625, 0.2);
+        }
+
+        const wrapper = new THREE.Group();
+        wrapper.name = `tunnel_${subType}`;
+        wrapper.add(asset);
+        return wrapper;
+    }
+
     createSelectionOutline(geometry) {
         const outlineGeometry = this.markOwnedResource(new THREE.EdgesGeometry(geometry));
         const outlineMaterial = this.markOwnedResource(new THREE.LineBasicMaterial({
@@ -357,9 +378,13 @@ export class EditorMapManager {
             userData.sizeInfo = Math.max(sx, sy, sz) * 0.5;
         }
         else if (type === 'tunnel') {
-            mesh = new THREE.Mesh(this.cylinderGeo, this.mats.tunnel);
+            const trailSubType = (typeof subType === 'string' && subType.startsWith('trail_')) ? subType : null;
+            mesh = this.createTunnelTrailMesh(trailSubType) || new THREE.Mesh(this.cylinderGeo, this.mats.tunnel);
             const r = Number(props.radius) || Number(sizeInfo) || 160;
             userData.radius = r;
+            if (trailSubType) {
+                userData.subType = trailSubType;
+            }
 
             if (props.pointA && props.pointB) {
                 this.alignTunnelSegment(mesh, props.pointA, props.pointB, r);
@@ -368,12 +393,16 @@ export class EditorMapManager {
             }
         }
         else if (type === 'portal') {
-            mesh = new THREE.Mesh(this.torusGeo, this.mats.portal);
+            const portalSubType = (typeof subType === 'string' && subType.startsWith('portal_')) ? subType : null;
+            mesh = (portalSubType ? this.assetLoader.getClone(portalSubType) : null) || new THREE.Mesh(this.torusGeo, this.mats.portal);
             const r = Number(sizeInfo) || Number(props.radius) || 80;
             mesh.scale.set(r, r, r);
             mesh.rotation.x = Math.PI / 2;
             userData.sizeInfo = r;
             userData.radius = r;
+            if (portalSubType) {
+                userData.subType = portalSubType;
+            }
         }
         else if (type === 'spawn') {
             mesh = new THREE.Mesh(this.torusKnotGeo, subType === 'player' ? this.mats.playerSpawn : this.mats.botSpawn);
@@ -495,7 +524,11 @@ export class EditorMapManager {
                 });
             }
             else if (u.type === 'portal') {
-                payload.portals.push({ id: u.id, x: p.x, y: p.y, z: p.z, radius: u.sizeInfo });
+                const portalEntry = { id: u.id, x: p.x, y: p.y, z: p.z, radius: u.sizeInfo };
+                if (typeof u.subType === 'string' && u.subType) {
+                    portalEntry.model = u.subType;
+                }
+                payload.portals.push(portalEntry);
             }
             else if (u.type === 'spawn') {
                 if (u.subType === 'player') {
@@ -518,12 +551,16 @@ export class EditorMapManager {
             }
             else if (u.type === 'tunnel') {
                 if (u.pointA && u.pointB) {
-                    payload.tunnels.push({
+                    const tunnelEntry = {
                         id: u.id,
                         ax: u.pointA.x, ay: u.pointA.y, az: u.pointA.z,
                         bx: u.pointB.x, by: u.pointB.y, bz: u.pointB.z,
                         radius: u.radius
-                    });
+                    };
+                    if (typeof u.subType === 'string' && u.subType) {
+                        tunnelEntry.model = u.subType;
+                    }
+                    payload.tunnels.push(tunnelEntry);
                 }
             }
         });
@@ -571,7 +608,7 @@ export class EditorMapManager {
                 }
 
                 if (data.portals) {
-                    data.portals.forEach((b) => this.createMesh('portal', null, b.x, b.y, b.z, b.radius, {
+                    data.portals.forEach((b) => this.createMesh('portal', b.model || null, b.x, b.y, b.z, b.radius, {
                         id: b.id
                     }, { updateUi: false }));
                 }
@@ -608,7 +645,7 @@ export class EditorMapManager {
                         const pA = new THREE.Vector3(t.ax, t.ay, t.az);
                         const pB = new THREE.Vector3(t.bx, t.by, t.bz);
                         const center = pA.clone().lerp(pB, 0.5);
-                        this.createMesh('tunnel', null, center.x, center.y, center.z, t.radius, {
+                        this.createMesh('tunnel', t.model || null, center.x, center.y, center.z, t.radius, {
                             id: t.id,
                             pointA: pA,
                             pointB: pB,

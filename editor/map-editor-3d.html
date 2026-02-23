@@ -289,6 +289,30 @@
                 </select>
             </div>
 
+            <div id="subTunnel" class="row sub-menu" style="display:none; border-top:none; padding-top:0;">
+                <label style="color:var(--accent)">Tunnel-Modell:</label>
+                <select id="selTunnelType">
+                    <option value="trail_segment" selected>Trail Segment</option>
+                    <option value="trail_arrow">Trail Arrow</option>
+                    <option value="">Primitive Zylinder</option>
+                </select>
+            </div>
+
+            <div id="subPortal" class="row sub-menu" style="display:none; border-top:none; padding-top:0;">
+                <label style="color:var(--accent)">Portal-Modell:</label>
+                <select id="selPortalType">
+                    <option value="portal_ring" selected>Ring</option>
+                    <option value="portal_cross">Cross</option>
+                    <option value="portal_diamond">Diamond</option>
+                    <option value="portal_hex">Hex</option>
+                    <option value="portal_octagon">Octagon</option>
+                    <option value="portal_square">Square</option>
+                    <option value="portal_star">Star</option>
+                    <option value="portal_triangle">Triangle</option>
+                    <option value="">Primitive Torus</option>
+                </select>
+            </div>
+
             <div id="subItem" class="row sub-menu" style="display:none; border-top:none; padding-top:0;">
                 <label style="color:var(--accent)">Item-Typ:</label>
                 <select id="selItemType">
@@ -413,10 +437,21 @@
             </div>
 
             <div style="flex-grow:1;display:flex;flex-direction:column; margin-top:8px;">
-                <strong style="font-size:12px;">JSON Export / Import</strong>
+                <strong style="font-size:12px;">Speichern / JSON Export</strong>
+                <button id="btnSaveToGame"
+                    style="margin:4px 0; background-color: #10b981; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer;">
+                    Im Spieleordner speichern (mit Name)
+                </button>
                 <button id="btnPlaytest"
                     style="margin:4px 0; background-color: #3b82f6; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer;">â–¶
                     Map im Browser Spielen</button>
+                <div class="row" style="margin-top:2px;">
+                    <label>Playtest-Modus</label>
+                    <select id="selPlaytestMode">
+                        <option value="3d" selected>3D</option>
+                        <option value="planar">Planar</option>
+                    </select>
+                </div>
                 <div style="display:flex;gap:6px;margin:4px 0;">
                     <button id="btnUndo" class="small" title="Undo (Strg+Z)" disabled>Undo</button>
                     <button id="btnRedo" class="small" title="Redo (Strg+Y / Strg+Shift+Z)" disabled>Redo</button>

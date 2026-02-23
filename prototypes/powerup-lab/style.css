@@ -11,7 +11,9 @@
     --shadow: rgba(0, 0, 0, 0.35);
 }
 
-* { box-sizing: border-box; }
+* {
+    box-sizing: border-box;
+}
 
 html,
 body {
@@ -109,14 +111,50 @@ body::before {
     font-size: 0.9rem;
 }
 
-.hud__grid span { color: var(--muted); }
-.hud__grid strong { justify-self: end; color: var(--ink); }
+.hud__grid span {
+    color: var(--muted);
+}
+
+.hud__grid strong {
+    justify-self: end;
+    color: var(--ink);
+}
 
 .hud__effects {
     min-height: 24px;
     color: #f6ffe5;
     line-height: 1.35;
     font-size: 0.92rem;
+}
+
+.hud__timer {
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: var(--muted);
+}
+
+.hud__progress-bg {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    margin-top: 4px;
+    overflow: hidden;
+}
+
+.hud__progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.1s linear;
+}
+
+.hud__progress-fill.is-warm {
+    background: var(--accent-warm);
+}
+
+.hud__progress-fill.is-chrono {
+    background: #b48dff;
 }
 
 .hud__list {
@@ -127,7 +165,9 @@ body::before {
     font-size: 0.88rem;
 }
 
-.hud__list li { margin: 2px 0; }
+.hud__list li {
+    margin: 2px 0;
+}
 
 kbd {
     display: inline-block;
@@ -160,8 +200,13 @@ kbd {
     font-size: 0.85rem;
 }
 
-.hud__log li.is-warm { border-left-color: var(--accent-warm); }
-.hud__log li.is-danger { border-left-color: var(--danger); }
+.hud__log li.is-warm {
+    border-left-color: var(--accent-warm);
+}
+
+.hud__log li.is-danger {
+    border-left-color: var(--danger);
+}
 
 @media (max-width: 760px) {
     .hud {
@@ -174,5 +219,7 @@ kbd {
         padding: 10px;
     }
 
-    .hud__header h1 { font-size: 1.1rem; }
+    .hud__header h1 {
+        font-size: 1.1rem;
+    }
 }

@@ -88,6 +88,17 @@ export class Player {
         this.cockpitCamera = false;
         this.spawnProtectionTimer = 0;
         this.planarAimOffset = 0;
+        this.steeringLockTimer = 0;
+
+        // Spezial-Gate Effekte
+        this.boostPortalTimer = 0;
+        this.boostPortalParams = null;
+        this.boostPortalDir = new THREE.Vector3();
+
+        this.slingshotTimer = 0;
+        this.slingshotParams = null;
+        this.slingshotForward = new THREE.Vector3();
+        this.slingshotUp = new THREE.Vector3();
 
         const requestedVehicleId = String(options?.vehicleId || '').trim();
         this.vehicleId = isValidVehicleId(requestedVehicleId)
@@ -217,6 +228,7 @@ export class Player {
         this.invertControls = false;
         this.spawnProtectionTimer = CONFIG.PLAYER.SPAWN_PROTECTION || 0;
         this.planarAimOffset = 0;
+        this.steeringLockTimer = 0;
         // Planar Mode State: keep the spawn level chosen by the spawner.
         const fallbackY = CONFIG.PLAYER.START_Y || 5;
         const spawnY = Number.isFinite(position?.y) ? position.y : fallbackY;
@@ -237,9 +249,17 @@ export class Player {
         this._updateModel();
     }
 
+    lockSteering(seconds = 0.2) {
+        const duration = Number(seconds);
+        if (!Number.isFinite(duration) || duration <= 0) return;
+        this.steeringLockTimer = Math.max(this.steeringLockTimer || 0, duration);
+    }
+
     update(dt, input) {
         if (!this.alive) return;
         this.spawnProtectionTimer = Math.max(0, this.spawnProtectionTimer - dt);
+        this.steeringLockTimer = Math.max(0, (this.steeringLockTimer || 0) - dt);
+        const steeringLocked = this.steeringLockTimer > 0;
 
         // Effekte aktualisieren
         this._updateEffects(dt);
@@ -274,10 +294,16 @@ export class Player {
             }
 
             // Boost
-            if (input.boost && this.boostCooldown <= 0 && !this.isBoosting) {
+            if (!steeringLocked && input.boost && this.boostCooldown <= 0 && !this.isBoosting) {
                 this.isBoosting = true;
                 this.boostTimer = CONFIG.PLAYER.BOOST_DURATION;
             }
+        }
+
+        if (steeringLocked) {
+            pitchInput = 0;
+            yawInput = 0;
+            rollInput = 0;
         }
 
         // Rotation anwenden (wiederverwendbare Objekte)
@@ -321,9 +347,30 @@ export class Player {
             this.boostCooldown -= dt;
         }
 
-        // Vorwärtsbewegung (ohne clone)
+        // Vorwärtsbewegung
         this._tmpVec.set(0, 0, -1).applyQuaternion(this.quaternion);
         this.velocity.copy(this._tmpVec).multiplyScalar(this.speed);
+
+        // ---- Spezial-Gate Effekte anwenden ----
+        if (this.boostPortalTimer > 0) {
+            // Starker Vorwärtsschub in Gate-Richtung
+            const factor = Math.min(1, this.boostPortalTimer / 0.5); // Ease out
+            const strength = (this.boostPortalParams?.forwardImpulse || 40) * factor;
+            this.velocity.addScaledVector(this.boostPortalDir, strength);
+
+            // Speed Surge (temporäre Erhöhung des Limits)
+            this.speed = Math.max(this.speed, (this.boostPortalParams?.bonusSpeed || 50));
+        }
+
+        if (this.slingshotTimer > 0) {
+            // Impuls + Lift
+            const factor = Math.min(1, this.slingshotTimer / 1.0);
+            const fStrength = (this.slingshotParams?.forwardImpulse || 25) * factor;
+            const uStrength = (this.slingshotParams?.liftImpulse || 5) * factor;
+
+            this.velocity.addScaledVector(this.slingshotForward, fStrength);
+            this.velocity.addScaledVector(this.slingshotUp, uStrength);
+        }
 
         if (CONFIG.GAMEPLAY.PLANAR_MODE) {
             this.velocity.y = 0;
@@ -340,7 +387,7 @@ export class Player {
         // Trail aktualisieren
         this.trail.update(dt, this.position, this._tmpVec);
 
-        // Modell-Animationen (z.B. rotierende Ringe, blinkende Lichter)
+        // Modell-Animationen
         if (this.vehicleMesh && typeof this.vehicleMesh.tick === 'function') {
             this.vehicleMesh.tick(dt);
         }
@@ -367,8 +414,6 @@ export class Player {
                 const flame = this.flames[i];
                 if (!flame) continue;
 
-                // Dynamische Skalierung basierend auf Index (für Tiefe, falls mehrere Schichten existieren)
-                // Bei nur 2 Triebwerken verhalten sich beide gleich.
                 const depthOffset = i * 0.05;
                 const scaleZ = (0.4 - depthOffset + flicker * (0.3 - depthOffset)) * boostFactor;
                 flame.scale.set(1, 1, Math.max(0.1, scaleZ));
@@ -377,17 +422,13 @@ export class Player {
                     flame.material.opacity = this.isBoosting ? 1.0 : 0.7;
 
                     if (this.isBoosting) {
-                        // Weiß/Orange Mix für Boost
                         flame.material.color.setHex(i % 2 === 0 ? 0xffffff : 0xffaa33);
                     } else {
-                        // Standard Orange-Töne
                         flame.material.color.setHex(i % 2 === 0 ? 0xffffaa : 0xff8800);
                     }
                 }
             }
         }
-
-        // BoostLight entfernt
 
         // Kraftfeld-Visualisierung (Box)
         if (this.shieldMesh) {
@@ -410,10 +451,19 @@ export class Player {
             effect.remaining -= dt;
 
             if (effect.remaining <= 0) {
-                // Effekt beenden
                 this._removeEffect(effect);
                 this.activeEffects.splice(i, 1);
             }
+        }
+
+        // Spezial-Gate Timer
+        if (this.boostPortalTimer > 0) {
+            this.boostPortalTimer -= dt;
+            if (this.boostPortalTimer <= 0) this.boostPortalParams = null;
+        }
+        if (this.slingshotTimer > 0) {
+            this.slingshotTimer -= dt;
+            if (this.slingshotTimer <= 0) this.slingshotParams = null;
         }
     }
 
@@ -440,7 +490,6 @@ export class Player {
         const config = CONFIG.POWERUP.TYPES[type];
         if (!config) return;
 
-        // Vorherigen gleichen Effekt entfernen
         this.activeEffects = this.activeEffects.filter(e => {
             if (e.type === type) {
                 this._removeEffect(e);
@@ -452,7 +501,6 @@ export class Player {
         const effect = { type, remaining: config.duration };
         this.activeEffects.push(effect);
 
-        // Effekt anwenden
         switch (type) {
             case 'SPEED_UP':
                 this.baseSpeed = CONFIG.PLAYER.SPEED * config.multiplier;
@@ -477,7 +525,6 @@ export class Player {
             case 'INVERT':
                 this.invertControls = true;
                 break;
-            // SLOW_TIME wird global behandelt
         }
     }
 
@@ -523,7 +570,6 @@ export class Player {
     useItem() {
         if (this.inventory.length > 0 && this.selectedItemIndex < this.inventory.length) {
             const type = this.inventory.splice(this.selectedItemIndex, 1)[0];
-            // Korrigiere Index wenn nötig
             if (this.selectedItemIndex >= this.inventory.length && this.inventory.length > 0) {
                 this.selectedItemIndex = 0;
             }
@@ -604,21 +650,31 @@ export class Player {
         this.group = null;
     }
 
-    /**
-     * Prüft, ob eine Welt-Kugel innerhalb der rotierenden OBB des Spielers liegt.
-     * @param {THREE.Vector3} worldCenter 
-     * @param {number} radius
-     * @returns {boolean}
-     */
     isSphereInOBB(worldCenter, radius) {
         if (!this.alive) return false;
 
-        // Welt-Punkt in lokale Koordinaten des Schiffes umrechnen
         this._tmpWorldToLocal.copy(this.group.matrixWorld).invert();
         this._tmpLocalSphere.center.copy(worldCenter).applyMatrix4(this._tmpWorldToLocal);
         this._tmpLocalSphere.radius = radius;
 
-        // In lokalen Koordinaten gegen die Box3 prüfen
         return this.hitboxBox.intersectsSphere(this._tmpLocalSphere);
+    }
+
+    activateBoostPortal(params, forward) {
+        this.boostPortalTimer = params.duration || 1.5;
+        this.boostPortalParams = params;
+        this.boostPortalDir.copy(forward);
+
+        this.boostTimer = Math.max(this.boostTimer, this.boostPortalTimer);
+        this.isBoosting = true;
+    }
+
+    activateSlingshot(params, forward, up) {
+        this.slingshotTimer = params.duration || 2.0;
+        this.slingshotParams = params;
+        this.slingshotForward.copy(forward);
+        this.slingshotUp.copy(up);
+
+        this.lockSteering(0.15);
     }
 }

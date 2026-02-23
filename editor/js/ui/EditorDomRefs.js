@@ -4,10 +4,14 @@ export function createEditorDomRefs(doc = document) {
         subMenus: Array.from(doc.querySelectorAll('.sub-menu')),
 
         subSpawn: doc.getElementById("subSpawn"),
+        subTunnel: doc.getElementById("subTunnel"),
+        subPortal: doc.getElementById("subPortal"),
         subItem: doc.getElementById("subItem"),
         subAircraft: doc.getElementById("subAircraft"),
 
         selSpawnType: doc.getElementById("selSpawnType"),
+        selTunnelType: doc.getElementById("selTunnelType"),
+        selPortalType: doc.getElementById("selPortalType"),
         selItemType: doc.getElementById("selItemType"),
         selAircraftType: doc.getElementById("selAircraftType"),
 
@@ -37,8 +41,10 @@ export function createEditorDomRefs(doc = document) {
         propScale: doc.getElementById("propScale"),
 
         jsonOutput: doc.getElementById("jsonOutput"),
+        btnSaveToGame: doc.getElementById("btnSaveToGame"),
         btnExport: doc.getElementById("btnExport"),
         btnPlaytest: doc.getElementById("btnPlaytest"),
+        selPlaytestMode: doc.getElementById("selPlaytestMode"),
         btnImport: doc.getElementById("btnImport"),
         btnNew: doc.getElementById("btnNew"),
         btnDelSelected: doc.getElementById("btnDelSelected"),

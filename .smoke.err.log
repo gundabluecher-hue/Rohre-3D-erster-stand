@@ -1,0 +1,6 @@
+[smoke] Starting dev server on http://127.0.0.1:4173 ...
+[smoke] Dev server reachable
+[smoke] Launching Playwright Chromium ...
+[smoke] Opening http://127.0.0.1:4173/?playtest=1&traildebug=1&traildebugmax=600
+page.waitForFunction: Timeout 30000ms exceeded.
+    at main (C:\Users\gunda\Desktop\Rohre-3D-erster-stand\scripts\self-trail-debug-smoke.mjs:181:20)
