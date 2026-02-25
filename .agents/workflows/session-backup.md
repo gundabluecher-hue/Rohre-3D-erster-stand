@@ -4,34 +4,47 @@ description: Vor jeder Aenderungssession den aktuellen Stand sichern
 
 ## Vor einer Session: Stand sichern
 
-// turbo
-
 1. Git-Commit erstellen (sichert alles im Repo):
 
-```
-git add -A && git commit -m "WIP: Stand vor [Thema]"
+```bash
+git add -A && git commit -m "WIP: [Thema/Kontext]" -m "Bisherige Änderungen: [kurze Auflistung was geändert wurde und warum]"
 ```
 
-// turbo
-2. Backup wichtiger JS-Dateien erstellen:
+1. Backup wichtiger JS-Dateien erstellen:
 
-```
+```bash
 powershell -File backup.ps1
+```
+
+1. Optional – Push auf GitHub (empfohlen für zusätzliche Sicherheit):
+
+```bash
+git push
+```
+
+## Schnelle Alternative: Git Stash
+
+Falls du nur kurz etwas testen willst ohne einen Commit zu machen:
+
+```bash
+# Änderungen zwischenspeichern (ohne Commit)
+git stash push -m "WIP: [Beschreibung]"
+
+# Später wiederherstellen
+git stash pop
 ```
 
 ## Nach einer Session: Aenderungen pruefen
 
-// turbo
-3. Aenderungen ansehen:
+1. Aenderungen ansehen:
 
-```
+```bash
 git diff --stat HEAD~1
 ```
 
-// turbo
-4. Wenn etwas schiefgelaufen ist, eine Datei wiederherstellen:
+1. Wenn etwas schiefgelaufen ist, eine Datei wiederherstellen:
 
-```
+```bash
 git checkout -- js/modules/DATEINAME.js
 ```
 
