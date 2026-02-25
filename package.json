@@ -8,7 +8,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "smoke:selftrail": "node scripts/self-trail-debug-smoke.mjs",
-    "smoke:roundstate": "node scripts/round-state-controller-smoke.mjs"
+    "smoke:roundstate": "node scripts/round-state-controller-smoke.mjs",
+    "test:core": "playwright test tests/core.spec.js",
+    "test:gpu": "playwright test tests/gpu.spec.js",
+    "test:physics": "playwright test tests/physics.spec.js",
+    "test:stress": "playwright test tests/stress.spec.js"
   },
   "keywords": [
     "game",
@@ -21,6 +25,7 @@
     "three": "^0.160.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "vite": "^5.0.0"
   }
 }
