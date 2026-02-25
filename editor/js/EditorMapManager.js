@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createMapDocument, parseMapJSON } from '../../js/modules/MapSchema.js';
+import { createMapDocument, parseMapJSON } from '../../src/entities/MapSchema.js';
 
 const OBJECT_ID_PREFIX = Object.freeze({
     hard: 'hard',

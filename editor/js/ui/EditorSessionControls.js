@@ -1,4 +1,4 @@
-import { CUSTOM_MAP_STORAGE_KEY } from '../../../js/modules/MapSchema.js';
+import { CUSTOM_MAP_STORAGE_KEY } from '../../../src/entities/MapSchema.js';
 import { getJsonEditorText, setJsonEditorText } from './EditorFormState.js';
 
 const LAST_DISK_MAP_NAME_STORAGE_KEY = 'editor_last_disk_map_name';
