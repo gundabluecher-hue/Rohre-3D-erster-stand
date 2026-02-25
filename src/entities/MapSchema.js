@@ -1,4 +1,4 @@
-export const MAP_SCHEMA_VERSION = 1;
+export const MAP_SCHEMA_VERSION = 2;
 export const CUSTOM_MAP_KEY = 'custom';
 export const CUSTOM_MAP_STORAGE_KEY = 'custom_map_test';
 
@@ -161,7 +161,7 @@ function sanitizeLegacyRuntimeMapDocument(rawMap, warnings) {
         portals.push(sanitizePortal({ x: pair.b[0], y: pair.b[1], z: pair.b[2], radius: 80 }));
     }
 
-    warnings.push('Legacy runtime map format detected. Converted to editor schema v1.');
+    warnings.push('Legacy runtime map format detected. Converted to editor schema v2.');
 
     return {
         schemaVersion: MAP_SCHEMA_VERSION,
@@ -223,9 +223,12 @@ export function migrateMapDocument(rawMap) {
         if (looksLikeRuntimeMap) {
             migrated = sanitizeLegacyRuntimeMapDocument(rawMap, warnings);
         } else {
-            warnings.push('Legacy map format detected. Migrated to schema v1.');
+            warnings.push('Legacy map format detected. Migrated to schema v2.');
             migrated = { ...rawMap, schemaVersion: MAP_SCHEMA_VERSION };
         }
+    } else if (schemaVersion === 1) {
+        warnings.push('Map schema v1 detected. Migrating to v2.');
+        migrated = { ...rawMap, schemaVersion: MAP_SCHEMA_VERSION };
     }
 
     const map = normalizeMapSchemaDocument(migrated);

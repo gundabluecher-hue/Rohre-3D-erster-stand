@@ -109,6 +109,7 @@ export function loadCustomMapFromStorage(storageOverride) {
             ],
         };
     } catch (error) {
+        console.error('[CustomMapLoader] Error parsing custom map:', error);
         return {
             ok: false,
             error: error.message || 'Unknown custom map parsing error.',
@@ -160,13 +161,15 @@ export function resolveArenaMapSelection(requestedMapKey, storageOverride) {
         };
     }
 
+    console.warn(`[CustomMapLoader] Failed to load custom map, falling back to "${fallbackMapKey}". Error:`, customResult.error);
+
     return {
         requestedMapKey: mapKey,
         effectiveMapKey: fallbackMapKey,
         mapDefinition: CONFIG.MAPS[fallbackMapKey],
         warnings: customResult.warnings,
         isFallback: true,
-        isCustom: true,
+        isCustom: false,
         error: customResult.error,
     };
 }

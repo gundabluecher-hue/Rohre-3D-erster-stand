@@ -46,21 +46,33 @@ Neu aufgedeckte Bugs durch den Analysebericht fließen hier ein.
 - **Dateien:** `src/ui/UIManager.js`, `index.html`, `style.css`, `src/core/main.js`
 - **Verifikation:** Manueller Test der Profilerstellung und Navigation im Menü.
 
-## Phase 2b: [ ] Kernfixes & UX - Gameplay
+## Phase 2b: [x] Kernfixes & UX - Gameplay
+
+Erledigt: 25.02.2026
 
 - **Ziele:**
-  1. Portal-Ebenen reproduzierbar machen.
-  2. First-Person Boost-Kamera auf Nase/Flugzeugspitze legen.
+  1. [x] Portal-Ebenen reproduzierbar machen.
+  2. [x] First-Person Boost-Kamera auf Nase/Flugzeugspitze legen.
 - **Dateien:** `src/core/main.js`, `src/entities/Player.js`, `src/entities/Arena.js`
 - **Verifikation:** In-Game-Kameraführung sowie Portal-Teleports manuell testen.
 
-## Phase 3: [ ] 3D-Map-Editor MVP
+## Phase 3a: [x] 3D-Map-Editor - Schema & Loading
+
+Erledigt: 25.02.2026
 
 - **Ziele:**
-  1. Laauffähiger End-to-End-Flow (Editor -> Spiel).
-  2. Versioniertes JSON-Schema & Migration für alte Map-JSONs.
-  3. Editor-Playtest direkt im Spiel laden.
-- **Dateien:** `editor/js/EditorMapManager.js`, `js/modules/MapSchema.js`, `js/modules/CustomMapLoader.js`, `src/core/main.js`
+  1. [x] Versioniertes JSON-Schema (v1, v2) sicherstellen.
+  2. [x] Implementierung der Map-Migration für alte JSONs.
+  3. [x] Lauffähiges Laden von Custom Maps in der Engine.
+- **Dateien:** `src/entities/MapSchema.js`, `src/entities/CustomMapLoader.js`
+- **Verifikation:** Alte Test-Map laden. Es darf kein Absturz erfolgen und das Format soll korrekt upgegradet werden.
+
+## Phase 3b: [ ] 3D-Map-Editor - End-to-End Integration
+
+- **Ziele:**
+  1. Editor für Map-Export anpassen.
+  2. Editor-Playtest Button im Spiel integrieren.
+- **Dateien:** `editor/js/EditorMapManager.js`, `src/core/main.js`
 - **Verifikation:** Bauen, anpassen, speichern und Map über "Map im Browser spielen" fehlerfrei testen (`custom_map_test`).
 
 ## Phase 4: [ ] Bot-KI Struktur & Navigation
