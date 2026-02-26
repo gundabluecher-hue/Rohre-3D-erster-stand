@@ -67,12 +67,14 @@ Erledigt: 25.02.2026
 - **Dateien:** `src/entities/MapSchema.js`, `src/entities/CustomMapLoader.js`
 - **Verifikation:** Alte Test-Map laden. Es darf kein Absturz erfolgen und das Format soll korrekt upgegradet werden.
 
-## Phase 3b: [ ] 3D-Map-Editor - End-to-End Integration
+## Phase 3b: [x] 3D-Map-Editor - End-to-End Integration
+
+Erledigt: 25.02.2026
 
 - **Ziele:**
-  1. Editor für Map-Export anpassen.
-  2. Editor-Playtest Button im Spiel integrieren.
-- **Dateien:** `editor/js/EditorMapManager.js`, `src/core/main.js`
+  1. [x] Editor für Map-Export anpassen.
+  2. [x] Editor-Playtest Button im Spiel integrieren.
+- **Dateien:** `editor/js/EditorMapManager.js`, `editor/js/ui/EditorSessionControls.js`, `src/core/main.js`
 - **Verifikation:** Bauen, anpassen, speichern und Map über "Map im Browser spielen" fehlerfrei testen (`custom_map_test`).
 
 ## Phase 4: [ ] Bot-KI Struktur & Navigation
