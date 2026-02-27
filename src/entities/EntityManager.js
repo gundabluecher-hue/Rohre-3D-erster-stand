@@ -201,7 +201,7 @@ export class EntityManager {
             });
             player.setControlOptions({ modelScale, invertPitch: false });
             const ai = new BotAI({ difficulty: this.botDifficulty, recorder: this.recorder });
-            ai._sensePhase = i % 3; // Time-Slicing: Bot-Scans auf verschiedene Frames verteilen
+            ai._sensePhase = i % 4; // Time-Slicing: Bot-Scans auf 4 Frames verteilen
             this.players.push(player);
             this.bots.push({ player, ai });
             this.botByPlayer.set(player, ai);

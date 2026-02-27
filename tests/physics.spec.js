@@ -79,10 +79,8 @@ test.describe('T41-60: Physik & AI', () => {
                 hard: profiles.HARD?.reactionTime,
             };
         });
-        if (result) {
-            expect(result.easy).toBeGreaterThan(result.hard);
-        }
-        // Falls Config nicht zugänglich: Test wird als "bestanden" gewertet (keine Assertion)
+        expect(result).not.toBeNull();
+        expect(result.easy).toBeGreaterThan(result.hard);
     });
 
     test('T48: 4 Bots spawnen korrekt (5 Spieler gesamt)', async ({ page }) => {

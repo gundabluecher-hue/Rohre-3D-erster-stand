@@ -165,14 +165,13 @@ test.describe('T1-20: Core & Infrastruktur', () => {
         const count = await page.evaluate(() => {
             const g = window.GAME_INSTANCE;
             const types = g?.config?.POWERUP?.TYPES;
-            if (types) return Object.keys(types).length;
-            return -1; // Config nicht zugänglich
+            if (!types) return 0;
+            return Object.keys(types).length;
         });
-        // -1 = Config nicht sichtbar (kein Fehler), sonst mind. 1 Typ
-        expect(count).not.toBe(0);
+        expect(count).toBeGreaterThanOrEqual(1);
     });
 
-    test('T19: Keine doppelten Element-IDs (max. 50 als Toleranz)', async ({ page }) => {
+    test('T19: Keine doppelten Element-IDs', async ({ page }) => {
         await loadGame(page);
         const dupes = await page.evaluate(() => {
             const seen = {};
@@ -183,7 +182,7 @@ test.describe('T1-20: Core & Infrastruktur', () => {
             });
             return dupes;
         });
-        expect(dupes.length).toBeLessThanOrEqual(50);
+        expect(dupes.length).toBe(0);
     });
 
     test('T20: Submenu Settings öffnet und schließt', async ({ page }) => {

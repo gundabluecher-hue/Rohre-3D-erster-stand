@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
-import { loadGame, startGame, startGameWithBots, returnToMenu, collectErrors } from './helpers.js';
+import { loadGame, startGame, returnToMenu, collectErrors } from './helpers.js';
 
-test.describe('T61-70: Stress, I/O & Sicherheit', () => {
+test.describe('T61-125: Stress, I/O & Sicherheit', () => {
 
     test('T61: Keine JS-Fehler nach 5s Spielzeit', async ({ page }) => {
         test.setTimeout(30000);
@@ -166,5 +166,8 @@ test.describe('T61-70: Stress, I/O & Sicherheit', () => {
     test.skip('T119: Component Lifecycle', () => { });
     test.skip('T120: Data Transform Integrity', () => { });
     test.skip('T121: Global Registry Sync', () => { });
-    test.skip('T122-125: Weitere Stress-Tests', () => { });
+    test.skip('T122: Weitere Stress-Tests', () => { });
+    test.skip('T123: Weitere Stress-Tests', () => { });
+    test.skip('T124: Weitere Stress-Tests', () => { });
+    test.skip('T125: Weitere Stress-Tests', () => { });
 });

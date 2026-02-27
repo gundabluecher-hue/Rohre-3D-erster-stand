@@ -267,6 +267,52 @@ export class RoundRecorder {
         };
     }
 
+    getAggregateTotals() {
+        return { ...this._aggregate };
+    }
+
+    getRoundSummaries(limit = null) {
+        const count = this.roundSummaryCount;
+        if (count <= 0) return [];
+
+        let max = count;
+        if (Number.isFinite(limit)) {
+            max = Math.max(0, Math.min(count, Number(limit)));
+        }
+
+        const items = [];
+        const startIdx = count >= MAX_ROUNDS ? this.roundSummaryIndex : 0;
+        const offset = count - max;
+        for (let i = 0; i < max; i++) {
+            const idx = (startIdx + offset + i) % MAX_ROUNDS;
+            const round = this.roundSummaries[idx];
+            items.push({
+                roundId: round.roundId,
+                duration: round.duration,
+                winnerIndex: round.winnerIndex,
+                winnerIsBot: round.winnerIsBot,
+                botCount: round.botCount,
+                humanCount: round.humanCount,
+                botSurvivalAverage: round.botSurvivalAverage,
+                selfCollisions: round.selfCollisions,
+                stuckEvents: round.stuckEvents,
+                bounceWallEvents: round.bounceWallEvents,
+                bounceTrailEvents: round.bounceTrailEvents,
+                itemUseEvents: round.itemUseEvents,
+                stuckPerMinute: round.stuckPerMinute,
+            });
+        }
+        return items;
+    }
+
+    resetAggregateMetrics() {
+        this._aggregate = createAggregateSummary();
+        this.roundSummaryIndex = 0;
+        this.roundSummaryCount = 0;
+        this._roundIdCounter = 0;
+        this._lastRoundSummary = null;
+    }
+
     captureBaseline(label = 'BASELINE') {
         const snapshot = this.getAggregateMetrics();
         this._baselines.set(label, snapshot);

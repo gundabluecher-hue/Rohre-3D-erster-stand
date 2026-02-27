@@ -1,5 +1,3 @@
-import { expect } from '@playwright/test';
-
 /** Seite laden und auf Hauptmenü warten */
 export async function loadGame(page) {
     await page.goto('/');
@@ -52,6 +50,11 @@ export async function returnToMenu(page) {
 /** Fehler-Listener registrieren (gibt Array zurück) */
 export function collectErrors(page) {
     const errors = [];
-    page.on('pageerror', err => errors.push(err.message));
+    page.on('pageerror', err => errors.push(`pageerror: ${err.message}`));
+    page.on('console', msg => {
+        if (msg.type() === 'error') {
+            errors.push(`console.error: ${msg.text()}`);
+        }
+    });
     return errors;
 }

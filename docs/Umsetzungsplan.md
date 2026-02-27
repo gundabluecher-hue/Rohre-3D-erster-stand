@@ -77,14 +77,30 @@ Erledigt: 25.02.2026
 - **Dateien:** `editor/js/EditorMapManager.js`, `editor/js/ui/EditorSessionControls.js`, `src/core/main.js`
 - **Verifikation:** Bauen, anpassen, speichern und Map über "Map im Browser spielen" fehlerfrei testen (`custom_map_test`).
 
-## Phase 4: [ ] Bot-KI Struktur & Navigation
+## Phase 4a: [x] Bot-KI Struktur & Raycast-Navigation
+
+Erledigt: 27.02.2026
 
 - **Ziele:**
-  1. KI-Struktur refactoren (Trennung Wahrnehmung / Entscheidung / Aktion).
-  2. Kollisionsvermeidung durch Mehrfach-Richtungsproben (Raycasts).
-  3. Robustes Anti-Stuck-Verhalten & Recovery-Maneuver.
-- **Dateien:** `src/entities/Bot.js` (bzw. Entsprechung), `src/core/EntityManager.js`
-- **Verifikation:** Winrate & Stuck-Events über automatische Runs messen. Deutlich weniger Wand-Treffer.
+  1. [x] KI-Struktur refactoren (Trennung Wahrnehmung / Entscheidung / Aktion).
+  2. [x] Kollisionsvermeidung durch robustere Mehrfach-Raycast-Proben.
+- **Dateien:** `src/entities/Bot.js`, `src/entities/EntityManager.js`
+- **Verifikation:** Bot-Navigation laeuft stabil ohne neue Runtime-Fehler, weniger harte Wandtreffer in manuellen Runs.
+
+## Phase 4b: [x] Bot-KI Anti-Stuck & Messung
+
+Erledigt: 27.02.2026
+
+- **Ziele:**
+  1. [x] Robustes Anti-Stuck-Verhalten & Recovery-Maneuver tunen.
+  2. [x] Winrate & Stuck-Events ueber automatische Runs messen und dokumentieren.
+- **Dateien:** `src/entities/Bot.js`, `src/state/RoundRecorder.js`, `scripts/bot-validation-runner.mjs`, `package.json`
+- **Verifikation:** Automatische Runs (`npm run bot:validate`, 27.02.2026) mit 4 Szenarien / 4 Runden:
+  - Bot-Winrate gesamt: 75.0%
+  - Stuck-Events gesamt: 0
+  - Wandtreffer (BOUNCE_WALL) gesamt: 0
+  - Durchschnittliche Bot-Ueberlebenszeit: 53.04s
+  - Detailreport: `docs/Testergebnisse_Phase4b_2026-02-27.md` und `data/bot_validation_report.json`
 
 ## Phase 5: [ ] Test-Runtime & Headless Fehler (P1)
 

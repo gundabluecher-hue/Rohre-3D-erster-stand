@@ -1,0 +1,101 @@
+{
+  "generatedAt": "2026-02-27",
+  "baseUrl": "http://127.0.0.1:4273",
+  "roundsPerScenario": 1,
+  "scenarios": [
+    {
+      "scenario": {
+        "id": "V1",
+        "mode": "1p",
+        "bots": 1,
+        "mapKey": "standard",
+        "planarMode": false,
+        "portalCount": 0,
+        "rounds": 10
+      },
+      "metrics": {
+        "rounds": 1,
+        "botWinRate": 0,
+        "stuckEvents": 0,
+        "wallHits": 0,
+        "trailHits": 0,
+        "averageBotSurvival": 55.40679985957104,
+        "stuckPerMinute": 0,
+        "totalDuration": 60.82519999998808
+      }
+    },
+    {
+      "scenario": {
+        "id": "V2",
+        "mode": "1p",
+        "bots": 3,
+        "mapKey": "maze",
+        "planarMode": false,
+        "portalCount": 0,
+        "rounds": 10
+      },
+      "metrics": {
+        "rounds": 1,
+        "botWinRate": 1,
+        "stuckEvents": 0,
+        "wallHits": 0,
+        "trailHits": 0,
+        "averageBotSurvival": 31.60539926761703,
+        "stuckPerMinute": 0,
+        "totalDuration": 31.6055
+      }
+    },
+    {
+      "scenario": {
+        "id": "V3",
+        "mode": "1p",
+        "bots": 3,
+        "mapKey": "complex",
+        "planarMode": true,
+        "portalCount": 4,
+        "rounds": 10
+      },
+      "metrics": {
+        "rounds": 1,
+        "botWinRate": 1,
+        "stuckEvents": 0,
+        "wallHits": 0,
+        "trailHits": 0,
+        "averageBotSurvival": 62.87050165409164,
+        "stuckPerMinute": 0,
+        "totalDuration": 62.870599999964234
+      }
+    },
+    {
+      "scenario": {
+        "id": "V4",
+        "mode": "2p",
+        "bots": 2,
+        "mapKey": "standard",
+        "planarMode": true,
+        "portalCount": 6,
+        "rounds": 10
+      },
+      "metrics": {
+        "rounds": 1,
+        "botWinRate": 1,
+        "stuckEvents": 0,
+        "wallHits": 0,
+        "trailHits": 0,
+        "averageBotSurvival": 62.294299261513515,
+        "stuckPerMinute": 0,
+        "totalDuration": 62.29439999997616
+      }
+    }
+  ],
+  "overall": {
+    "rounds": 4,
+    "botWinRate": 0.75,
+    "stuckEvents": 0,
+    "wallHits": 0,
+    "trailHits": 0,
+    "averageBotSurvival": 53.044250010698306,
+    "stuckPerMinute": 0,
+    "totalDuration": 217.59569999992846
+  }
+}

@@ -1,4 +1,4 @@
-// ============================================
+﻿// ============================================
 // Bot.js - AI opponent logic
 // ============================================
 
@@ -15,7 +15,7 @@ const MAP_BEHAVIOR = {
     pyramid: { caution: 0.08, portalBias: 0.12, aggressionBias: 0.03 },
 };
 
-// Statische Richtungen für Portalsensorik (Vermeidet Array-Allokation pro Aufruf)
+// Statische Richtungen fÃ¼r Portalsensorik (Vermeidet Array-Allokation pro Aufruf)
 const PORTAL_EXIT_CHECK_DIRS = [
     { x: 1, y: 0, z: 0 },
     { x: -1, y: 0, z: 0 },
@@ -93,6 +93,7 @@ export class BotAI {
             recoveryCooldown: 0,
             recoveryYaw: 0,
             recoveryPitch: 0,
+            recoverySwitchUsed: false,
 
             targetPlayer: null,
             targetRefreshTimer: 0,
@@ -117,16 +118,12 @@ export class BotAI {
             mapCaution: 0,
             mapPortalBias: 0,
             mapAggressionBias: 0,
-            // Phase 2: Projektil-Sensing
             projectileThreat: false,
             projectileEvadeYaw: 0,
             projectileEvadePitch: 0,
-            // Phase 5: Höhenbewusstsein
             heightBias: 0,
-            // Phase 6: Multi-Bot-Spacing
             botRepulsionYaw: 0,
             botRepulsionPitch: 0,
-            // Phase 4: Pursuit
             pursuitActive: false,
             pursuitYaw: 0,
             pursuitPitch: 0,
@@ -136,6 +133,12 @@ export class BotAI {
         this._checkStuckTimer = 0;
         this._stuckScore = 0;
         this._recentBouncePressure = 0;
+        this._bounceStreak = 0;
+        this._bounceStreakTimer = 0;
+        this._recoveryChainCount = 0;
+        this._recoveryChainTimer = 0;
+        this._lastRecoveryReason = '';
+        this._lastRecoveryYaw = 0;
         this._hasPositionSample = false;
         this._lastPos = new THREE.Vector3();
         this._lastCollisionNormal = new THREE.Vector3();
@@ -166,15 +169,18 @@ export class BotAI {
             createProbe('upRight', 0.7, 0.7, 0.10),
             createProbe('downLeft', -0.7, -0.7, 0.10),
             createProbe('downRight', 0.7, -0.7, 0.10),
-            // Backward-Probe für Rückwärtserkennung
+            // Backward-Probe fÃ¼r RÃ¼ckwÃ¤rtserkennung
             createProbe('backward', 3.14, 0, 0.25),
         ];
 
         this._collisionCache = new Map();
         this._lastSensePos = new THREE.Vector3();
+        this._probeRayCenter = { wallDist: 0, trailDist: 0, immediateDanger: false };
+        this._probeRayLeft = { wallDist: 0, trailDist: 0, immediateDanger: false };
+        this._probeRayRight = { wallDist: 0, trailDist: 0, immediateDanger: false };
 
         // Time-Slicing: Sensor-Scans auf verschiedene Frames verteilen
-        this._sensePhase = 0;         // Frame-Slot dieses Bots (0..2), von EntityManager gesetzt
+        this._sensePhase = 0;         // Frame-Slot dieses Bots (0..3), von EntityManager gesetzt
         this._sensePhaseCounter = 0;  // Hochzaehlender Frame-Zaehler
 
         this._setDifficulty(options.difficulty || CONFIG.BOT.ACTIVE_DIFFICULTY || CONFIG.BOT.DEFAULT_DIFFICULTY || 'NORMAL');
@@ -224,6 +230,10 @@ export class BotAI {
     onBounce(type, normal = null) {
         const pressure = type === 'TRAIL' ? 1.3 : 0.9;
         this._recentBouncePressure = Math.min(4, this._recentBouncePressure + pressure);
+        if (type === 'TRAIL' || type === 'WALL') {
+            this._bounceStreak = Math.min(8, this._bounceStreak + 1);
+            this._bounceStreakTimer = 1.25;
+        }
         if (normal) {
             this._lastCollisionNormal.copy(normal).normalize();
             this._hasCollisionNormal = true;
@@ -269,6 +279,15 @@ export class BotAI {
         this.reactionTimer -= dt;
         this._checkStuckTimer -= dt;
         this._recentBouncePressure = Math.max(0, this._recentBouncePressure - dt * 1.35);
+        this._bounceStreakTimer = Math.max(0, this._bounceStreakTimer - dt);
+        if (this._bounceStreakTimer === 0) {
+            this._bounceStreak = 0;
+        }
+        this._recoveryChainTimer = Math.max(0, this._recoveryChainTimer - dt);
+        if (this._recoveryChainTimer === 0) {
+            this._recoveryChainCount = 0;
+            this._lastRecoveryReason = '';
+        }
 
         this.state.turnCommitTimer = Math.max(0, this.state.turnCommitTimer - dt);
         this.state.recoveryCooldown = Math.max(0, this.state.recoveryCooldown - dt);
@@ -309,6 +328,9 @@ export class BotAI {
         }
 
         this._stuckScore += this._recentBouncePressure * 0.06;
+        if (this._bounceStreak >= 3) {
+            this._stuckScore += Math.min(0.35, 0.08 * (this._bounceStreak - 2));
+        }
         this._lastPos.copy(player.position);
 
         if (!this.state.recoveryActive && this.state.recoveryCooldown <= 0 && this._stuckScore >= this.profile.stuckTriggerTime) {
@@ -399,11 +421,31 @@ export class BotAI {
         this.state.recoveryActive = true;
         this.state.recoveryTimer = this.profile.recoveryDuration;
         this.state.recoveryCooldown = this.profile.recoveryCooldown;
+        this.state.recoverySwitchUsed = false;
         this._stuckScore = 0;
 
         const maneuver = this._selectRecoveryManeuver(player, arena, allPlayers);
-        this.state.recoveryYaw = maneuver?.yaw || (Math.random() > 0.5 ? 1 : -1);
+        let selectedYaw = maneuver?.yaw || (Math.random() > 0.5 ? 1 : -1);
         this.state.recoveryPitch = CONFIG.GAMEPLAY.PLANAR_MODE ? 0 : (maneuver?.pitch || 0);
+
+        if (this._recoveryChainTimer > 0 && this._lastRecoveryReason === reason) {
+            this._recoveryChainCount = Math.min(6, this._recoveryChainCount + 1);
+        } else {
+            this._recoveryChainCount = 1;
+        }
+        this._recoveryChainTimer = 2.2;
+        this._lastRecoveryReason = reason;
+
+        if (this._recoveryChainCount >= 2 && this._lastRecoveryYaw !== 0 && selectedYaw === this._lastRecoveryYaw) {
+            selectedYaw *= -1;
+        }
+        this._lastRecoveryYaw = selectedYaw;
+        this.state.recoveryYaw = selectedYaw;
+
+        if (this._recoveryChainCount >= 3) {
+            this.state.recoveryTimer *= 1.25;
+            this.state.recoveryCooldown *= 0.8;
+        }
 
         if (!CONFIG.GAMEPLAY.PLANAR_MODE) {
             const margin = 8;
@@ -415,13 +457,14 @@ export class BotAI {
             this.recorder.logEvent(
                 'STUCK',
                 player.index,
-                `reason=${reason} yaw=${this.state.recoveryYaw} pitch=${this.state.recoveryPitch}`
+                `reason=${reason} yaw=${this.state.recoveryYaw} pitch=${this.state.recoveryPitch} chain=${this._recoveryChainCount}`
             );
         }
     }
 
     _shouldBoostRecovery(player, arena, allPlayers) {
         if (this._recentBouncePressure > 1.2) return false;
+        if (this._bounceStreak >= 3) return false;
         if (this.sense.forwardRisk > 0.62) return false;
 
         player.getDirection(this._tmpForward).normalize();
@@ -449,7 +492,21 @@ export class BotAI {
             this.state.recoveryActive = false;
             this.state.recoveryYaw = 0;
             this.state.recoveryPitch = 0;
+            this.state.recoverySwitchUsed = false;
             return false;
+        }
+
+        const stuckInsideRecovery =
+            !this.state.recoverySwitchUsed &&
+            this.state.recoveryTimer <= this.profile.recoveryDuration * 0.55 &&
+            (this.sense.forwardRisk > 0.78 || this._recentBouncePressure > 2.1 || this._bounceStreak >= 3);
+        if (stuckInsideRecovery) {
+            this.state.recoveryYaw = this.state.recoveryYaw !== 0 ? -this.state.recoveryYaw : (Math.random() > 0.5 ? 1 : -1);
+            this.state.recoveryPitch = CONFIG.GAMEPLAY.PLANAR_MODE ? 0 : -this.state.recoveryPitch;
+            this.state.recoverySwitchUsed = true;
+            if (this.recorder) {
+                this.recorder.logEvent('RECOVERY_SWITCH', player.index, `yaw=${this.state.recoveryYaw} pitch=${this.state.recoveryPitch}`);
+            }
         }
 
         this._resetInput(this.currentInput);
@@ -493,6 +550,28 @@ export class BotAI {
         return !!(hit && hit.hit);
     }
 
+    _scanProbeRay(player, arena, allPlayers, direction, lookAhead, step, out) {
+        out.wallDist = lookAhead;
+        out.trailDist = lookAhead;
+        out.immediateDanger = false;
+
+        for (let d = step; d <= lookAhead; d += step) {
+            this._tmpVec.copy(player.position).addScaledVector(direction, d);
+
+            if (arena.checkCollisionFast(this._tmpVec, player.hitboxRadius * 1.6)) {
+                out.wallDist = d;
+                if (d <= step * 1.5) out.immediateDanger = true;
+                break;
+            }
+
+            if (this._checkTrailHit(this._tmpVec, player, allPlayers)) {
+                out.trailDist = d;
+                if (d <= step * 1.5) out.immediateDanger = true;
+                break;
+            }
+        }
+    }
+
     _scoreProbe(player, arena, allPlayers, probe, lookAhead) {
         const step = this.profile.probeStep;
 
@@ -505,25 +584,22 @@ export class BotAI {
             probeLookAhead = lookAhead * 0.7;  // wide sides
         }
 
-        let wallDist = probeLookAhead;
-        let trailDist = probeLookAhead;
-        let immediateDanger = false;
+        this._scanProbeRay(player, arena, allPlayers, probe.dir, probeLookAhead, step, this._probeRayCenter);
 
-        for (let d = step; d <= probeLookAhead; d += step) {
-            this._tmpVec.copy(player.position).addScaledVector(probe.dir, d);
+        const lateralStrength = CONFIG.GAMEPLAY.PLANAR_MODE ? 0.2 : 0.24;
+        const lateralLookAhead = probeLookAhead * 0.9;
 
-            if (arena.checkCollisionFast(this._tmpVec, player.hitboxRadius * 1.6)) {
-                wallDist = d;
-                if (d <= step * 1.5) immediateDanger = true;
-                break;
-            }
+        this._tmpVec2.copy(probe.dir).addScaledVector(this._tmpRight, lateralStrength).normalize();
+        this._scanProbeRay(player, arena, allPlayers, this._tmpVec2, lateralLookAhead, step, this._probeRayLeft);
 
-            if (this._checkTrailHit(this._tmpVec, player, allPlayers)) {
-                trailDist = d;
-                if (d <= step * 1.5) immediateDanger = true;
-                break;
-            }
-        }
+        this._tmpVec3.copy(probe.dir).addScaledVector(this._tmpRight, -lateralStrength).normalize();
+        this._scanProbeRay(player, arena, allPlayers, this._tmpVec3, lateralLookAhead, step, this._probeRayRight);
+
+        const wallDist = Math.min(this._probeRayCenter.wallDist, this._probeRayLeft.wallDist, this._probeRayRight.wallDist);
+        const trailDist = Math.min(this._probeRayCenter.trailDist, this._probeRayLeft.trailDist, this._probeRayRight.trailDist);
+        const immediateDanger = this._probeRayCenter.immediateDanger
+            || this._probeRayLeft.immediateDanger
+            || this._probeRayRight.immediateDanger;
 
         // Phase 1: Speed-basiertes Risiko
         const speedRatio = player.baseSpeed > 0 ? player.speed / player.baseSpeed : 1;
@@ -534,7 +610,12 @@ export class BotAI {
         let risk = wallRisk * (1.1 + this.sense.mapCaution + speedFactor)
             + trailRisk * (1.45 + this.sense.mapCaution * 0.5 + speedFactor * 0.7);
 
+        let lateralBlocks = 0;
+        if (this._probeRayLeft.wallDist < lateralLookAhead * 0.5 || this._probeRayLeft.trailDist < lateralLookAhead * 0.5) lateralBlocks++;
+        if (this._probeRayRight.wallDist < lateralLookAhead * 0.5 || this._probeRayRight.trailDist < lateralLookAhead * 0.5) lateralBlocks++;
+
         risk += probe.weight;
+        risk += lateralBlocks * 0.28;
         if (immediateDanger) risk += 2.2;
 
         // Easy bots make more mistakes, hard bots remain clean.
@@ -611,7 +692,7 @@ export class BotAI {
     }
 
     // ================================================================
-    // Phase 7: Portal-Exit-Safety — prüfe 4 Richtungen am Exit
+    // Phase 7: Portal-Exit-Safety â€” prÃ¼fe 4 Richtungen am Exit
     // ================================================================
     _estimateExitSafety(exit, arena, player, allPlayers) {
         const probeDistance = 5;
@@ -632,7 +713,6 @@ export class BotAI {
     }
 
     // ================================================================
-    // Phase 2: Projektil-Sensing — eingehende Geschosse erkennen
     // ================================================================
     _senseProjectiles(player, projectiles) {
         this.sense.projectileThreat = false;
@@ -657,13 +737,13 @@ export class BotAI {
             const dist = this._tmpVec.length();
             if (dist > 25 || dist < 0.5) continue;
 
-            // Prüfen ob Projektil auf Bot zufliegt
+            // PrÃ¼fen ob Projektil auf Bot zufliegt
             this._tmpVec.normalize();
             this._tmpVec2.copy(proj.velocity).normalize();
             const towardBot = -this._tmpVec2.dot(this._tmpVec); // Positiv = fliegt auf uns zu
             if (towardBot < 0.4) continue;
 
-            // Einschlagzeit schätzen
+            // Einschlagzeit schÃ¤tzen
             const speed = proj.velocity.length();
             const timeToImpact = speed > 1 ? dist / speed : 999;
             if (timeToImpact > 0.8) continue;
@@ -676,12 +756,12 @@ export class BotAI {
 
                 // Ausweichrichtung = Kreuzprodukt(Flugrichtung, WORLD_UP)
                 this._tmpVec3.crossVectors(this._tmpVec2, WORLD_UP).normalize();
-                // Welche Seite des Bots? → auf die entgegengesetzte Seite ausweichen
+                // Welche Seite des Bots? â†’ auf die entgegengesetzte Seite ausweichen
                 const side = this._tmpRight.dot(this._tmpVec3);
                 evadeYaw = side > 0 ? -1 : 1;
 
                 if (!CONFIG.GAMEPLAY.PLANAR_MODE) {
-                    // Vertikale Komponente: wenn Projektil von oben → runter, etc.
+                    // Vertikale Komponente: wenn Projektil von oben â†’ runter, etc.
                     const verticalApproach = this._tmpVec.y;
                     evadePitch = verticalApproach > 0.2 ? -1 : (verticalApproach < -0.2 ? 1 : 0);
                 }
@@ -696,7 +776,6 @@ export class BotAI {
     }
 
     // ================================================================
-    // Phase 5: Höhenbewusstsein — bevorzuge Arena-Mitte
     // ================================================================
     _senseHeight(player, arena) {
         this.sense.heightBias = 0;
@@ -715,12 +794,11 @@ export class BotAI {
         // Normalisiert: -1 (ganz unten) bis +1 (ganz oben)
         const normalizedOffset = offset / range;
 
-        // Gegensteuerung: wenn oben → Pitch-Down-Bias, wenn unten → Pitch-Up
+        // Gegensteuerung: wenn oben â†’ Pitch-Down-Bias, wenn unten â†’ Pitch-Up
         this.sense.heightBias = -normalizedOffset * bias;
     }
 
     // ================================================================
-    // Phase 6: Multi-Bot-Spacing — Abstoßung von anderen Bots
     // ================================================================
     _senseBotSpacing(player, allPlayers) {
         this.sense.botRepulsionYaw = 0;
@@ -744,7 +822,7 @@ export class BotAI {
             const dist = this._tmpVec.length();
             if (dist >= minDist || dist < 0.1) continue;
 
-            // Abstoßungsstärke
+            // AbstoÃŸungsstÃ¤rke
             const strength = weight * (1 - dist / minDist);
             this._tmpVec.normalize();
 
@@ -762,7 +840,6 @@ export class BotAI {
     }
 
     // ================================================================
-    // Phase 4: Pursuit-Mode — aktives Verfolgen
     // ================================================================
     _evaluatePursuit(player) {
         this.sense.pursuitActive = false;
@@ -823,7 +900,7 @@ export class BotAI {
 
         for (let i = 0; i < arena.portals.length; i++) {
             const portal = arena.portals[i];
-            // Prüfe beide Seiten des Portals
+            // PrÃ¼fe beide Seiten des Portals
             const sides = [
                 { entry: portal.posA, exit: portal.posB },
                 { entry: portal.posB, exit: portal.posA },
@@ -842,7 +919,7 @@ export class BotAI {
                 // Phase 7: Exit-Safety statt einfacher Punkt-Risiko
                 const exitSafety = this._estimateExitSafety(exit, arena, player, allPlayers);
                 const exitRisk = exitSafety;
-                // Wenn >= 75% der Exit-Richtungen blockiert sind → Portal meiden
+                // Wenn >= 75% der Exit-Richtungen blockiert sind â†’ Portal meiden
                 if (exitSafety >= 0.75) continue;
 
                 const localRelief = this.sense.forwardRisk - exitRisk;
@@ -944,18 +1021,21 @@ export class BotAI {
             this.state.targetRefreshTimer = this.profile.targetRefreshInterval;
         }
 
-        // Phase 2: Projektile scannen
+
+
+
+
+    }
+
+    _runPerception(player, arena, allPlayers, projectiles) {
+        // Time-Slicing auf Frame-Ebene
+        this._sensePhaseCounter = (this._sensePhaseCounter + 1) % 4;
+
+        this._senseEnvironment(player, arena, allPlayers, projectiles);
         this._senseProjectiles(player, projectiles);
-
-        // Phase 4: Pursuit evaluieren
-        this._evaluatePursuit(player);
-
-        // Phase 5: Höhe erfassen
         this._senseHeight(player, arena);
-
-        // Phase 6: Bot-Spacing
         this._senseBotSpacing(player, allPlayers);
-
+        this._evaluatePursuit(player);
         this._evaluatePortalIntent(player, arena, allPlayers);
     }
 
@@ -1010,12 +1090,10 @@ export class BotAI {
             desiredPitch = pitchSignal > 0 ? 1 : -1;
         }
 
-        // Phase 5: Höhenbias einmischen (leichter Pitch-Modifier)
         if (!CONFIG.GAMEPLAY.PLANAR_MODE && desiredPitch === 0 && Math.abs(this.sense.heightBias) > 0.15) {
             desiredPitch = this.sense.heightBias > 0 ? 1 : -1;
         }
 
-        // Phase 6: Bot-Spacing — wenn kein starkes Probe-Signal, Abstoßung nutzen
         if (desiredYaw === 0 && this.sense.botRepulsionYaw !== 0) {
             desiredYaw = this.sense.botRepulsionYaw;
         }
@@ -1129,6 +1207,47 @@ export class BotAI {
         return input;
     }
 
+    _runDecision(dt, player, arena, allPlayers) {
+        if (this.sense.immediateDanger && this.state.recoveryCooldown <= 0 && this._recentBouncePressure > 2.3) {
+            this._enterRecovery(player, arena, allPlayers, 'collision-pressure');
+            if (this._updateRecovery(dt, player, arena, allPlayers)) {
+                return true;
+            }
+        }
+
+        if (this.sense.projectileThreat && this.sense.forwardRisk < 0.6) {
+            this._decision.yaw = this.sense.projectileEvadeYaw;
+            this._decision.pitch = this.sense.projectileEvadePitch;
+            this._decision.boost = true;
+        } else {
+            const portalDriven = this._applyPortalSteering(player);
+            if (!portalDriven) {
+                if (this.sense.pursuitActive) {
+                    this._decision.yaw = this.sense.pursuitYaw;
+                    this._decision.pitch = this.sense.pursuitPitch;
+                    if (this.sense.targetDistanceSq > 400) {
+                        this._decision.boost = true;
+                    }
+                    const aimTolerance = this.profile.pursuitAimTolerance || 0.85;
+                    if (this.sense.pursuitAimDot > aimTolerance && player.inventory && player.inventory.length > 0) {
+                        this._decision.shootItem = true;
+                        this._decision.shootItemIndex = 0;
+                        this.state.itemShootCooldown = this.profile.itemShootCooldown;
+                    }
+                } else {
+                    this._decideSteering(player);
+                }
+            }
+        }
+
+        this._decideItemUsage(player);
+        return false;
+    }
+
+    _runAction() {
+        return this._applyDecisionToInput();
+    }
+
     update(dt, player, arena, allPlayers, projectiles) {
         const activeDifficulty = CONFIG.BOT.ACTIVE_DIFFICULTY || this._profileName;
         if (activeDifficulty !== this._profileName) {
@@ -1152,53 +1271,11 @@ export class BotAI {
         this.reactionTimer = Math.max(0.02, this.profile.reactionTime * jitter);
 
         this._resetDecision();
-
-        // Time-Slicing auf Frame-Ebene
-        // Wir setzen die Zuweisung in _senseEnvironment durch, nicht indem wir den Aufruf skippen.
-        // Das garantiert, dass grundlegende Risiken aktualisiert werden.
-        this._sensePhaseCounter = (this._sensePhaseCounter + 1) % 4; // Erweitert auf 4 Ticks
-
-        this._senseEnvironment(player, arena, allPlayers, projectiles);
-        this._senseProjectiles(player, projectiles);
-        this._senseHeight(player, arena);
-
-        if (this.sense.immediateDanger && this.state.recoveryCooldown <= 0 && this._recentBouncePressure > 2.3) {
-            this._enterRecovery(player, arena, allPlayers, 'collision-pressure');
-            if (this._updateRecovery(dt, player, arena, allPlayers)) {
-                return this.currentInput;
-            }
+        this._runPerception(player, arena, allPlayers, projectiles);
+        if (this._runDecision(dt, player, arena, allPlayers)) {
+            return this.currentInput;
         }
 
-        // Phase 2: Projektil-Ausweichen hat Priorität
-        if (this.sense.projectileThreat && this.sense.forwardRisk < 0.6) {
-            this._decision.yaw = this.sense.projectileEvadeYaw;
-            this._decision.pitch = this.sense.projectileEvadePitch;
-            this._decision.boost = true; // Ausweichboost
-        } else {
-            const portalDriven = this._applyPortalSteering(player);
-            if (!portalDriven) {
-                // Phase 4: Pursuit-Mode vor normalem Steering
-                if (this.sense.pursuitActive) {
-                    this._decision.yaw = this.sense.pursuitYaw;
-                    this._decision.pitch = this.sense.pursuitPitch;
-                    // Boost wenn Entfernung > 20
-                    if (this.sense.targetDistanceSq > 400) {
-                        this._decision.boost = true;
-                    }
-                    // Phase 4: Schuss bei gutem Aim
-                    const aimTolerance = this.profile.pursuitAimTolerance || 0.85;
-                    if (this.sense.pursuitAimDot > aimTolerance && player.inventory && player.inventory.length > 0) {
-                        this._decision.shootItem = true;
-                        this._decision.shootItemIndex = 0;
-                        this.state.itemShootCooldown = this.profile.itemShootCooldown;
-                    }
-                } else {
-                    this._decideSteering(player);
-                }
-            }
-        }
-
-        this._decideItemUsage(player);
-        return this._applyDecisionToInput();
+        return this._runAction();
     }
 }
