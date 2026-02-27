@@ -1,6 +1,5 @@
 ---
 trigger: always_on
-glob:
 description: Rule about walkthrough creation
 ---
 
