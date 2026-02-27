@@ -7,6 +7,7 @@ import { parseMapJSON, toArenaMapDefinition } from './src/entities/MapSchema.js'
 const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
 const buildTime = new Date().toISOString();
 const buildId = Date.now().toString(36).toUpperCase();
+const CHUNK_SIZE_WARNING_LIMIT_KB = 800;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -531,6 +532,9 @@ function editorDiskSaveApiPlugin() {
 
 export default defineConfig({
     plugins: [editorDiskSaveApiPlugin()],
+    build: {
+        chunkSizeWarningLimit: CHUNK_SIZE_WARNING_LIMIT_KB,
+    },
     define: {
         __APP_VERSION__: JSON.stringify(pkg.version),
         __BUILD_TIME__: JSON.stringify(buildTime),

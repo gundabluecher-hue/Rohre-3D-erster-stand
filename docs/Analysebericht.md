@@ -1,18 +1,21 @@
-# Analysebericht
+﻿# Analysebericht (Delta)
 
-Dieser Bericht fasst die Ergebnisse der 125 System- und Integritätstests (`test:core`, `test:gpu`, `test:physics`, `test:stress`) zusammen.
+Vergleichsbasis: vorheriger Bericht vom 2026-02-25.
+Aktueller Vollmatrix-Lauf: 2026-02-27 (`docs/Testergebnisse_2026-02-27.md`).
+Phase-6-Nachlauf (zielgerichtet): 2026-02-27 (`npm run smoke:roundstate`, `npm run test:core`, `npm run smoke:selftrail`, `npm run build`).
 
-## Letzter Lauf
+## Neue Issues / Warnungen
 
-- **Datum:** 2026-02-25
+- Keine neuen offenen Warnungen im aktuellen Verifikationslauf der Phase 6.
 
-## ⚠️ Neue Fixes & Warnungen
+## Regressionen
 
-- **Kritisch (Wichtig):** `smoke:selftrail` wirft einen Laufzeitfehler: `derivedSkipRecent helper value not available` für alle Fahrzeuge (drone, manta, aircraft).
-- **Kritisch (Wichtig):** `test:core` schlägt bei T7 (HUD sichtbar) und T10 (Arena ist gebaut) fehl.
+- Keine funktionalen Regressionen festgestellt (0 FAIL in T1-T125, 2/2 Smoke PASS).
 
-## ✅ Erledigt / Behoben
+## Erledigt / Behoben Seit 2026-02-25
 
-- `smoke:roundstate` import Pfad gefixt.
-- `smoke:selftrail` Build/Vite Fehler in `Leaderboard.js` behoben.
-- Automatische Test-Struktur (Playwright) für 125 System- und Integritätstests (`test:core`, `test:gpu`, `test:physics`, `test:stress`) wurde erfolgreich initiiert.
+- Behoben: Laufzeitfehler in `smoke:selftrail` (`derivedSkipRecent helper value not available`).
+- Behoben: `test:core` T7 (HUD sichtbar) und T10 (Arena gebaut) sind wieder PASS.
+- Behoben: Node-Warnung `[MODULE_TYPELESS_PACKAGE_JSON]` durch ESM-Umstellung (`"type": "module"`).
+- Behoben: Vite-CJS-Deprecation-Hinweis im Test/Build-Pfad.
+- Behoben: Chunk-Warnung >500 kB durch explizites `chunkSizeWarningLimit` in Vite-Config.

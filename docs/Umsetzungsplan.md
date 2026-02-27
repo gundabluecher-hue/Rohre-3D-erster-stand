@@ -1,114 +1,125 @@
-# Umsetzungsplan (Master)
+﻿# Umsetzungsplan (Master)
 
-Dies ist der konsolidierte Plan für anstehende und aktuelle Implementierungen.
-Neu aufgedeckte Bugs durch den Analysebericht fließen hier ein.
+Dies ist der konsolidierte Plan fuer anstehende und laufende Implementierungen.
+Neue Findings aus dem Analysebericht fliessen hier ein.
 
-## Status-Übersicht
+## Status-Uebersicht
 
-[ ] Offen
-[/] In Bearbeitung
-[x] Abgeschlossen
+- [ ] Offen
+- [/] In Bearbeitung
+- [x] Abgeschlossen
 
 ---
 
-## Prioritäten (Triage)
+## Prioritaeten (Triage)
 
 **Wichtig:**
 
-- Laufzeitfehler in `smoke:selftrail` beheben (`derivedSkipRecent helper value not available`).
-- Playwright `test:core` Fehler beheben (T7: HUD nicht sichtbar, T10: Arena nicht gebaut).
+- Keine offenen kritischen Findings (Stand: 27.02.2026).
 
 **Mittel:**
 
-- (Derzeit keine weiteren Fehler aus Stubs)
+- Weitere Dummy-Tests schrittweise durch echte Integritaetstests ersetzen.
 
 **Unwichtig/Backlog:**
 
-- Weitere Dummy-Tests durch echte WebGL/Playwright Integritätstests ersetzen.
+- Bundle-Groesse weiter optimieren (Code-Splitting), auch wenn aktuelles Warnlimit keine Build-Warnung mehr erzeugt.
 
 ---
 
 ## Phase 1: [x] Kritische Build- und Pfad-Fixes
 
-- **Ziele:**
-  1. `Failed to resolve entry for package "three"` in `src/ui/Leaderboard.js` beheben. Das deutet meist auf falsche import-Syntax in vite-setups hin.
-  2. Pfad in `scripts/round-state-controller-smoke.mjs` von `js/modules/` auf den neuen ES-Module Pfad (`src/...`) updaten.
-- **Dateien:** `src/ui/Leaderboard.js`, `scripts/round-state-controller-smoke.mjs`
-- **Verifikation:** `npm run smoke:selftrail` und `npm run smoke:roundstate` durchlaufen ohne Fehler.
+Erledigt: 25.02.2026
 
-## Phase 2a: [x] Kernfixes & UX - Menü & Profil
+- Ziele:
+  1. Build-Fehler rund um `three`-Aufloesung im UI-Pfad beheben.
+  2. Importpfad im Round-State-Smoke auf ES-Module-Pfad aktualisieren.
+- Dateien: `src/ui/Leaderboard.js`, `scripts/round-state-controller-smoke.mjs`
+- Verifikation: `npm run smoke:selftrail`, `npm run smoke:roundstate`
 
-- **Ziele:**
-  1. Profilname-Bugfix (Sichere Eingabe).
-  2. Build-/Versionsanzeige im Menü.
-  3. Untermenüs organisieren.
-  4. Mehrprofil-End-to-End-Flow härten.
-- **Dateien:** `src/ui/UIManager.js`, `index.html`, `style.css`, `src/core/main.js`
-- **Verifikation:** Manueller Test der Profilerstellung und Navigation im Menü.
+## Phase 2a: [x] Kernfixes & UX - Menue und Profil
+
+Erledigt: 25.02.2026
+
+- Ziele:
+  1. Profilname-Bugfix (sichere Eingabe).
+  2. Build-/Versionsanzeige im Menue.
+  3. Untermenues strukturieren.
+  4. Mehrprofil-Flow stabilisieren.
+- Dateien: `src/ui/UIManager.js`, `index.html`, `style.css`, `src/core/main.js`
+- Verifikation: Manueller Profil-/Menue-Flow
 
 ## Phase 2b: [x] Kernfixes & UX - Gameplay
 
 Erledigt: 25.02.2026
 
-- **Ziele:**
-  1. [x] Portal-Ebenen reproduzierbar machen.
-  2. [x] First-Person Boost-Kamera auf Nase/Flugzeugspitze legen.
-- **Dateien:** `src/core/main.js`, `src/entities/Player.js`, `src/entities/Arena.js`
-- **Verifikation:** In-Game-Kameraführung sowie Portal-Teleports manuell testen.
+- Ziele:
+  1. Portal-Ebenen reproduzierbar machen.
+  2. First-Person-Boost-Kamera auf Nase/Flugzeugspitze legen.
+- Dateien: `src/core/main.js`, `src/entities/Player.js`, `src/entities/Arena.js`
+- Verifikation: In-Game-Kamera und Portal-Teleports manuell testen
 
 ## Phase 3a: [x] 3D-Map-Editor - Schema & Loading
 
 Erledigt: 25.02.2026
 
-- **Ziele:**
-  1. [x] Versioniertes JSON-Schema (v1, v2) sicherstellen.
-  2. [x] Implementierung der Map-Migration für alte JSONs.
-  3. [x] Lauffähiges Laden von Custom Maps in der Engine.
-- **Dateien:** `src/entities/MapSchema.js`, `src/entities/CustomMapLoader.js`
-- **Verifikation:** Alte Test-Map laden. Es darf kein Absturz erfolgen und das Format soll korrekt upgegradet werden.
+- Ziele:
+  1. Versioniertes JSON-Schema (v1, v2) sicherstellen.
+  2. Map-Migration fuer alte JSONs implementieren.
+  3. Laden von Custom-Maps in der Engine stabilisieren.
+- Dateien: `src/entities/MapSchema.js`, `src/entities/CustomMapLoader.js`
+- Verifikation: Alte Test-Map laden, kein Crash, korrektes Upgrade
 
 ## Phase 3b: [x] 3D-Map-Editor - End-to-End Integration
 
 Erledigt: 25.02.2026
 
-- **Ziele:**
-  1. [x] Editor für Map-Export anpassen.
-  2. [x] Editor-Playtest Button im Spiel integrieren.
-- **Dateien:** `editor/js/EditorMapManager.js`, `editor/js/ui/EditorSessionControls.js`, `src/core/main.js`
-- **Verifikation:** Bauen, anpassen, speichern und Map über "Map im Browser spielen" fehlerfrei testen (`custom_map_test`).
+- Ziele:
+  1. Editor fuer Map-Export anpassen.
+  2. Editor-Playtest-Button im Spiel integrieren.
+- Dateien: `editor/js/EditorMapManager.js`, `editor/js/ui/EditorSessionControls.js`, `src/core/main.js`
+- Verifikation: End-to-End Flow bauen, speichern, im Browser spielen
 
 ## Phase 4a: [x] Bot-KI Struktur & Raycast-Navigation
 
 Erledigt: 27.02.2026
 
-- **Ziele:**
-  1. [x] KI-Struktur refactoren (Trennung Wahrnehmung / Entscheidung / Aktion).
-  2. [x] Kollisionsvermeidung durch robustere Mehrfach-Raycast-Proben.
-- **Dateien:** `src/entities/Bot.js`, `src/entities/EntityManager.js`
-- **Verifikation:** Bot-Navigation laeuft stabil ohne neue Runtime-Fehler, weniger harte Wandtreffer in manuellen Runs.
+- Ziele:
+  1. KI-Struktur refactoren (Wahrnehmung/Entscheidung/Aktion).
+  2. Kollisionsvermeidung durch robustere Mehrfach-Raycast-Proben.
+- Dateien: `src/entities/Bot.js`, `src/entities/EntityManager.js`
+- Verifikation: Stabilere Bot-Navigation, weniger Wandtreffer
 
 ## Phase 4b: [x] Bot-KI Anti-Stuck & Messung
 
 Erledigt: 27.02.2026
 
-- **Ziele:**
-  1. [x] Robustes Anti-Stuck-Verhalten & Recovery-Maneuver tunen.
-  2. [x] Winrate & Stuck-Events ueber automatische Runs messen und dokumentieren.
-- **Dateien:** `src/entities/Bot.js`, `src/state/RoundRecorder.js`, `scripts/bot-validation-runner.mjs`, `package.json`
-- **Verifikation:** Automatische Runs (`npm run bot:validate`, 27.02.2026) mit 4 Szenarien / 4 Runden:
-  - Bot-Winrate gesamt: 75.0%
-  - Stuck-Events gesamt: 0
-  - Wandtreffer (BOUNCE_WALL) gesamt: 0
-  - Durchschnittliche Bot-Ueberlebenszeit: 53.04s
-  - Detailreport: `docs/Testergebnisse_Phase4b_2026-02-27.md` und `data/bot_validation_report.json`
+- Ziele:
+  1. Anti-Stuck-Verhalten und Recovery-Manoever verbessern.
+  2. Winrate/Stuck-Events ueber automatische Runs messen.
+- Dateien: `src/entities/Bot.js`, `src/state/RoundRecorder.js`, `scripts/bot-validation-runner.mjs`, `package.json`
+- Verifikation: `npm run bot:validate` (4 Szenarien / 4 Runden)
+- Ergebnis: Winrate 75.0%, Stuck-Events 0, BOUNCE_WALL 0, Ueberlebenszeit 53.04s
+- Detailreport: `docs/Testergebnisse_Phase4b_2026-02-27.md`, `data/bot_validation_report.json`
 
 ## Phase 5: [x] Test-Runtime & Headless Fehler (P1)
 
 Erledigt: 27.02.2026
 
-- **Ziele:**
-  1. [x] Fehlende Helper-Werte (`derivedSkipRecent`) für Fahrzeuge im `smoke:selftrail` Script analysieren und korrigieren.
-  2. [x] Fehlende HUD-Anzeige (T7) im Headless-Mode/Playwright fixen.
-  3. [x] Arena-Generierung (T10) im Headless-Mode/Playwright fixen.
-- **Dateien:** `scripts/self-trail-debug-smoke.mjs`, `src/entities/Player.js`, `tests/helpers.js`, `tests/core.spec.js`, `src/core/main.js`, `playwright.config.js`
-- **Verifikation:** `npm run smoke:selftrail`, `npm run test:core`, `npm run test:physics`, `npm run build` (alle grün am 27.02.2026).
+- Ziele:
+  1. Fehlende Helper-Werte (`derivedSkipRecent`) fuer Fahrzeuge in `smoke:selftrail` beheben.
+  2. Fehlende HUD-Anzeige (T7) im Headless-Mode fixen.
+  3. Arena-Generierung (T10) im Headless-Mode fixen.
+- Dateien: `scripts/self-trail-debug-smoke.mjs`, `src/entities/Player.js`, `tests/helpers.js`, `tests/core.spec.js`, `src/core/main.js`, `playwright.config.js`
+- Verifikation: `npm run smoke:selftrail`, `npm run test:core`, `npm run test:physics`, `npm run build` (alle gruen am 27.02.2026)
+
+## Phase 6: [x] Toolchain-Warnungen und Bundle-Hinweise
+
+Erledigt: 27.02.2026
+
+- Ziele:
+  1. Node-Warnung `[MODULE_TYPELESS_PACKAGE_JSON]` in `smoke:roundstate` entfernen.
+  2. Vite-CJS-Deprecation-Hinweis im Test/Build-Pfad adressieren.
+  3. Chunk-Warnung >500 kB reduzieren (Code-Splitting oder Limit-Entscheidung).
+- Dateien: `package.json`, `playwright.config.js`, `vite.config.js`
+- Verifikation: `npm run smoke:roundstate`, `npm run test:core`, `npm run smoke:selftrail`, `npm run build` (alle gruen am 27.02.2026)

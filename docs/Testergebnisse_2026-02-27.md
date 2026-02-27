@@ -1,0 +1,152 @@
+﻿# Testergebnisse 2026-02-27
+
+## Laufkontext
+- Datum: 2026-02-27
+- Workflow: `.agents/workflows/analyse-planung.md`
+- Befehle: `npm run test:core`, `npm run test:gpu`, `npm run test:physics`, `npm run test:stress`, `npm run smoke:roundstate`, `npm run smoke:selftrail`
+
+## Kommando-Status (Raw)
+- `npm run test:core`: PASS (exit 0, `20 passed`)
+- `npm run test:gpu`: PASS (exit 0, `8 passed`, `12 skipped`)
+- `npm run test:physics`: PASS (exit 0, `10 passed`, `10 skipped`)
+- `npm run test:stress`: PASS (exit 0, `10 passed`, `55 skipped`)
+- `npm run smoke:roundstate`: PASS (exit 0, JSON `"ok": true`)
+- `npm run smoke:selftrail`: PASS (exit 0, `"failures": []`)
+
+## Hinweise/Warnungen aus Raw-Logs
+- WARN: Node Warnung in `smoke:roundstate`: `[MODULE_TYPELESS_PACKAGE_JSON]` (fehlendes `"type": "module"` in `package.json`).
+- WARN: Vite Hinweis in Testlauf/Build: CJS build of Vite's Node API is deprecated.
+- WARN: Vite Build-Warnung in `smoke:selftrail`: Chunk `assets/index-BkuJTzcB.js` groesser als 500 kB.
+
+## T1-T125 Status (PASS/FAIL/WARN)
+- T1: PASS
+- T2: PASS
+- T3: PASS
+- T4: PASS
+- T5: PASS
+- T6: PASS
+- T7: PASS
+- T8: PASS
+- T9: PASS
+- T10: PASS
+- T11: PASS
+- T12: PASS
+- T13: PASS
+- T14: PASS
+- T15: PASS
+- T16: PASS
+- T17: PASS
+- T18: PASS
+- T19: PASS
+- T20: PASS
+- T21: PASS
+- T22: PASS
+- T23: PASS
+- T24: PASS
+- T25: PASS
+- T26: PASS
+- T27: PASS
+- T28: PASS
+- T29: WARN (skipped)
+- T30: WARN (skipped)
+- T31: WARN (skipped)
+- T32: WARN (skipped)
+- T33: WARN (skipped)
+- T34: WARN (skipped)
+- T35: WARN (skipped)
+- T36: WARN (skipped)
+- T37: WARN (skipped)
+- T38: WARN (skipped)
+- T39: WARN (skipped)
+- T40: WARN (skipped)
+- T41: PASS
+- T42: PASS
+- T43: PASS
+- T44: PASS
+- T45: PASS
+- T46: PASS
+- T47: PASS
+- T48: PASS
+- T49: PASS
+- T50: PASS
+- T51: WARN (skipped)
+- T52: WARN (skipped)
+- T53: WARN (skipped)
+- T54: WARN (skipped)
+- T55: WARN (skipped)
+- T56: WARN (skipped)
+- T57: WARN (skipped)
+- T58: WARN (skipped)
+- T59: WARN (skipped)
+- T60: WARN (skipped)
+- T61: PASS
+- T62: PASS
+- T63: PASS
+- T64: PASS
+- T65: PASS
+- T66: PASS
+- T67: PASS
+- T68: PASS
+- T69: PASS
+- T70: PASS
+- T71: WARN (skipped)
+- T72: WARN (skipped)
+- T73: WARN (skipped)
+- T74: WARN (skipped)
+- T75: WARN (skipped)
+- T76: WARN (skipped)
+- T77: WARN (skipped)
+- T78: WARN (skipped)
+- T79: WARN (skipped)
+- T80: WARN (skipped)
+- T81: WARN (skipped)
+- T82: WARN (skipped)
+- T83: WARN (skipped)
+- T84: WARN (skipped)
+- T85: WARN (skipped)
+- T86: WARN (skipped)
+- T87: WARN (skipped)
+- T88: WARN (skipped)
+- T89: WARN (skipped)
+- T90: WARN (skipped)
+- T91: WARN (skipped)
+- T92: WARN (skipped)
+- T93: WARN (skipped)
+- T94: WARN (skipped)
+- T95: WARN (skipped)
+- T96: WARN (skipped)
+- T97: WARN (skipped)
+- T98: WARN (skipped)
+- T99: WARN (skipped)
+- T100: WARN (skipped)
+- T101: WARN (skipped)
+- T102: WARN (skipped)
+- T103: WARN (skipped)
+- T104: WARN (skipped)
+- T105: WARN (skipped)
+- T106: WARN (skipped)
+- T107: WARN (skipped)
+- T108: WARN (skipped)
+- T109: WARN (skipped)
+- T110: WARN (skipped)
+- T111: WARN (skipped)
+- T112: WARN (skipped)
+- T113: WARN (skipped)
+- T114: WARN (skipped)
+- T115: WARN (skipped)
+- T116: WARN (skipped)
+- T117: WARN (skipped)
+- T118: WARN (skipped)
+- T119: WARN (skipped)
+- T120: WARN (skipped)
+- T121: WARN (skipped)
+- T122: WARN (skipped)
+- T123: WARN (skipped)
+- T124: WARN (skipped)
+- T125: WARN (skipped)
+
+## Aggregat
+- PASS: 48
+- FAIL: 0
+- WARN: 77 (alle wegen `test.skip`)
+- Smoke: 2/2 PASS
