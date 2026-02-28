@@ -20,6 +20,7 @@ export class HUD {
         this.headingValue = this.container.querySelector('#' + (playerIndex === 0 ? 'p1' : 'p2') + '-hud-heading');
         this.lockReticle = this.container.querySelector('.hud-lock-reticle');
         this.lockDist = this.lockReticle.querySelector('.lock-dist');
+        this.boostFill = this.container.querySelector('#' + (playerIndex === 0 ? 'p1' : 'p2') + '-hud-boost-fill');
 
         // Tapes (Scales)
         this.speedScale = this.container.querySelector('#' + (playerIndex === 0 ? 'p1' : 'p2') + '-hud-speed-scale');
@@ -226,6 +227,22 @@ export class HUD {
 
         } else {
             this.lockReticle.classList.add('hidden');
+        }
+
+        // 5. Boost Bar
+        if (this.boostFill) {
+            if (player.isBoosting) {
+                const pct = (player.boostTimer / CONFIG.PLAYER.BOOST_DURATION) * 100;
+                this.boostFill.style.width = `${Math.max(0, pct)}%`;
+                this.boostFill.classList.remove('cooldown');
+            } else if (player.boostCooldown > 0) {
+                const pct = (1 - player.boostCooldown / CONFIG.PLAYER.BOOST_COOLDOWN) * 100;
+                this.boostFill.style.width = `${Math.min(100, pct)}%`;
+                this.boostFill.classList.add('cooldown');
+            } else {
+                this.boostFill.style.width = '100%';
+                this.boostFill.classList.remove('cooldown');
+            }
         }
     }
 }

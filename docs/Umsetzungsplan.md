@@ -123,3 +123,13 @@ Erledigt: 27.02.2026
   3. Chunk-Warnung >500 kB reduzieren (Code-Splitting oder Limit-Entscheidung).
 - Dateien: `package.json`, `playwright.config.js`, `vite.config.js`
 - Verifikation: `npm run smoke:roundstate`, `npm run test:core`, `npm run smoke:selftrail`, `npm run build` (alle gruen am 27.02.2026)
+
+## Phase 7: [x] Boost-Anzeige (UI)
+
+Erledigt: 28.02.2026
+
+- Ziele:
+  1. Visueller HTML/CSS-Balken fuer den Spieler-Boost im Fighter-HUD.
+  2. Dynamische Aktualisierung basierend auf Timer/Cooldown in `HUD.js`.
+- Dateien: `index.html`, `style.css`, `src/ui/HUD.js`
+- Verifikation: `npm run smoke:selftrail` (erfolgreich) und manuelle Sichtpruefung im Spiel.
