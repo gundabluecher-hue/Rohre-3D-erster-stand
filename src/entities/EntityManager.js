@@ -75,32 +75,30 @@ function readTrailCollisionDebugConfigFromUrl() {
     }
 }
 
-// Avoid immediate self-collisions against the freshly written trail head,
-// but keep the blind window small enough so tight loops are still detected.
-export function deriveSelfTrailSkipRecentSegments(player) {
-    const updateInterval = Math.max(0.01, Number(CONFIG.TRAIL?.UPDATE_INTERVAL) || 0.07);
-    const speed = Math.max(1, Number(player?.speed) || Number(player?.baseSpeed) || Number(CONFIG.PLAYER?.SPEED) || 18);
-    const hitboxRadius = Math.max(0.4, Number(player?.hitboxRadius) || Number(CONFIG.PLAYER?.HITBOX_RADIUS) || 0.8);
-    const trailRadius = Math.max(0.05, (Number(player?.trail?.width) || Number(CONFIG.TRAIL?.WIDTH) || 0.6) * 0.5);
+export class EntityManager {
+    static deriveSelfTrailSkipRecentSegments(player) {
+        const updateInterval = Math.max(0.01, Number(CONFIG.TRAIL?.UPDATE_INTERVAL) || 0.07);
+        const speed = Math.max(1, Number(player?.speed) || Number(player?.baseSpeed) || Number(CONFIG.PLAYER?.SPEED) || 18);
+        const hitboxRadius = Math.max(0.4, Number(player?.hitboxRadius) || Number(CONFIG.PLAYER?.HITBOX_RADIUS) || 0.8);
+        const trailRadius = Math.max(0.05, (Number(player?.trail?.width) || Number(CONFIG.TRAIL?.WIDTH) || 0.6) * 0.5);
 
-    let bodyLengthEstimate = hitboxRadius * 2.5;
-    const box = player?.hitboxBox;
-    if (box && box.min && box.max) {
-        const lenX = Math.abs(Number(box.max.x) - Number(box.min.x)) || 0;
-        const lenZ = Math.abs(Number(box.max.z) - Number(box.min.z)) || 0;
-        bodyLengthEstimate = Math.max(bodyLengthEstimate, lenX, lenZ);
+        let bodyLengthEstimate = hitboxRadius * 2.5;
+        const box = player?.hitboxBox;
+        if (box && box.min && box.max) {
+            const lenX = Math.abs(Number(box.max.x) - Number(box.min.x)) || 0;
+            const lenZ = Math.abs(Number(box.max.z) - Number(box.min.z)) || 0;
+            bodyLengthEstimate = Math.max(bodyLengthEstimate, lenX, lenZ);
+        }
+
+        const graceDistance = Math.max(
+            hitboxRadius * 3.5,
+            bodyLengthEstimate + hitboxRadius * 0.5 + trailRadius
+        );
+        const estimatedSegmentSpacing = Math.max(0.2, speed * updateInterval);
+
+        return clampInt(Math.ceil(graceDistance / estimatedSegmentSpacing) + 1, 5, 12);
     }
 
-    const graceDistance = Math.max(
-        hitboxRadius * 3.5,
-        bodyLengthEstimate + hitboxRadius * 0.5 + trailRadius
-    );
-    const estimatedSegmentSpacing = Math.max(0.2, speed * updateInterval);
-
-    return clampInt(Math.ceil(graceDistance / estimatedSegmentSpacing) + 1, 5, 12);
-}
-
-export class EntityManager {
     constructor(renderer, arena, powerupManager, particles, audio, recorder) {
         this.renderer = renderer;
         this.arena = arena;
@@ -469,7 +467,7 @@ export class EntityManager {
 
                 // Global Trail Collision (Nutzt OBB für Präzision)
                 if (!bouncedOnFoam) {
-                    const selfTrailSkipRecent = deriveSelfTrailSkipRecentSegments(player);
+                    const selfTrailSkipRecent = EntityManager.deriveSelfTrailSkipRecentSegments(player);
                     const collision = this.checkGlobalCollision(player.position, hRadius * 2.0, player.index, selfTrailSkipRecent, player);
                     if (collision && collision.hit) {
                         if (player.hasShield) {

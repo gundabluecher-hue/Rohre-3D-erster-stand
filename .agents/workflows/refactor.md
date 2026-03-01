@@ -21,7 +21,12 @@ description: Restructure code without changing behavior.
 - Re-run baseline tests.
 - Compare with baseline; investigate regressions immediately.
 
-## 4. Commit
+## 4. Documentation freshness
+
+- Run `.agents/workflows/aktualitaet-check.md`.
+- Update docs when module structure/naming changed.
+
+## 5. Commit
 
 ```bash
 git add [scoped-files]

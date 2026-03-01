@@ -18,6 +18,7 @@ description: Quick project status snapshot.
 - Next phase
 - Uncommitted changes
 - Active branches
+- If documentation drift is suspected, run `.agents/workflows/aktualitaet-check.md`.
 
 ## Report
 

@@ -33,6 +33,7 @@ Create `implementation_plan.md`:
 
 - Mark phase/task checkboxes done.
 - Add completion date.
+- Run `.agents/workflows/aktualitaet-check.md` before marking phase complete.
 - Remove `implementation_plan.md`.
 
 ## Report

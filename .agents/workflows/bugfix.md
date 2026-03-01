@@ -25,6 +25,12 @@ description: Diagnose a reported issue and apply a targeted fix.
 - Keep scope limited to affected files.
 - Re-run relevant checks (`build` + focused tests).
 
+## 4. Documentation sync
+
+- Run `.agents/workflows/aktualitaet-check.md`.
+- Update issue status in `docs/Analysebericht.md` and `docs/Umsetzungsplan.md` when bug state changed.
+- If no doc delta: add `Dokumentation aktuell (geprueft am YYYY-MM-DD)` to report.
+
 ## Report
 
 Use standard output format from `.agents/rules/reporting_format.md`.

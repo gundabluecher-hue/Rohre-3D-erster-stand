@@ -22,7 +22,12 @@ description: Prepare and publish a safe release.
 
 - `npm run build` must pass.
 
-## 4. Tag and push
+## 4. Documentation freshness gate
+
+- Run `.agents/workflows/aktualitaet-check.md`.
+- Ensure release notes, plan status, and analysis claims are date-accurate.
+
+## 5. Tag and push
 
 ```bash
 git add [release-files]

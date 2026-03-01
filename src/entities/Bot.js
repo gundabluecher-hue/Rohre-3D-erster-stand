@@ -23,6 +23,10 @@ const PORTAL_EXIT_CHECK_DIRS = [
     { x: 0, y: 0, z: -1 },
 ];
 
+const BOT_COLLISION_CACHE_POS_SCALE = 32;
+const BOT_COLLISION_CACHE_RADIUS_SCALE = 64;
+const BOT_PROBE_LATERAL_SCAN_CLEAR_RATIO = 0.92;
+
 // Phase 3: Kontextsensitive Item-Regeln (emergencyScale + combatSelf)
 const ITEM_RULES = {
     SPEED_UP: { self: 0.8, offense: 0.2, defensiveScale: 0.5, emergencyScale: 0.1, combatSelf: 0.2 },
@@ -544,10 +548,39 @@ export class BotAI {
         probe.dir.normalize();
     }
 
-    _checkTrailHit(position, player, allPlayers) {
-        // Use global collision system
-        const hit = player.trail.entityManager.checkGlobalCollision(position, player.hitboxRadius * 1.6, player.index, 20);
-        return !!(hit && hit.hit);
+    _buildCollisionMemoKey(position, radius, excludePlayerIndex, skipRecent) {
+        const qx = Math.round(position.x * BOT_COLLISION_CACHE_POS_SCALE);
+        const qy = Math.round(position.y * BOT_COLLISION_CACHE_POS_SCALE);
+        const qz = Math.round(position.z * BOT_COLLISION_CACHE_POS_SCALE);
+        const qr = Math.round(radius * BOT_COLLISION_CACHE_RADIUS_SCALE);
+
+        let hash = 2166136261;
+        hash = Math.imul(hash ^ qx, 16777619);
+        hash = Math.imul(hash ^ qy, 16777619);
+        hash = Math.imul(hash ^ qz, 16777619);
+        hash = Math.imul(hash ^ qr, 16777619);
+        hash = Math.imul(hash ^ (excludePlayerIndex + 2048), 16777619);
+        hash = Math.imul(hash ^ skipRecent, 16777619);
+        return hash >>> 0;
+    }
+
+    _getCollisionMemoized(entityManager, position, radius, excludePlayerIndex, skipRecent, playerRef) {
+        const key = this._buildCollisionMemoKey(position, radius, excludePlayerIndex, skipRecent);
+        const cached = this._collisionCache.get(key);
+        if (cached !== undefined) {
+            return cached === 1;
+        }
+
+        const hit = entityManager.checkGlobalCollision(position, radius, excludePlayerIndex, skipRecent, playerRef);
+        const hasHit = !!(hit && hit.hit);
+        this._collisionCache.set(key, hasHit ? 1 : 0);
+        return hasHit;
+    }
+
+    _checkTrailHit(position, player, allPlayers, radius = player.hitboxRadius * 1.6, skipRecent = 20) {
+        const entityManager = player?.trail?.entityManager;
+        if (!entityManager) return false;
+        return this._getCollisionMemoized(entityManager, position, radius, player.index, skipRecent, player);
     }
 
     _scanProbeRay(player, arena, allPlayers, direction, lookAhead, step, out) {
@@ -555,20 +588,34 @@ export class BotAI {
         out.trailDist = lookAhead;
         out.immediateDanger = false;
 
-        for (let d = step; d <= lookAhead; d += step) {
-            this._tmpVec.copy(player.position).addScaledVector(direction, d);
+        const radius = player.hitboxRadius * 1.6;
+        const skipRecent = 20;
+        const stepX = direction.x * step;
+        const stepY = direction.y * step;
+        const stepZ = direction.z * step;
 
-            if (arena.checkCollisionFast(this._tmpVec, player.hitboxRadius * 1.6)) {
+        this._tmpVec.set(
+            player.position.x + stepX,
+            player.position.y + stepY,
+            player.position.z + stepZ
+        );
+
+        for (let d = step; d <= lookAhead; d += step) {
+            if (arena.checkCollisionFast(this._tmpVec, radius)) {
                 out.wallDist = d;
                 if (d <= step * 1.5) out.immediateDanger = true;
                 break;
             }
 
-            if (this._checkTrailHit(this._tmpVec, player, allPlayers)) {
+            if (this._checkTrailHit(this._tmpVec, player, allPlayers, radius, skipRecent)) {
                 out.trailDist = d;
                 if (d <= step * 1.5) out.immediateDanger = true;
                 break;
             }
+
+            this._tmpVec.x += stepX;
+            this._tmpVec.y += stepY;
+            this._tmpVec.z += stepZ;
         }
     }
 
@@ -588,12 +635,24 @@ export class BotAI {
 
         const lateralStrength = CONFIG.GAMEPLAY.PLANAR_MODE ? 0.2 : 0.24;
         const lateralLookAhead = probeLookAhead * 0.9;
+        const centerClearance = Math.min(this._probeRayCenter.wallDist, this._probeRayCenter.trailDist);
+        const shouldScanLaterals = this._probeRayCenter.immediateDanger
+            || centerClearance < probeLookAhead * BOT_PROBE_LATERAL_SCAN_CLEAR_RATIO;
 
-        this._tmpVec2.copy(probe.dir).addScaledVector(this._tmpRight, lateralStrength).normalize();
-        this._scanProbeRay(player, arena, allPlayers, this._tmpVec2, lateralLookAhead, step, this._probeRayLeft);
+        if (shouldScanLaterals) {
+            this._tmpVec2.copy(probe.dir).addScaledVector(this._tmpRight, lateralStrength).normalize();
+            this._scanProbeRay(player, arena, allPlayers, this._tmpVec2, lateralLookAhead, step, this._probeRayLeft);
 
-        this._tmpVec3.copy(probe.dir).addScaledVector(this._tmpRight, -lateralStrength).normalize();
-        this._scanProbeRay(player, arena, allPlayers, this._tmpVec3, lateralLookAhead, step, this._probeRayRight);
+            this._tmpVec3.copy(probe.dir).addScaledVector(this._tmpRight, -lateralStrength).normalize();
+            this._scanProbeRay(player, arena, allPlayers, this._tmpVec3, lateralLookAhead, step, this._probeRayRight);
+        } else {
+            this._probeRayLeft.wallDist = this._probeRayCenter.wallDist;
+            this._probeRayLeft.trailDist = this._probeRayCenter.trailDist;
+            this._probeRayLeft.immediateDanger = this._probeRayCenter.immediateDanger;
+            this._probeRayRight.wallDist = this._probeRayCenter.wallDist;
+            this._probeRayRight.trailDist = this._probeRayCenter.trailDist;
+            this._probeRayRight.immediateDanger = this._probeRayCenter.immediateDanger;
+        }
 
         const wallDist = Math.min(this._probeRayCenter.wallDist, this._probeRayLeft.wallDist, this._probeRayRight.wallDist);
         const trailDist = Math.min(this._probeRayCenter.trailDist, this._probeRayLeft.trailDist, this._probeRayRight.trailDist);
@@ -1030,6 +1089,8 @@ export class BotAI {
     _runPerception(player, arena, allPlayers, projectiles) {
         // Time-Slicing auf Frame-Ebene
         this._sensePhaseCounter = (this._sensePhaseCounter + 1) % 4;
+        // Collision memo is valid only for one perception tick.
+        this._collisionCache.clear();
 
         this._senseEnvironment(player, arena, allPlayers, projectiles);
         this._senseProjectiles(player, projectiles);

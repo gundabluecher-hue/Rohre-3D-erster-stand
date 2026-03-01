@@ -28,6 +28,11 @@ git reset --hard <COMMIT>
 
 - Update `docs/Umsetzungsplan.md` phases that are no longer done.
 
+## 5. Documentation freshness
+
+- Run `.agents/workflows/aktualitaet-check.md`.
+- Ensure analysis/report docs do not claim reverted behavior as active.
+
 ## Report
 
 Use standard output format from `.agents/rules/reporting_format.md`.

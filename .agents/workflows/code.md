@@ -27,14 +27,21 @@ description: Implement a planned change from coding to verification and commit.
 - Select tests via `.agents/test_mapping.md` based on changed paths.
 - If no mapping matches, run `npm run test:core` as default safety check.
 
-## 4. Definition of Done
+## 4. Documentation freshness (mandatory)
+
+- Run `.agents/workflows/aktualitaet-check.md`.
+- Sync affected docs if claims changed (`docs/Umsetzungsplan.md`, `docs/Analysebericht.md`, `docs/Feature_*.md`).
+- If no updates are needed, record: `Dokumentation aktuell (geprueft am YYYY-MM-DD)`.
+
+## 5. Definition of Done
 
 - `npm run build` succeeds.
 - Mapped tests (from `.agents/test_mapping.md`) pass.
 - `git diff --name-only` matches planned scope.
+- Documentation freshness check completed.
 - Add one-line risk rating: low/medium/high.
 
-## 5. Commit
+## 6. Commit
 
 ```bash
 git add [scoped-files]

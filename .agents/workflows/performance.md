@@ -27,6 +27,11 @@ description: Measure baseline, optimize bottlenecks, and verify impact.
 - Re-run baseline scenario.
 - Report before/after deltas.
 
+## 5. Documentation freshness
+
+- Run `.agents/workflows/aktualitaet-check.md`.
+- Sync any changed performance claims in docs with explicit date.
+
 ## Report
 
 Use standard output format from `.agents/rules/reporting_format.md`.

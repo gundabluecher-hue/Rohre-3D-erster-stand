@@ -1,4 +1,4 @@
-﻿# Umsetzungsplan (Master)
+# Umsetzungsplan (Master)
 
 Dies ist der konsolidierte Plan fuer anstehende und laufende Implementierungen.
 Neue Findings aus dem Analysebericht fliessen hier ein.
@@ -15,7 +15,7 @@ Neue Findings aus dem Analysebericht fliessen hier ein.
 
 **Wichtig:**
 
-- Keine offenen kritischen Findings (Stand: 27.02.2026).
+- Keine offenen kritischen Findings (Stand: 28.02.2026, Nachvalidierung `smoke:selftrail` PASS).
 
 **Mittel:**
 
@@ -132,4 +132,5 @@ Erledigt: 28.02.2026
   1. Visueller HTML/CSS-Balken fuer den Spieler-Boost im Fighter-HUD.
   2. Dynamische Aktualisierung basierend auf Timer/Cooldown in `HUD.js`.
 - Dateien: `index.html`, `style.css`, `src/ui/HUD.js`
-- Verifikation: `npm run smoke:selftrail` (erfolgreich) und manuelle Sichtpruefung im Spiel.
+- Verifikation: `npm run smoke:selftrail` (erfolgreich am 2026-02-28) und manuelle Sichtpruefung im Spiel.
+

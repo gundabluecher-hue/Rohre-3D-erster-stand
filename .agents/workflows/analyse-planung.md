@@ -34,7 +34,12 @@ description: Run full test analysis, persist results, and update prioritized act
 - Keep completed items for history.
 - Ensure phase headers use checkbox format: `## Phase X: [ ] Title`.
 
-## 5. Final consistency check
+## 5. Documentation freshness check
+
+- Run `.agents/workflows/aktualitaet-check.md`.
+- Resolve stale path/state/date references found in active docs/workflows/rules.
+
+## 6. Final consistency check
 
 - No uncovered findings between test report, analysis, and plan.
 - Keep `/fix-planung` compatibility.

@@ -32,7 +32,12 @@ description: Detect and remove dead code/files with safe dry-run first.
 - Remove/archive approved items only.
 - Re-run relevant tests.
 
-## 5. Commit
+## 5. Documentation freshness
+
+- Run `.agents/workflows/aktualitaet-check.md`.
+- Update docs referencing removed/moved files.
+
+## 6. Commit
 
 ```bash
 git add [approved-files]

@@ -19,6 +19,7 @@ description: Create a compact implementation plan for a new feature or extension
 - Existing modules/interfaces/events
 - Reuse vs new file decision
 - Risk rating (low/medium/high)
+- Documentation impact list (which docs need update after implementation)
 
 ## 3. Write plan
 
@@ -33,6 +34,10 @@ Create `docs/Feature_[Name].md` with:
 
 - Add focused phase(s) in `docs/Umsetzungsplan.md` only if needed.
 - Keep phases small and single-purpose.
+
+## 5. Freshness hook
+
+- Add a verification note to run `.agents/workflows/aktualitaet-check.md` during implementation closure.
 
 ## Report
 

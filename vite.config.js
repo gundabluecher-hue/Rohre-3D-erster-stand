@@ -534,6 +534,21 @@ export default defineConfig({
     plugins: [editorDiskSaveApiPlugin()],
     build: {
         chunkSizeWarningLimit: CHUNK_SIZE_WARNING_LIMIT_KB,
+        rollupOptions: {
+            output: {
+                manualChunks(id) {
+                    if (!id) return undefined;
+                    if (id.includes('node_modules/three/examples/jsm/loaders/OBJLoader.js') ||
+                        id.includes('node_modules/three/examples/jsm/loaders/MTLLoader.js')) {
+                        return 'three-loaders';
+                    }
+                    if (id.includes('node_modules/three')) {
+                        return 'three-core';
+                    }
+                    return undefined;
+                },
+            },
+        },
     },
     define: {
         __APP_VERSION__: JSON.stringify(pkg.version),

@@ -19,6 +19,7 @@ This file defines repository-specific operating rules for Codex.
 - Use concise, token-efficient output by default.
 - Ask questions only when critical information is missing.
 - For non-destructive design decisions, proceed proactively with a short rationale.
+- Keep docs/workflows/rules in sync with code and test reality after each change.
 
 ## Workflow Selection
 
@@ -26,6 +27,7 @@ This file defines repository-specific operating rules for Codex.
 - Feature implementation: use `.agents/workflows/code.md`
 - Bug fixing: use `.agents/workflows/bugfix.md`
 - Phase execution from master plan: use `.agents/workflows/fix-planung.md`
+- Documentation/process freshness check: use `.agents/workflows/aktualitaet-check.md`
 - Cleanup/refactor/release/status/rollback: use matching workflow in `.agents/workflows/`
 
 ## Verification Policy
@@ -33,6 +35,7 @@ This file defines repository-specific operating rules for Codex.
 - Select tests using `.agents/test_mapping.md`.
 - If no mapping matches, run `npm run test:core` as fallback.
 - For phase execution via `/fix-planung`, `/code` is the single source of truth for DoD and verification checks.
+- For any code/process update, run `.agents/workflows/aktualitaet-check.md` before closing the task.
 
 ## Git Safety
 

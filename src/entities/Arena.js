@@ -886,7 +886,7 @@ export class Arena {
         if (dMinZ < minDist) { minDist = dMinZ; normal.set(0, 0, -1); }
         if (dMaxZ < minDist) { normal.set(0, 0, 1); }
 
-        return normal.clone();
+        return normal;
     }
 
     getCollisionInfo(position, radius) {
@@ -1091,7 +1091,9 @@ export class Arena {
             if (!gate.mesh) continue;
             const { spines, outerRing, innerDisk, frontRing, backRing } = gate.mesh.userData;
             if (spines) {
-                spines.forEach((s, i) => { s.rotation.x = time * 2 + i * 0.5; });
+                for (let i = 0; i < spines.length; i++) {
+                    spines[i].rotation.x = time * 2 + i * 0.5;
+                }
             }
             if (outerRing) outerRing.rotation.z = time * 0.8;
             if (innerDisk) innerDisk.rotation.z = -time * 1.2;
