@@ -528,6 +528,72 @@ export const CONFIG = {
             ],
             portals: []
         },
+        mega_maze: {
+            name: 'Mega-Labyrinth',
+            size: [100, 35, 100],
+            obstacles: [
+                // ========================================================
+                // 5x5 Grid-Labyrinth mit alternierenden Boden/Decken-Wänden
+                // Bodenwand: pos Y=12, H=24 → Y 0-24, Lücke oben (24-35)
+                // Deckenwand: pos Y=23, H=24 → Y 11-35, Lücke unten (0-11)
+                // Zellen: A(-40) B(-20) C(0) D(20) E(40)
+                // Wandlinien: -30, -10, 10, 30
+                // ========================================================
+
+                // --- Horizontale Wände (E-W laufend, dünn in Z) ---
+
+                // Z=-30 (Reihe 1→2)
+                { pos: [-40, 12, -30], size: [20, 24, 3] },     // ↑ Boden: A1↔A2 blockiert
+                { pos: [0, 23, -30], size: [20, 24, 3] },       // ↓ Decke: C1↔C2 blockiert
+                { pos: [40, 12, -30], size: [20, 24, 3] },      // ↑ Boden: E1↔E2 blockiert
+
+                // Z=-10 (Reihe 2→3)
+                { pos: [-20, 23, -10], size: [20, 24, 3] },     // ↓ Decke: B2↔B3 blockiert
+                { pos: [20, 12, -10], size: [20, 24, 3] },      // ↑ Boden: D2↔D3 blockiert
+
+                // Z=10 (Reihe 3→4)
+                { pos: [-40, 12, 10], size: [20, 24, 3] },      // ↑ Boden: A3↔A4 blockiert
+                { pos: [0, 23, 10], size: [20, 24, 3] },        // ↓ Decke: C3↔C4 blockiert
+                { pos: [20, 12, 10], size: [20, 24, 3] },       // ↑ Boden: D3↔D4 blockiert
+
+                // Z=30 (Reihe 4→5)
+                { pos: [-20, 23, 30], size: [20, 24, 3] },      // ↓ Decke: B4↔B5 blockiert
+                { pos: [0, 12, 30], size: [20, 24, 3] },        // ↑ Boden: C4↔C5 blockiert
+
+                // --- Vertikale Wände (N-S laufend, dünn in X) ---
+
+                // X=-30 (Spalte A↔B)
+                { pos: [-30, 23, -40], size: [3, 24, 20] },     // ↓ Decke: A1↔B1 blockiert
+                { pos: [-30, 12, 0], size: [3, 24, 20] },       // ↑ Boden: A3↔B3 blockiert
+                { pos: [-30, 23, 20], size: [3, 24, 20] },      // ↓ Decke: A4↔B4 blockiert
+
+                // X=-10 (Spalte B↔C)
+                { pos: [-10, 12, -20], size: [3, 24, 20] },     // ↑ Boden: B2↔C2 blockiert
+                { pos: [-10, 23, 20], size: [3, 24, 20] },      // ↓ Decke: B4↔C4 blockiert
+                { pos: [-10, 12, 40], size: [3, 24, 20] },      // ↑ Boden: B5↔C5 blockiert
+
+                // X=10 (Spalte C↔D)
+                { pos: [10, 23, -40], size: [3, 24, 20] },      // ↓ Decke: C1↔D1 blockiert
+                { pos: [10, 12, 0], size: [3, 24, 20] },        // ↑ Boden: C3↔D3 blockiert
+
+                // X=30 (Spalte D↔E)
+                { pos: [30, 12, -20], size: [3, 24, 20] },      // ↑ Boden: D2↔E2 blockiert
+                { pos: [30, 23, 0], size: [3, 24, 20] },        // ↓ Decke: D3↔E3 blockiert
+                { pos: [30, 12, 30], size: [3, 24, 20] },       // ↑ Boden: D5↔E5 blockiert (Sackgasse)
+
+                // --- Orientierungs-Pfeiler (Boden→Decke durchgehend) ---
+                { pos: [-45, 17.5, -45], size: [3, 35, 3] },    // Ecke NW
+                { pos: [45, 17.5, -45], size: [3, 35, 3] },     // Ecke NO
+                { pos: [-45, 17.5, 45], size: [3, 35, 3] },     // Ecke SW
+                { pos: [45, 17.5, 45], size: [3, 35, 3] },      // Ecke SO
+            ],
+            portals: [
+                { a: [-40, 5, -40], b: [40, 30, 40], color: 0x00ffcc },    // NW unten → SO oben
+                { a: [40, 5, -40], b: [-40, 30, 40], color: 0xff66ff },    // NO unten → SW oben
+                { a: [-40, 30, 0], b: [40, 5, 0], color: 0xffaa00 },      // W oben → O unten
+                { a: [0, 5, -40], b: [0, 30, 40], color: 0x44ff88 },      // N unten → S oben
+            ]
+        },
         ...GENERATED_LOCAL_MAPS,
     },
 

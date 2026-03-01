@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-02-28",
+  "generatedAt": "2026-03-01",
   "baseUrl": "http://127.0.0.1:4273",
-  "roundsPerScenario": 1,
+  "roundsPerScenario": 4,
   "scenarios": [
     {
       "scenario": {
@@ -14,19 +14,19 @@
         "rounds": 10
       },
       "metrics": {
-        "rounds": 1,
-        "botWinRate": 1,
+        "rounds": 4,
+        "botWinRate": 0.75,
         "stuckEvents": 0,
         "wallHits": 0,
         "trailHits": 0,
-        "averageBotSurvival": 12.353399548344896,
+        "averageBotSurvival": 23.623574801637005,
         "stuckPerMinute": 0,
-        "totalDuration": 12.353600000023842
+        "totalDuration": 110.51630000000074
       },
       "runner": {
-        "forcedRounds": 0,
-        "timeoutRounds": 0,
-        "elapsedMs": 12609
+        "forcedRounds": 1,
+        "timeoutRounds": 1,
+        "elapsedMs": 111707
       }
     },
     {
@@ -40,19 +40,19 @@
         "rounds": 10
       },
       "metrics": {
-        "rounds": 1,
+        "rounds": 4,
         "botWinRate": 1,
         "stuckEvents": 0,
         "wallHits": 0,
         "trailHits": 0,
-        "averageBotSurvival": 19.081799642983242,
+        "averageBotSurvival": 21.53336650962956,
         "stuckPerMinute": 0,
-        "totalDuration": 19.08189999997616
+        "totalDuration": 101.64469999999926
       },
       "runner": {
-        "forcedRounds": 0,
-        "timeoutRounds": 0,
-        "elapsedMs": 19789
+        "forcedRounds": 2,
+        "timeoutRounds": 2,
+        "elapsedMs": 104310
       }
     },
     {
@@ -66,19 +66,19 @@
         "rounds": 10
       },
       "metrics": {
-        "rounds": 1,
+        "rounds": 4,
         "botWinRate": 1,
         "stuckEvents": 0,
         "wallHits": 0,
         "trailHits": 0,
-        "averageBotSurvival": 35.84886659854965,
+        "averageBotSurvival": 27.165532781855894,
         "stuckPerMinute": 0,
-        "totalDuration": 38.47339999997616
+        "totalDuration": 111.44800000000185
       },
       "runner": {
         "forcedRounds": 1,
         "timeoutRounds": 1,
-        "elapsedMs": 40874
+        "elapsedMs": 114207
       }
     },
     {
@@ -92,35 +92,35 @@
         "rounds": 10
       },
       "metrics": {
-        "rounds": 1,
+        "rounds": 4,
         "botWinRate": 1,
         "stuckEvents": 0,
         "wallHits": 0,
         "trailHits": 0,
-        "averageBotSurvival": 35.05159950256348,
+        "averageBotSurvival": 40.26930025634647,
         "stuckPerMinute": 0,
-        "totalDuration": 35.57460000002384
+        "totalDuration": 161.07729999999887
       },
       "runner": {
-        "forcedRounds": 1,
-        "timeoutRounds": 1,
-        "elapsedMs": 36109
+        "forcedRounds": 4,
+        "timeoutRounds": 4,
+        "elapsedMs": 175308
       }
     }
   ],
   "overall": {
-    "rounds": 4,
-    "botWinRate": 1,
+    "rounds": 16,
+    "botWinRate": 0.9375,
     "stuckEvents": 0,
     "wallHits": 0,
     "trailHits": 0,
-    "averageBotSurvival": 25.583916323110316,
+    "averageBotSurvival": 28.14794358736723,
     "stuckPerMinute": 0,
-    "totalDuration": 105.48349999999999
+    "totalDuration": 484.68630000000076
   },
   "runner": {
-    "forcedRounds": 2,
-    "timeoutRounds": 2,
+    "forcedRounds": 8,
+    "timeoutRounds": 8,
     "failOnForcedRound": false,
     "maxForcedRounds": 9007199254740991
   }

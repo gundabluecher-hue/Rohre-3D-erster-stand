@@ -2,7 +2,6 @@
 // main.js - entry point and game controller
 // ============================================
 
-import * as THREE from 'three';
 import { CONFIG } from './Config.js';
 import { Renderer } from './Renderer.js';
 import { GameLoop } from './GameLoop.js';
@@ -16,18 +15,21 @@ import { CUSTOM_MAP_KEY } from '../entities/MapSchema.js';
 import { UIManager } from '../ui/UIManager.js';
 import { SettingsManager, KEY_BIND_ACTIONS } from './SettingsManager.js';
 import { ProfileManager } from './ProfileManager.js';
-import { MenuController } from '../ui/MenuController.js';
+import { MenuController, MENU_CONTROLLER_EVENT_TYPES } from '../ui/MenuController.js';
 import { deriveProfileControlSelectState } from '../ui/ProfileControlStateOps.js';
 import { deriveProfileActionUiState } from '../ui/ProfileUiStateOps.js';
 import { createRoundStateController } from '../state/RoundStateController.js';
 import { coordinateRoundEnd } from '../state/RoundEndCoordinator.js';
 import { disposeMatchSessionSystems, initializeMatchSession } from '../state/MatchSessionFactory.js';
+import { PlayingStateSystem } from './PlayingStateSystem.js';
+import { RoundStateTickSystem } from '../state/RoundStateTickSystem.js';
 import {
     deriveMatchStartUiState,
     deriveReturnToMenuUiState,
     deriveRoundStartUiState,
-    deriveRoundEndCountdownUiState,
 } from '../ui/MatchUiStateOps.js';
+import { HudRuntimeSystem } from '../ui/HudRuntimeSystem.js';
+import { CrosshairSystem } from '../ui/CrosshairSystem.js';
 
 /* global __APP_VERSION__, __BUILD_TIME__, __BUILD_ID__ */
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
@@ -61,15 +63,13 @@ export class Game {
         this.state = 'MENU';
         this.roundPause = 0;
         this.roundStateController = createRoundStateController({ defaultRoundPause: 3.0 });
+        this.playingStateSystem = new PlayingStateSystem(this);
+        this.roundStateTickSystem = new RoundStateTickSystem(this);
         this._hudTimer = 0;
         this._adaptiveTimer = 0;
         this._statsTimer = 0;
         this.keyCapture = null;
         this.isLowQuality = false;
-
-        this._tmpAimVec = new THREE.Vector3();
-        this._tmpAimDir = new THREE.Vector3();
-        this._tmpRollEuler = new THREE.Euler(0, 0, 0, 'YXZ');
 
         const canvas = document.getElementById('game-canvas');
         this.renderer = new Renderer(canvas);
@@ -79,6 +79,8 @@ export class Game {
         // HUD Systems
         this.hudP1 = new HUD('p1-fighter-hud', 0);
         this.hudP2 = new HUD('p2-fighter-hud', 1);
+        this.hudRuntimeSystem = new HudRuntimeSystem(this);
+        this.crosshairSystem = new CrosshairSystem(this);
 
         // Debug Recorder
         this.recorder = new RoundRecorder();
@@ -439,25 +441,49 @@ export class Game {
         this.menuController = new MenuController({
             ui: this.ui,
             settings: this.settings,
-            onSettingsChanged: () => this._onSettingsChanged(),
-            onStartMatch: () => this.startMatch(),
-            onStartKeyCapture: (player, action) => this._startKeyCapture(player, action),
-            onSaveProfile: (name) => this._saveProfile(name),
-            onLoadProfile: (name) => this._loadProfile(name),
-            onDeleteProfile: (name) => this._deleteProfile(name),
-            onResetKeys: () => {
-                this.settings.controls = this._cloneDefaultControls();
-                this._onSettingsChanged();
-                this._showStatusToast('✅ Standard-Tasten wiederhergestellt');
-            },
-            onSaveKeys: () => {
-                this._saveSettings();
-                this._showStatusToast('Einstellungen gespeichert');
-            },
-            onStatusToast: (msg, duration, type) => this._showStatusToast(msg, duration, type)
+            onEvent: (event) => this._handleMenuControllerEvent(event),
         });
 
         this.menuController.setupListeners();
+    }
+
+    _handleMenuControllerEvent(event) {
+        if (!event?.type) return;
+
+        switch (event.type) {
+            case MENU_CONTROLLER_EVENT_TYPES.SETTINGS_CHANGED:
+                this._onSettingsChanged();
+                return;
+            case MENU_CONTROLLER_EVENT_TYPES.START_MATCH:
+                this.startMatch();
+                return;
+            case MENU_CONTROLLER_EVENT_TYPES.START_KEY_CAPTURE:
+                this._startKeyCapture(event.player, event.action);
+                return;
+            case MENU_CONTROLLER_EVENT_TYPES.SAVE_PROFILE:
+                this._saveProfile(event.name);
+                return;
+            case MENU_CONTROLLER_EVENT_TYPES.LOAD_PROFILE:
+                this._loadProfile(event.name);
+                return;
+            case MENU_CONTROLLER_EVENT_TYPES.DELETE_PROFILE:
+                this._deleteProfile(event.name);
+                return;
+            case MENU_CONTROLLER_EVENT_TYPES.RESET_KEYS:
+                this.settings.controls = this._cloneDefaultControls();
+                this._onSettingsChanged();
+                this._showStatusToast('✅ Standard-Tasten wiederhergestellt');
+                return;
+            case MENU_CONTROLLER_EVENT_TYPES.SAVE_KEYS:
+                this._saveSettings();
+                this._showStatusToast('Einstellungen gespeichert');
+                return;
+            case MENU_CONTROLLER_EVENT_TYPES.SHOW_STATUS_TOAST:
+                this._showStatusToast(event.message, event.duration, event.tone);
+                return;
+            default:
+                return;
+        }
     }
 
     _onSettingsChanged() {
@@ -942,7 +968,7 @@ export class Game {
 
         this.gameLoop.setTimeScale(1.0);
         this._applyMatchUiState(deriveRoundStartUiState());
-        this._updateHUD();
+        this.hudRuntimeSystem.updateScoreHud();
     }
 
     _onRoundEnd(winner) {
@@ -974,7 +1000,7 @@ export class Game {
 
     _applyRoundEndCoordinatorEffects(effectsPlan) {
         if (!effectsPlan?.shouldUpdateHud) return;
-        this._updateHUD();
+        this.hudRuntimeSystem.updateScoreHud();
     }
 
     _applyRoundEndCoordinatorUiState(uiState) {
@@ -985,66 +1011,6 @@ export class Game {
     _applyRoundEndControllerTransitionState(roundEndTransition) {
         this.roundPause = roundEndTransition.roundPause;
         this.state = roundEndTransition.nextState;
-    }
-
-    _updateHUD() {
-        const humans = this.entityManager.getHumanPlayers();
-
-        if (humans.length > 0) {
-            const p1Score = String(humans[0].score);
-            if (this.ui.p1Score.textContent !== p1Score) {
-                this.ui.p1Score.textContent = p1Score;
-            }
-            this._updateItemBar(this.ui.p1Items, humans[0]);
-        }
-
-        if (humans.length > 1) {
-            const p2Score = String(humans[1].score);
-            if (this.ui.p2Score.textContent !== p2Score) {
-                this.ui.p2Score.textContent = p2Score;
-            }
-            this._updateItemBar(this.ui.p2Items, humans[1]);
-        }
-    }
-
-    _updateItemBar(container, player) {
-        this._ensureItemSlots(container);
-
-        for (let i = 0; i < CONFIG.POWERUP.MAX_INVENTORY; i++) {
-            const slot = container.children[i];
-            const type = i < player.inventory.length ? player.inventory[i] : '';
-
-            if (slot.dataset.type === type) {
-                continue;
-            }
-
-            slot.dataset.type = type;
-            if (type) {
-                const config = CONFIG.POWERUP.TYPES[type];
-                slot.textContent = config.icon;
-                slot.classList.add('active');
-                slot.style.borderColor = '#' + config.color.toString(16).padStart(6, '0');
-            } else {
-                slot.textContent = '';
-                slot.classList.remove('active');
-                slot.style.borderColor = '';
-            }
-        }
-    }
-
-    _ensureItemSlots(container) {
-        const desired = CONFIG.POWERUP.MAX_INVENTORY;
-
-        while (container.children.length < desired) {
-            const slot = document.createElement('div');
-            slot.className = 'item-slot';
-            slot.dataset.type = '';
-            container.appendChild(slot);
-        }
-
-        while (container.children.length > desired) {
-            container.removeChild(container.lastChild);
-        }
     }
 
     _getPlanarAimAxis(playerIndex) {
@@ -1089,112 +1055,6 @@ export class Game {
         }
     }
 
-    _updateCrosshairPosition(player, crosshairElement) {
-        if (!player || !player.alive || !crosshairElement) {
-            if (crosshairElement) crosshairElement.style.display = 'none';
-            return;
-        }
-
-        const camera = this.renderer.cameras[player.index];
-        if (!camera) {
-            crosshairElement.style.display = 'none';
-            return;
-        }
-        crosshairElement.style.display = 'block';
-
-        const screenW = window.innerWidth;
-        const screenH = window.innerHeight;
-        const split = this.numHumans === 2;
-        const viewportW = split ? screenW * 0.5 : screenW;
-        const viewportX = split ? (player.index === 0 ? 0 : viewportW) : 0;
-
-        player.getAimDirection(this._tmpAimDir);
-        this._tmpAimVec.copy(player.position).addScaledVector(this._tmpAimDir, 80).project(camera);
-
-        const ndcX = clamp(this._tmpAimVec.x, -1.05, 1.05);
-        const ndcY = clamp(this._tmpAimVec.y, -1.05, 1.05);
-        const x = viewportX + (ndcX * 0.5 + 0.5) * viewportW;
-        const y = (-(ndcY * 0.5) + 0.5) * screenH;
-
-        this._tmpRollEuler.setFromQuaternion(player.quaternion, 'YXZ');
-        const rollDeg = THREE.MathUtils.radToDeg(this._tmpRollEuler.z);
-
-        crosshairElement.style.left = `${x}px`;
-        crosshairElement.style.top = `${y}px`;
-        crosshairElement.style.transform = `translate(-50%, -50%) rotate(${rollDeg.toFixed(2)}deg)`;
-    }
-
-    _updateCrosshairs() {
-        if (!this.entityManager) return;
-
-        const p1 = this.entityManager.players[0];
-        const p2 = this.entityManager.players[1];
-        const planarMode = !!CONFIG.GAMEPLAY.PLANAR_MODE;
-        const shouldShowScreenCrosshair = (player) => {
-            if (!player) return false;
-            if (planarMode) return true;
-            const camMode = CONFIG.CAMERA.MODES[player.cameraMode] || 'THIRD_PERSON';
-            return camMode !== 'FIRST_PERSON';
-        };
-
-        if (this.ui.crosshairP1) {
-            if (shouldShowScreenCrosshair(p1)) {
-                this._updateCrosshairPosition(p1, this.ui.crosshairP1);
-            } else {
-                this.ui.crosshairP1.style.display = 'none';
-            }
-        }
-        if (this.ui.crosshairP2) {
-            if (this.numHumans === 2) {
-                if (shouldShowScreenCrosshair(p2)) {
-                    this._updateCrosshairPosition(p2, this.ui.crosshairP2);
-                } else {
-                    this.ui.crosshairP2.style.display = 'none';
-                }
-            } else {
-                this.ui.crosshairP2.style.display = 'none';
-            }
-        }
-    }
-
-    _updatePlayingHudTick(dt) {
-        // HUD nur alle ~200ms aktualisieren (reicht für UI)
-        this._hudTimer += dt;
-        if (this._hudTimer >= 0.2) {
-            this._hudTimer = 0;
-            this._updateHUD();
-        }
-
-        // FIGHTER HUD UPDATE
-        const p1 = this.entityManager.players[0];
-        if (p1) this.hudP1.update(p1, dt, this.entityManager);
-
-        // Fadenkreuz Lock-On Farbe updaten (P1)
-        if (this.ui.crosshairP1) {
-            const lockTarget = this.entityManager.getLockOnTarget(0);
-            if (lockTarget) {
-                this.ui.crosshairP1.classList.add('locked');
-            } else {
-                this.ui.crosshairP1.classList.remove('locked');
-            }
-        }
-
-        // Fadenkreuz Lock-On Farbe updaten (P2)
-        if (this.ui.crosshairP2 && this.numHumans === 2) {
-            const lockTarget = this.entityManager.getLockOnTarget(1);
-            if (lockTarget) {
-                this.ui.crosshairP2.classList.add('locked');
-            } else {
-                this.ui.crosshairP2.classList.remove('locked');
-            }
-
-            const p2 = this.entityManager.players[1];
-            if (p2) this.hudP2.update(p2, dt, this.entityManager);
-        } else {
-            this.hudP2.setVisibility(false);
-        }
-    }
-
     _applyPlayingTimeScaleFromEffects() {
         this.gameLoop.setTimeScale(1.0);
         for (const p of this.entityManager.players) {
@@ -1207,146 +1067,15 @@ export class Game {
     }
 
     _updatePlayingState(dt) {
-        if (this.input.wasPressed('Escape')) {
-            this._returnToMenu();
-            return;
-        }
-
-        this._updatePlanarAimAssist(dt);
-        this.entityManager.update(dt, this.input);
-        this.powerupManager.update(dt);
-        this.particles.update(dt);
-        this.arena.update(dt);
-        this.entityManager.updateCameras(dt);
-        this._updateCrosshairs();
-        this._updatePlayingHudTick(dt);
-        this._applyPlayingTimeScaleFromEffects();
-    }
-
-    _executeRoundStateTickAction(action) {
-        if (action === 'RETURN_TO_MENU') {
-            this._returnToMenu();
-            return true;
-        }
-        if (action === 'START_ROUND') {
-            this._startRound();
-            return true;
-        }
-        if (action === 'RESTART_MATCH') {
-            this.startMatch();
-            return true;
-        }
-        return false;
-    }
-
-    _readRoundEndTickInputs(dt) {
-        return {
-            dt,
-            roundPause: this.roundPause,
-            enterPressed: this.input.wasPressed('Enter'),
-            escapePressed: this.input.wasPressed('Escape'),
-        };
-    }
-
-    _readMatchEndTickInputs() {
-        return {
-            enterPressed: this.input.wasPressed('Enter'),
-            escapePressed: this.input.wasPressed('Escape'),
-        };
-    }
-
-    _deriveRoundEndTickStep(dt) {
-        return this.roundStateController.deriveRoundEndTick(this._readRoundEndTickInputs(dt));
-    }
-
-    _deriveMatchEndTickStep() {
-        return this.roundStateController.deriveMatchEndTick(this._readMatchEndTickInputs());
-    }
-
-    _applyRoundEndTickUi(roundEndTick) {
-        if (!roundEndTick.countdownMessageSub) return;
-        this._applyMatchUiState(deriveRoundEndCountdownUiState(this.roundPause));
-    }
-
-    _applyRoundEndTickMutableState(roundEndTick) {
-        this.roundPause = roundEndTick.nextRoundPause;
-        this._applyRoundEndTickUi(roundEndTick);
-    }
-
-    _updateRoundStateCamerasIfNeeded(dt, shouldUpdateCameras) {
-        if (!shouldUpdateCameras) return;
-        this.entityManager.updateCameras(dt);
-    }
-
-    _runRoundStateTickStepCore(tickStep, dt, hooks = {}) {
-        if (typeof hooks.beforeBase === 'function') {
-            const shouldStop = hooks.beforeBase(tickStep);
-            if (shouldStop) return true;
-        }
-        if (tickStep.action === 'RETURN_TO_MENU' && this._executeRoundStateTickAction(tickStep.action)) {
-            return true;
-        }
-        this._updateRoundStateCamerasIfNeeded(dt, tickStep.shouldUpdateCameras);
-        if (typeof hooks.afterBase === 'function') {
-            const shouldStop = hooks.afterBase(tickStep);
-            if (shouldStop) return true;
-        }
-        return false;
-    }
-
-    _applyRoundEndTickStep(roundEndTick, dt) {
-        this._applyRoundEndTickMutableState(roundEndTick);
-        return this._runRoundStateTickStepCore(roundEndTick, dt, {
-            afterBase: (tickStep) => {
-                this._executeRoundStateTickAction(tickStep.action);
-                return false;
-            },
-        });
-    }
-
-    _applyMatchEndTickStep(matchEndTick, dt) {
-        return this._runRoundStateTickStepCore(matchEndTick, dt, {
-            beforeBase: (tickStep) => {
-                if (tickStep.action === 'RESTART_MATCH') {
-                    this._executeRoundStateTickAction(tickStep.action);
-                }
-                return false;
-            },
-        });
-    }
-
-    _runRoundStateTickUpdate(dt, deriveTickStep, applyTickStep) {
-        const tickStep = deriveTickStep.call(this, dt);
-        return !!applyTickStep.call(this, tickStep, dt);
-    }
-
-    _buildRoundEndStateTickDescriptor() {
-        return {
-            deriveTickStep: this._deriveRoundEndTickStep,
-            applyTickStep: this._applyRoundEndTickStep,
-        };
-    }
-
-    _buildMatchEndStateTickDescriptor() {
-        return {
-            deriveTickStep: this._deriveMatchEndTickStep,
-            applyTickStep: this._applyMatchEndTickStep,
-        };
-    }
-
-    _runRoundStateTickDescriptor(dt, descriptor) {
-        if (!descriptor) return false;
-        return this._runRoundStateTickUpdate(dt, descriptor.deriveTickStep, descriptor.applyTickStep);
+        this.playingStateSystem.update(dt);
     }
 
     _updateRoundEndState(dt) {
-        const descriptor = this._buildRoundEndStateTickDescriptor();
-        if (this._runRoundStateTickDescriptor(dt, descriptor)) return;
+        this.roundStateTickSystem.updateRoundEnd(dt);
     }
 
     _updateMatchEndState(dt) {
-        const descriptor = this._buildMatchEndStateTickDescriptor();
-        if (this._runRoundStateTickDescriptor(dt, descriptor)) return;
+        this.roundStateTickSystem.updateMatchEnd(dt);
     }
 
     update(dt) {

@@ -172,3 +172,29 @@ Geplant: 2026-03-01
 - Verifikation pro Teilphase:
   - Manuelle Funktionalitaetstests (Laden/Speichern, UI-Buttons).
   - Pflicht-Gates: `npm run docs:sync` und `npm run docs:check`
+
+## Phase 10: [ ] Vertiefte Modularisierung fuer Performance und Wartbarkeit
+
+Geplant: 2026-03-01
+Letztes Update: 2026-03-01
+
+- Ziele:
+  1. Laufzeit- und UI-Orchestrierung weiter entkoppeln (`main.js` als duenne Shell).
+  2. `EntityManager`, `Arena` und `Bot` in klar testbare Subsysteme schneiden.
+  3. Performance-Hotpaths (Projectile, Trail, Collision) isolieren und reproduzierbar messen.
+- Referenzplan: `docs/Feature_Modularisierung_Phase10_Performance_Wartbarkeit.md`
+- Teilphasen:
+  - [x] 10.1 Core Runtime Loop final entkoppeln (Erledigt: 2026-03-01)
+  - [x] 10.2 UI-Verantwortung konsolidieren (UIManager vs MenuController) (Erledigt: 2026-03-01)
+  - [x] 10.3 HUD- und Crosshair-Logik als eigene Systeme (Erledigt: 2026-03-01)
+  - [ ] 10.4 EntityManager Split I - ProjectileSystem
+  - [ ] 10.5 EntityManager Split II - TrailSpatialIndex
+  - [ ] 10.6 Arena Split - Builder / Collision / PortalGate
+  - [ ] 10.7 Bot Split II - Recovery/Targeting/Scoring Ops
+  - [ ] 10.8 RuntimeConfig Snapshot statt globaler Streuung
+  - [ ] 10.9 Abschluss, Baseline-Vergleich, Cleanup
+- Verifikation pro Teilphase:
+  - Gemappte Tests gemaess `.agents/test_mapping.md`
+  - Pflicht-Gates: `npm run docs:sync` und `npm run docs:check`
+- Prompt-Regel:
+  - Am Ende jeder Teilphase den im Referenzplan definierten "Naechster-Chat-Prompt" ausgeben und damit direkt die Folgephase starten.

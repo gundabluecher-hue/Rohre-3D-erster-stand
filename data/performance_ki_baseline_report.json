@@ -1,0 +1,213 @@
+{
+  "generatedAt": "2026-03-01",
+  "baseline": {
+    "sourceReportPath": "data/bot_validation_report.json",
+    "sourceGeneratedAt": "2026-03-01",
+    "roundsPerScenario": 4,
+    "matrix": [
+      {
+        "id": "V1",
+        "mode": "1p",
+        "bots": 1,
+        "mapKey": "standard",
+        "planarMode": false,
+        "portalCount": 0,
+        "rounds": 10
+      },
+      {
+        "id": "V2",
+        "mode": "1p",
+        "bots": 3,
+        "mapKey": "maze",
+        "planarMode": false,
+        "portalCount": 0,
+        "rounds": 10
+      },
+      {
+        "id": "V3",
+        "mode": "1p",
+        "bots": 3,
+        "mapKey": "complex",
+        "planarMode": true,
+        "portalCount": 4,
+        "rounds": 10
+      },
+      {
+        "id": "V4",
+        "mode": "2p",
+        "bots": 2,
+        "mapKey": "standard",
+        "planarMode": true,
+        "portalCount": 6,
+        "rounds": 10
+      }
+    ],
+    "sampleDurationMs": 8000,
+    "sampleIntervalMs": 250,
+    "sampleWarmupMs": 1000,
+    "seedMode": "none",
+    "seedNote": "No explicit RNG seed hook available; reproducibility is driven by fixed matrix and runner parameters."
+  },
+  "scenarios": [
+    {
+      "scenario": {
+        "id": "V1",
+        "mode": "1p",
+        "bots": 1,
+        "mapKey": "standard",
+        "planarMode": false,
+        "portalCount": 0,
+        "rounds": 10
+      },
+      "metrics": {
+        "rounds": 4,
+        "botWinRate": 0.75,
+        "stuckEvents": 0,
+        "averageBotSurvival": 23.623574801637005,
+        "fpsAverage": 33.07936507936508,
+        "drawCallsAverage": 20.142857142857142,
+        "performanceSamples": 7
+      },
+      "performance": {
+        "sampleCount": 7,
+        "fpsAverage": 33.07936507936508,
+        "drawCallsAverage": 20.142857142857142,
+        "fpsMin": 20,
+        "fpsMax": 49.333333333333336,
+        "drawCallsMin": 19,
+        "drawCallsMax": 23,
+        "observedDurationMs": 8332
+      },
+      "sourceRunner": {
+        "forcedRounds": 1,
+        "timeoutRounds": 1,
+        "elapsedMs": 111707
+      }
+    },
+    {
+      "scenario": {
+        "id": "V2",
+        "mode": "1p",
+        "bots": 3,
+        "mapKey": "maze",
+        "planarMode": false,
+        "portalCount": 0,
+        "rounds": 10
+      },
+      "metrics": {
+        "rounds": 4,
+        "botWinRate": 1,
+        "stuckEvents": 0,
+        "averageBotSurvival": 21.53336650962956,
+        "fpsAverage": 57.36620472480716,
+        "drawCallsAverage": 21.692307692307693,
+        "performanceSamples": 13
+      },
+      "performance": {
+        "sampleCount": 13,
+        "fpsAverage": 57.36620472480716,
+        "drawCallsAverage": 21.692307692307693,
+        "fpsMin": 55.294117647058826,
+        "fpsMax": 60,
+        "drawCallsMin": 14,
+        "drawCallsMax": 25,
+        "observedDurationMs": 8335
+      },
+      "sourceRunner": {
+        "forcedRounds": 2,
+        "timeoutRounds": 2,
+        "elapsedMs": 104310
+      }
+    },
+    {
+      "scenario": {
+        "id": "V3",
+        "mode": "1p",
+        "bots": 3,
+        "mapKey": "complex",
+        "planarMode": true,
+        "portalCount": 4,
+        "rounds": 10
+      },
+      "metrics": {
+        "rounds": 4,
+        "botWinRate": 1,
+        "stuckEvents": 0,
+        "averageBotSurvival": 27.165532781855894,
+        "fpsAverage": 60,
+        "drawCallsAverage": 33,
+        "performanceSamples": 9
+      },
+      "performance": {
+        "sampleCount": 9,
+        "fpsAverage": 60,
+        "drawCallsAverage": 33,
+        "fpsMin": 60,
+        "fpsMax": 60,
+        "drawCallsMin": 31,
+        "drawCallsMax": 38,
+        "observedDurationMs": 8869
+      },
+      "sourceRunner": {
+        "forcedRounds": 1,
+        "timeoutRounds": 1,
+        "elapsedMs": 114207
+      }
+    },
+    {
+      "scenario": {
+        "id": "V4",
+        "mode": "2p",
+        "bots": 2,
+        "mapKey": "standard",
+        "planarMode": true,
+        "portalCount": 6,
+        "rounds": 10
+      },
+      "metrics": {
+        "rounds": 4,
+        "botWinRate": 1,
+        "stuckEvents": 0,
+        "averageBotSurvival": 40.26930025634647,
+        "fpsAverage": 60,
+        "drawCallsAverage": 32.8,
+        "performanceSamples": 10
+      },
+      "performance": {
+        "sampleCount": 10,
+        "fpsAverage": 60,
+        "drawCallsAverage": 32.8,
+        "fpsMin": 60,
+        "fpsMax": 60,
+        "drawCallsMin": 20,
+        "drawCallsMax": 42,
+        "observedDurationMs": 8669
+      },
+      "sourceRunner": {
+        "forcedRounds": 4,
+        "timeoutRounds": 4,
+        "elapsedMs": 175308
+      }
+    }
+  ],
+  "overall": {
+    "rounds": 16,
+    "botWinRate": 0.9375,
+    "stuckEvents": 0,
+    "averageBotSurvival": 28.14794358736723,
+    "fpsAverage": 54.29015940969355,
+    "drawCallsAverage": 26.871794871794872,
+    "performanceSamples": 39
+  },
+  "sourceRunner": {
+    "forcedRounds": 8,
+    "timeoutRounds": 8,
+    "failOnForcedRound": false,
+    "maxForcedRounds": 9007199254740991
+  },
+  "paths": {
+    "json": "data/performance_ki_baseline_report.json",
+    "sourceJson": "data/bot_validation_report.json",
+    "doc": "docs/Testergebnisse_2026-03-01.md"
+  }
+}

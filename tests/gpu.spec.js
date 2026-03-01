@@ -83,17 +83,75 @@ test.describe('T21-40: Rendering & GPU', () => {
         expect(lost).toHaveLength(0);
     });
 
-    // -- Skipped: nicht implementierte Features --
-    test.skip('T29: Frustum Culling Edge Cases', () => { });
-    test.skip('T30: Occlusion Culling', () => { });
-    test.skip('T31: Shadow Map Cascades', () => { });
-    test.skip('T32: Bloom Thresholds', () => { });
-    test.skip('T33: Chromatic Aberration', () => { });
-    test.skip('T34: Anti-Aliasing Glitches', () => { });
-    test.skip('T35: Texture Filtering', () => { });
-    test.skip('T36: Mipmap Transitions', () => { });
-    test.skip('T37: Decal Projection', () => { });
-    test.skip('T38: Instanced Mesh Z-Fighting', () => { });
-    test.skip('T39: LOD Transitions', () => { });
-    test.skip('T40: GPU VRAM Monitoring', () => { });
+    test('T29: Schatten-Maps sind für das Hauptlicht aktiviert', async ({ page }) => {
+        await startGame(page);
+        const lightProps = await page.evaluate(() => {
+            const g = window.GAME_INSTANCE;
+            if (!g?.renderer?.scene) return null;
+            let dirLightCastShadow = false;
+            let dirLightMapSize = 0;
+            g.renderer.scene.traverse(child => {
+                if (child.isDirectionalLight && child.castShadow) {
+                    dirLightCastShadow = true;
+                    if (child.shadow && child.shadow.mapSize) {
+                        dirLightMapSize = child.shadow.mapSize.width;
+                    }
+                }
+            });
+            return { castShadow: dirLightCastShadow, mapSize: dirLightMapSize };
+        });
+        expect(lightProps).not.toBeNull();
+        expect(lightProps.castShadow).toBeTruthy();
+        expect(lightProps.mapSize).toBeGreaterThanOrEqual(512); // DEFAULT_SHADOW_MAP_SIZE in Config is usually 512
+    });
+
+    test('T30: Render-Qualität LOW reduziert Features', async ({ page }) => {
+        await startGame(page);
+        const lowSettings = await page.evaluate(() => {
+            const g = window.GAME_INSTANCE;
+            g.renderer.setQuality('LOW');
+            return {
+                shadows: g.renderer.renderer.shadowMap.enabled,
+                toneMapping: g.renderer.renderer.toneMapping,
+                pixelRatio: g.renderer.renderer.getPixelRatio()
+            };
+        });
+        expect(lowSettings.shadows).toBeFalsy();
+        expect(lowSettings.toneMapping).toBe(0); // THREE.NoToneMapping
+        expect(lowSettings.pixelRatio).toBeLessThanOrEqual(0.8);
+    });
+
+    test('T31: Render-Qualität HIGH aktiviert Features', async ({ page }) => {
+        await startGame(page);
+        const highSettings = await page.evaluate(() => {
+            const g = window.GAME_INSTANCE;
+            g.renderer.setQuality('HIGH');
+            return {
+                shadows: g.renderer.renderer.shadowMap.enabled,
+                toneMapping: g.renderer.renderer.toneMapping,
+                pixelRatio: g.renderer.renderer.getPixelRatio()
+            };
+        });
+        expect(highSettings.shadows).toBeTruthy();
+        expect(highSettings.toneMapping).not.toBe(0); // THREE.ACESFilmicToneMapping is 4
+        expect(highSettings.pixelRatio).toBeGreaterThan(0.8);
+    });
+
+    test('T32: Szene nutzt definierte Scene-Roots', async ({ page }) => {
+        await startGame(page);
+        const hasRoots = await page.evaluate(() => {
+            const g = window.GAME_INSTANCE;
+            const scene = g?.renderer?.scene;
+            if (!scene) return false;
+
+            let pRoot = false, mRoot = false, dRoot = false;
+            scene.children.forEach(child => {
+                if (child.name === 'persistentRoot') pRoot = true;
+                if (child.name === 'matchRoot') mRoot = true;
+                if (child.name === 'debugRoot') dRoot = true;
+            });
+            return pRoot && mRoot && dRoot;
+        });
+        expect(hasRoots).toBeTruthy();
+    });
 });

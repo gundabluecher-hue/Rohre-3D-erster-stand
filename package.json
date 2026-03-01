@@ -13,6 +13,7 @@
     "smoke:selftrail": "npm run build && node scripts/self-trail-debug-smoke.mjs",
     "smoke:roundstate": "node scripts/round-state-controller-smoke.mjs",
     "bot:validate": "node scripts/bot-validation-runner.mjs",
+    "benchmark:baseline": "node scripts/bot-benchmark-baseline.mjs",
     "test:core": "playwright test tests/core.spec.js",
     "test:gpu": "playwright test tests/gpu.spec.js",
     "test:physics": "playwright test tests/physics.spec.js",

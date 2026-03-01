@@ -130,8 +130,10 @@ export class Trail {
         if (length < 0.01) return;
 
         // Unregister old segment from global grid
+        let reusableRef = null;
         if (this.segmentCount >= this.maxSegments) {
             const oldRef = this.segmentRefs[this.writeIndex];
+            reusableRef = oldRef;
             if (oldRef && this.entityManager) {
                 this.entityManager.unregisterTrailSegment(oldRef.key, oldRef.entry);
             }
@@ -155,7 +157,7 @@ export class Trail {
         if (this.entityManager) {
             this.segmentRefs[this.writeIndex] = this.entityManager.registerTrailSegment(this.playerIndex, this.writeIndex, {
                 midX, midZ, fromX, fromY, fromZ, toX, toY, toZ, radius
-            });
+            }, reusableRef);
         }
 
         this.writeIndex = (this.writeIndex + 1) % this.maxSegments;

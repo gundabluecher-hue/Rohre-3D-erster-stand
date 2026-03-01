@@ -13,6 +13,7 @@ Stand: 2026-03-01
 ### 2.1 Core (`src/core`)
 
 - `main.js`: App-Orchestrierung, Match-Lifecycle, Runtime-State-Anwendung
+- `PlayingStateSystem.js`: kapselt den PLAYING-Updateablauf als eigenes System
 - `Config.js`: zentrale Spielkonfiguration
 - `GameLoop.js`: Update-/Render-Takt
 - `Renderer.js`: Scene/Kamera/Render-Layer
@@ -28,7 +29,12 @@ Stand: 2026-03-01
 ### 2.3 Entities (`src/entities`)
 
 - `Arena.js`: Bounds/Kollisionen, Fast-Collision-Pfade
-- `EntityManager.js`: Entity-Update + globale Kollisionspruefung
+- `EntityManager.js`: Pipeline-Orchestrierung fuer Input, Lifecycle, Projectile/Trail-Kollisionen
+- `systems/PlayerInputSystem.js`: Human/Bot-Input-Aufloesung
+- `systems/PlayerLifecycleSystem.js`: Spieler-Tick, Arena-/Trail-/Portal-/Powerup-Lifecycle
+- `ai/BotPolicyTypes.js`, `ai/BotPolicyRegistry.js`: Policy-Vertrag und Registry-Fabrik
+- `ai/RuleBasedBotPolicy.js`: Default-Policy-Adapter auf `Bot.js`
+- `ai/BotSensingOps.js`, `ai/BotDecisionOps.js`, `ai/BotActionOps.js`: modulare KI-Ops
 - `Player.js`, `Bot.js`, `Trail.js`, `Powerup.js`, `Particles.js`
 - `vehicle-registry.js` + Fahrzeug-Mesh-Module
 - `MapSchema.js`, `CustomMapLoader.js`, `GeneratedLocalMaps.js`
@@ -51,6 +57,7 @@ Stand: 2026-03-01
 2. Keine Magic Numbers statt `Config`.
 3. Lifecycle-Disposal immer vollstaendig ausfuehren.
 4. Kollision/Trail/Bot-Hotpaths auf Performance und geringe Allocation optimieren.
+5. Bot-KI nur ueber Policy-Schnittstelle anbinden; keine direkte Runtime-Kopplung von `EntityManager` auf konkrete KI-Klassen.
 
 ## 5. Verifikation
 

@@ -108,14 +108,166 @@ test.describe('T41-60: Physik & AI', () => {
     });
 
     // -- Skipped: nicht implementierte Features --
-    test.skip('T51: Raycast Precision bei High-Speed', () => { });
-    test.skip('T52: Spherecast Penetration Detection', () => { });
-    test.skip('T53: CCD Fast Actors', () => { });
-    test.skip('T54: Rigidbody Sleep State', () => { });
-    test.skip('T55: Physics Step Interpolation', () => { });
-    test.skip('T56: Pathfinding A* CPU-Spikes', () => { });
-    test.skip('T57: NavMesh Dynamic Obstacle', () => { });
-    test.skip('T58: FSM Deadlocks', () => { });
-    test.skip('T59: Behavior Tree Fallback Nodes', () => { });
-    test.skip('T60: LoS Ray Queries', () => { });
+    // -- Echte Tests: AI Subsysteme --
+    test('T51: Bot erkennt Hindernis via Raycast (_scanProbeRay)', async ({ page }) => {
+        await startGameWithBots(page, 1);
+        const wallDetected = await page.evaluate(() => {
+            const botData = window.GAME_INSTANCE?.entityManager?.bots?.[0];
+            if (!botData || !botData.ai || !botData.ai._botAI) return false;
+            const bot = botData.player;
+            const botAI = botData.ai._botAI;
+
+            const arena = window.GAME_INSTANCE.arena;
+            const allPlayers = window.GAME_INSTANCE.entityManager.players;
+            const probe = botAI._probes[0]; // Forward
+
+            bot.position.set(0, arena.bounds.maxY - 1, 0);
+            botAI._scoreProbe(bot, arena, allPlayers, probe, 10);
+            return probe.wallDist < 10 && probe.immediateDanger === true;
+        });
+        expect(wallDetected).toBeTruthy();
+    });
+    test('T52: Bot Target Selection wählt nächsten Gegner', async ({ page }) => {
+        await startGameWithBots(page, 2);
+        const targetSelected = await page.evaluate(() => {
+            const botData = window.GAME_INSTANCE?.entityManager?.bots?.[0];
+            if (!botData || !botData.ai || !botData.ai._botAI) return false;
+            const bot = botData.player;
+            const botAI = botData.ai._botAI;
+
+            botAI._selectTarget(bot, window.GAME_INSTANCE.entityManager.players);
+            return botAI.state.targetPlayer !== null && botAI.state.targetPlayer !== bot;
+        });
+        expect(targetSelected).toBeTruthy();
+    });
+    test('T53: Bot StuckScore steigt bei Blockade', async ({ page }) => {
+        await startGameWithBots(page, 1);
+        const stuckDetected = await page.evaluate(() => {
+            const botData = window.GAME_INSTANCE?.entityManager?.bots?.[0];
+            if (!botData || !botData.ai || !botData.ai._botAI) return false;
+            const bot = botData.player;
+            const botAI = botData.ai._botAI;
+
+            const arena = window.GAME_INSTANCE.arena;
+            const allPlayers = window.GAME_INSTANCE.entityManager.players;
+
+            botAI._checkStuckTimer = 0;
+            botAI._updateStuckState(bot, arena, allPlayers);
+            botAI._checkStuckTimer = 0;
+            botAI._updateStuckState(bot, arena, allPlayers);
+
+            return botAI._stuckScore > 0;
+        });
+        expect(stuckDetected).toBeTruthy();
+    });
+    test('T54: Bot MapBehavior liest korrektes Profil', async ({ page }) => {
+        await startGameWithBots(page, 1);
+        const hasBehavior = await page.evaluate(() => {
+            const botData = window.GAME_INSTANCE?.entityManager?.bots?.[0];
+            if (!botData || !botData.ai || !botData.ai._botAI) return false;
+            const botAI = botData.ai._botAI;
+
+            const beh = botAI._mapBehavior(window.GAME_INSTANCE.arena);
+            return typeof beh.caution === 'number' && typeof beh.aggressionBias === 'number';
+        });
+        expect(hasBehavior).toBeTruthy();
+    });
+    test('T55: Bot Direction updates correctly via steering inputs', async ({ page }) => {
+        await startGameWithBots(page, 1);
+        const moved = await page.evaluate(() => {
+            const botData = window.GAME_INSTANCE?.entityManager?.bots?.[0];
+            if (!botData) return false;
+            const p = botData.player;
+            const initialDir = p.position.clone().set(0, 0, 0);
+            p.getDirection(initialDir);
+            p.update(0.16, { yawRight: true }); // Apply steering
+            const newDir = p.position.clone().set(0, 0, 0);
+            p.getDirection(newDir);
+            return initialDir.distanceTo(newDir) > 0.01;
+        });
+        expect(moved).toBeTruthy();
+    });
+
+    test('T56: Bot Probes scale correctly (12 probes pro AI)', async ({ page }) => {
+        await startGameWithBots(page, 1);
+        const probeCount = await page.evaluate(() => {
+            const botData = window.GAME_INSTANCE?.entityManager?.bots?.[0];
+            return botData?.ai?._botAI?._probes?.length ?? 0;
+        });
+        expect(probeCount).toBe(12);
+    });
+
+    test('T57: Bot _estimateEnemyPressure detects nearby players', async ({ page }) => {
+        await startGameWithBots(page, 1);
+        const pressure = await page.evaluate(() => {
+            const botData = window.GAME_INSTANCE?.entityManager?.bots?.[0];
+            if (!botData || !botData.ai || !botData.ai._botAI) return 0;
+            const botAI = botData.ai._botAI;
+            const bot = botData.player;
+            const allPlayers = window.GAME_INSTANCE.entityManager.players;
+
+            // Move human player close to bot
+            allPlayers[0].position.copy(bot.position);
+            allPlayers[0].position.x += 5;
+
+            return botAI._estimateEnemyPressure(bot.position, bot, allPlayers);
+        });
+        expect(pressure).toBeGreaterThan(0.5);
+    });
+
+    test('T58: Bot FSM Transition to Recovery State', async ({ page }) => {
+        await startGameWithBots(page, 1);
+        const inRecovery = await page.evaluate(() => {
+            const botData = window.GAME_INSTANCE?.entityManager?.bots?.[0];
+            if (!botData || !botData.ai || !botData.ai._botAI) return false;
+            const botAI = botData.ai._botAI;
+            const bot = botData.player;
+            const arena = window.GAME_INSTANCE.arena;
+            const allPlayers = window.GAME_INSTANCE.entityManager.players;
+
+            botAI._enterRecovery(bot, arena, allPlayers, 'test');
+            return botAI.state.recoveryActive && botAI.state.recoveryTimer > 0;
+        });
+        expect(inRecovery).toBeTruthy();
+    });
+
+    test('T59: Bot Recovery Switch Fallback', async ({ page }) => {
+        await startGameWithBots(page, 1);
+        const switchUsed = await page.evaluate(() => {
+            const botData = window.GAME_INSTANCE?.entityManager?.bots?.[0];
+            if (!botData || !botData.ai || !botData.ai._botAI) return false;
+            const botAI = botData.ai._botAI;
+            const bot = botData.player;
+            const arena = window.GAME_INSTANCE.arena;
+            const allPlayers = window.GAME_INSTANCE.entityManager.players;
+
+            botAI._enterRecovery(bot, arena, allPlayers, 'test');
+            botAI.sense.forwardRisk = 1.0;
+            botAI.state.recoveryTimer = 0.1; // Simulate close to ending
+            botAI._updateRecovery(0.016, bot, arena, allPlayers);
+            return botAI.state.recoverySwitchUsed;
+        });
+        expect(switchUsed).toBeTruthy();
+    });
+
+    test('T60: Bot Target InFront Query (LoS)', async ({ page }) => {
+        await startGameWithBots(page, 1);
+        const targetInFront = await page.evaluate(() => {
+            const botData = window.GAME_INSTANCE?.entityManager?.bots?.[0];
+            if (!botData || !botData.ai || !botData.ai._botAI) return false;
+            const botAI = botData.ai._botAI;
+            const bot = botData.player;
+            const human = window.GAME_INSTANCE.entityManager.players[0];
+            if (!human) return false;
+
+            // Set human directly in front of bot
+            const forward = bot.position.clone().set(0, 0, 0);
+            bot.getDirection(forward);
+            human.position.copy(bot.position).addScaledVector(forward, 10);
+
+            botAI._selectTarget(bot, window.GAME_INSTANCE.entityManager.players);
+            return botAI.sense.targetInFront;
+        });
+        expect(targetInFront).toBeTruthy();
+    });
 });

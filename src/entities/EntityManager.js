@@ -5,43 +5,11 @@
 import * as THREE from 'three';
 import { CONFIG } from '../core/Config.js';
 import { Player } from './Player.js';
-import { BotAI } from './Bot.js';
+import { BotPolicyRegistry } from './ai/BotPolicyRegistry.js';
+import { DEFAULT_BOT_POLICY_TYPE } from './ai/BotPolicyTypes.js';
 import { getVehicleIds, isValidVehicleId } from './vehicle-registry.js';
-
-// Reused input object to reduce GC
-const SHARED_EMPTY_INPUT = {
-    pitchUp: false,
-    pitchDown: false,
-    yawLeft: false,
-    yawRight: false,
-    rollLeft: false,
-    rollRight: false,
-    boost: false,
-    cameraSwitch: false,
-    dropItem: false,
-    shootItem: false,
-    shootItemIndex: -1,
-    nextItem: false,
-    useItem: -1,
-};
-
-function getEmptyInput() {
-    // Reset properties
-    SHARED_EMPTY_INPUT.pitchUp = false;
-    SHARED_EMPTY_INPUT.pitchDown = false;
-    SHARED_EMPTY_INPUT.yawLeft = false;
-    SHARED_EMPTY_INPUT.yawRight = false;
-    SHARED_EMPTY_INPUT.rollLeft = false;
-    SHARED_EMPTY_INPUT.rollRight = false;
-    SHARED_EMPTY_INPUT.boost = false;
-    SHARED_EMPTY_INPUT.cameraSwitch = false;
-    SHARED_EMPTY_INPUT.dropItem = false;
-    SHARED_EMPTY_INPUT.shootItem = false;
-    SHARED_EMPTY_INPUT.shootItemIndex = -1;
-    SHARED_EMPTY_INPUT.nextItem = false;
-    SHARED_EMPTY_INPUT.useItem = -1;
-    return SHARED_EMPTY_INPUT;
-}
+import { PlayerInputSystem } from './systems/PlayerInputSystem.js';
+import { PlayerLifecycleSystem } from './systems/PlayerLifecycleSystem.js';
 
 function clampInt(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -113,9 +81,12 @@ export class EntityManager {
         this.projectiles = [];
         this._projectileAssets = new Map();
         this._projectilePools = new Map();
+        this._projectileStatePool = [];
         this.onPlayerDied = null;
         this.onRoundEnd = null;
         this.onPlayerFeedback = null;
+        this._playerInputSystem = new PlayerInputSystem(this);
+        this._playerLifecycleSystem = new PlayerLifecycleSystem(this);
 
         // Wiederverwendbare temp-Vektoren (vermeidet GC-Druck)
         this._tmpVec = new THREE.Vector3();
@@ -124,6 +95,8 @@ export class EntityManager {
         this._tmpDir2 = new THREE.Vector3();
         this._tmpCamAnchor = new THREE.Vector3();
         this._tmpCollisionNormal = new THREE.Vector3();
+        this._tmpPrevPlayerPosition = new THREE.Vector3();
+        this._fallbackArenaCollision = { hit: true, kind: 'wall', isWall: true, normal: null };
 
         // Lock-On Cache (einmal pro Frame berechnen)
         this._lockOnCache = new Map();
@@ -136,6 +109,8 @@ export class EntityManager {
 
         // Cached Global Collision Result
         this._trailCollisionResult = { hit: false, playerIndex: -1 };
+        this.botPolicyRegistry = new BotPolicyRegistry();
+        this.botPolicyType = DEFAULT_BOT_POLICY_TYPE;
 
         // Optional runtime diagnostics for self-trail/grid edge cases
         const trailDebugConfig = readTrailCollisionDebugConfigFromUrl();
@@ -155,6 +130,7 @@ export class EntityManager {
         const humanConfigs = Array.isArray(options.humanConfigs) ? options.humanConfigs : [];
         const modelScale = typeof options.modelScale === 'number' ? options.modelScale : (CONFIG.PLAYER.MODEL_SCALE || 1);
         this.botDifficulty = options.botDifficulty || CONFIG.BOT.ACTIVE_DIFFICULTY || this.botDifficulty;
+        this.botPolicyType = options.botPolicyType || this.botPolicyType;
         const availableVehicleIds = getVehicleIds();
         const defaultVehicleId = String(CONFIG.PLAYER.DEFAULT_VEHICLE_ID || availableVehicleIds[0] || 'aircraft');
         const normalizeVehicleId = (value) => {
@@ -198,8 +174,13 @@ export class EntityManager {
                 entityManager: this
             });
             player.setControlOptions({ modelScale, invertPitch: false });
-            const ai = new BotAI({ difficulty: this.botDifficulty, recorder: this.recorder });
-            ai._sensePhase = i % 4; // Time-Slicing: Bot-Scans auf 4 Frames verteilen
+            const ai = this.botPolicyRegistry.create(this.botPolicyType, {
+                difficulty: this.botDifficulty,
+                recorder: this.recorder,
+            });
+            if (typeof ai?.setSensePhase === 'function') {
+                ai.setSensePhase(i % 4); // Time-Slicing: Bot-Scans auf 4 Frames verteilen
+            }
             this.players.push(player);
             this.bots.push({ player, ai });
             this.botByPlayer.set(player, ai);
@@ -334,176 +315,9 @@ export class EntityManager {
 
         for (const player of this.players) {
             if (!player.alive) continue;
-            player.shootCooldown = Math.max(0, (player.shootCooldown || 0) - dt);
-
-            let input = getEmptyInput();
-
-            if (player.isBot) {
-                const botAI = this.botByPlayer.get(player);
-                if (botAI) {
-                    input = botAI.update(dt, player, this.arena, this.players, this.projectiles);
-                }
-            } else {
-                const includeSecondaryBindings = this.humanPlayers.length === 1 && player.index === 0;
-                input = inputManager.getPlayerInput(player.index, { includeSecondaryBindings });
-                if (input.cameraSwitch) {
-                    this.renderer.cycleCamera(player.index);
-                    player.cameraMode = this.renderer.cameraModes[player.index] || 0;
-                }
-            }
-
-            if (input.nextItem) player.cycleItem();
-            if (input.dropItem) player.dropItem();
-
-            if (input.useItem >= 0) {
-                const result = this._useInventoryItem(player, input.useItem);
-                if (result.ok) {
-                    if (this.recorder) this.recorder.logEvent('ITEM_USE', player.index, `mode=use type=${result.type}`);
-                } else if (!player.isBot) {
-                    this._notifyPlayerFeedback(player, result.reason);
-                }
-            }
-
-            if (input.shootItem) {
-                const result = this._shootItemProjectile(player, input.shootItemIndex);
-                if (!result.ok && !player.isBot) {
-                    this._notifyPlayerFeedback(player, result.reason);
-                } else if (result.ok && this.recorder) {
-                    this.recorder.logEvent('ITEM_USE', player.index, `mode=shoot type=${result.type}`);
-                }
-            }
-
-            const prevPos = player.position.clone();
-            player.update(dt, input);
-
-            // Spezial-Gates Check
-            const gateResult = this.arena.checkSpecialGates(player.position, prevPos, player.hitboxRadius, player.index);
-            if (gateResult) {
-                if (gateResult.type === 'boost') {
-                    player.activateBoostPortal(gateResult.params, gateResult.forward);
-                    if (this.audio && !player.isBot) this.audio.play('POWERUP');
-                } else if (gateResult.type === 'slingshot') {
-                    player.activateSlingshot(gateResult.params, gateResult.forward, gateResult.up);
-                    if (this.audio && !player.isBot) this.audio.play('POWERUP');
-                }
-            }
-
-            const spawnProtected = (player.spawnProtectionTimer || 0) > 0;
-            if (!player.isGhost && !spawnProtected) {
-                const hRadius = player.hitboxRadius;
-
-                // Präzise Arena-Kollision (Nase, Flügel, Heck + Zentrum)
-                let arenaCollision = null;
-                let bouncedOnFoam = false;
-                const probeArenaCollision = (point, probeRadius = 0.4) => {
-                    if (arenaCollision) return true;
-                    if (typeof this.arena.getCollisionInfo === 'function') {
-                        const info = this.arena.getCollisionInfo(point, probeRadius);
-                        if (info?.hit) {
-                            arenaCollision = info;
-                            return true;
-                        }
-                        return false;
-                    }
-                    if (this.arena.checkCollision(point, probeRadius)) {
-                        arenaCollision = { hit: true, kind: 'wall', isWall: true, normal: null };
-                        return true;
-                    }
-                    return false;
-                };
-
-                // Wir nutzen hier temporär Vektoren, um Array-Allokationen und .clone() zu vermeiden
-                // Punkt 0: Zentrum
-                if (probeArenaCollision(player.position, 0.4)) {
-                    // center hit captured in arenaCollision
-                }
-
-                if (!arenaCollision) {
-                    // Punkt 1: Nase
-                    player.getAimDirection(this._tmpDir).multiplyScalar(4).add(player.position);
-                    probeArenaCollision(this._tmpDir, 0.4);
-                }
-
-                if (!arenaCollision) {
-                    // Punkt 2: Heck
-                    player.getDirection(this._tmpVec).multiplyScalar(-1.5).add(player.position);
-                    probeArenaCollision(this._tmpVec, 0.4);
-                }
-
-                if (!arenaCollision) {
-                    // Seitliche Flügel-Punkte
-                    this._tmpVec.set(0, 1, 0).applyQuaternion(player.group.quaternion); // Up
-                    this._tmpDir.crossVectors(this._tmpVec, player.getDirection(this._tmpVec2)).normalize(); // Right
-
-                    // Rechts
-                    this._tmpVec2.copy(this._tmpDir).multiplyScalar(2).add(player.position);
-                    probeArenaCollision(this._tmpVec2, 0.4);
-
-                    if (!arenaCollision) {
-                        // Links
-                        this._tmpVec2.copy(this._tmpDir).multiplyScalar(-2).add(player.position);
-                        probeArenaCollision(this._tmpVec2, 0.4);
-                    }
-                }
-
-                if (arenaCollision?.hit) {
-                    const hitKind = String(arenaCollision.kind || 'wall').toLowerCase();
-                    if (hitKind === 'foam') {
-                        if (this.audio) this.audio.play('HIT');
-                        if (this.particles) this.particles.spawnHit(player.position, 0x34d399);
-                        this._bouncePlayerOnFoam(player, arenaCollision.normal || null);
-                        bouncedOnFoam = true;
-                    } else if (player.hasShield) {
-                        player.hasShield = false;
-                        player.getDirection(this._tmpDir).multiplyScalar(2.2);
-                        player.position.sub(this._tmpDir);
-                    } else {
-                        if (this.audio) this.audio.play('HIT');
-                        if (this.particles) this.particles.spawnHit(player.position, player.color);
-                        this._killPlayer(player, 'WALL');
-                        continue;
-                    }
-                }
-
-                // Global Trail Collision (Nutzt OBB für Präzision)
-                if (!bouncedOnFoam) {
-                    const selfTrailSkipRecent = EntityManager.deriveSelfTrailSkipRecentSegments(player);
-                    const collision = this.checkGlobalCollision(player.position, hRadius * 2.0, player.index, selfTrailSkipRecent, player);
-                    if (collision && collision.hit) {
-                        if (player.hasShield) {
-                            player.hasShield = false;
-                        } else {
-                            if (this.audio) this.audio.play('HIT');
-                            if (this.particles) this.particles.spawnHit(player.position, player.color);
-                            this._killPlayer(player, collision.playerIndex === player.index ? 'TRAIL_SELF' : 'TRAIL_OTHER');
-                            continue;
-                        }
-                    }
-                }
-            }
-
-            if (!player.alive) continue;
-
-            // Portal-Check
-            const portalResult = this.arena.checkPortal(player.position, player.hitboxRadius, player.index);
-            if (portalResult) {
-                // Spieler auf Zielposition setzen, ABER mit leichtem Offset in Flugrichtung
-                player.getAimDirection(this._tmpDir).normalize();
-                player.position.copy(portalResult.target).addScaledVector(this._tmpDir, 1.8);
-
-                // Der Portal-Cooldown verhindert sofortigen Re-Teleport.
-                if (CONFIG.GAMEPLAY.PLANAR_MODE) player.currentPlanarY = portalResult.target.y;
-                player.trail.forceGap(0.5);
-
-                if (this.audio && !player.isBot) this.audio.play('POWERUP'); // Optional: Soundeffekt
-            }
-
-            const pickedUp = this.powerupManager.checkPickup(player.position, player.hitboxRadius);
-            if (pickedUp) {
-                player.addToInventory(pickedUp);
-                if (this.audio) this.audio.play('POWERUP');
-                if (this.particles) this.particles.spawnHit(player.position, 0x00ff00);
-            }
+            this._playerLifecycleSystem.updateShootCooldown(player, dt);
+            const input = this._playerInputSystem.resolvePlayerInput(player, dt, inputManager);
+            this._playerLifecycleSystem.updatePlayer(player, dt, input);
         }
 
         if (this._roundEnded) return;
@@ -570,24 +384,64 @@ export class EntityManager {
         rocketGroup.position.copy(this._tmpVec);
         this._tmpVec2.copy(this._tmpVec).add(this._tmpDir);
         rocketGroup.lookAt(this._tmpVec2);
-        this.projectiles.push({
-            mesh: rocketGroup,
-            flame: rocketGroup.userData.flame || null,
-            poolKey: type,
-            owner: player,
-            type,
-            position: this._tmpVec.clone(),
-            velocity: this._tmpDir.clone().multiplyScalar(speed),
-            radius,
-            ttl: CONFIG.PROJECTILE.LIFE_TIME,
-            traveled: 0,
-            target: this._checkLockOn(player),
-            foamBounces: 0,
-            foamBounceCooldown: 0,
-        });
+        const projectile = this._acquireProjectileState();
+        projectile.mesh = rocketGroup;
+        projectile.flame = rocketGroup.userData.flame || null;
+        projectile.poolKey = type;
+        projectile.owner = player;
+        projectile.type = type;
+        projectile.position.copy(this._tmpVec);
+        projectile.velocity.copy(this._tmpDir).multiplyScalar(speed);
+        projectile.radius = radius;
+        projectile.ttl = CONFIG.PROJECTILE.LIFE_TIME;
+        projectile.traveled = 0;
+        projectile.target = this._checkLockOn(player);
+        projectile.foamBounces = 0;
+        projectile.foamBounceCooldown = 0;
+        this.projectiles.push(projectile);
         player.shootCooldown = CONFIG.PROJECTILE.COOLDOWN;
         if (this.audio) this.audio.play('SHOOT');
         return { ok: true, type };
+    }
+
+    _acquireProjectileState() {
+        const pooled = this._projectileStatePool.pop();
+        if (pooled) {
+            return pooled;
+        }
+        return {
+            mesh: null,
+            flame: null,
+            poolKey: '',
+            owner: null,
+            type: null,
+            position: new THREE.Vector3(),
+            velocity: new THREE.Vector3(),
+            radius: 0,
+            ttl: 0,
+            traveled: 0,
+            target: null,
+            foamBounces: 0,
+            foamBounceCooldown: 0,
+        };
+    }
+
+    _releaseProjectileState(projectile) {
+        if (!projectile) return;
+        projectile.mesh = null;
+        projectile.flame = null;
+        projectile.poolKey = '';
+        projectile.owner = null;
+        projectile.type = null;
+        projectile.position.set(0, 0, 0);
+        projectile.velocity.set(0, 0, 0);
+        projectile.radius = 0;
+        projectile.ttl = 0;
+        projectile.traveled = 0;
+        projectile.target = null;
+        projectile.foamBounces = 0;
+        projectile.foamBounceCooldown = 0;
+        this._projectileStatePool.push(projectile);
     }
 
     _acquireProjectileMesh(type, color) {
@@ -785,6 +639,7 @@ export class EntityManager {
         if (!projectile) return;
         this._releaseProjectileMesh(projectile);
         this.projectiles.splice(index, 1);
+        this._releaseProjectileState(projectile);
     }
 
     _releaseProjectileMesh(projectile) {
@@ -919,14 +774,6 @@ export class EntityManager {
 
     getHumanPlayers() { return this.humanPlayers; }
 
-    clear() {
-        for (const p of this.players) p.dispose();
-        this.players = []; this.humanPlayers = []; this.bots = []; this.botByPlayer.clear();
-        this._lockOnCache.clear(); this.spatialGrid.clear();
-        for (const p of this.projectiles) this._releaseProjectileMesh(p);
-        this.projectiles = [];
-    }
-
     _getGridKey(x, z) {
         const cx = Math.floor(x / this.gridSize);
         const cz = Math.floor(z / this.gridSize);
@@ -979,8 +826,19 @@ export class EntityManager {
         return (this._trailCollisionDebugSkipRecentSeen % 20) === 0;
     }
 
-    registerTrailSegment(playerIndex, segmentIdx, data) {
-        const entry = { playerIndex, segmentIdx, fromX: data.fromX, fromY: data.fromY, fromZ: data.fromZ, toX: data.toX, toY: data.toY, toZ: data.toZ, radius: data.radius };
+    registerTrailSegment(playerIndex, segmentIdx, data, reusableRef = null) {
+        const entry = reusableRef && reusableRef.entry
+            ? reusableRef.entry
+            : {};
+        entry.playerIndex = playerIndex;
+        entry.segmentIdx = segmentIdx;
+        entry.fromX = data.fromX;
+        entry.fromY = data.fromY;
+        entry.fromZ = data.fromZ;
+        entry.toX = data.toX;
+        entry.toY = data.toY;
+        entry.toZ = data.toZ;
+        entry.radius = data.radius;
         const keys = this._getSegmentGridKeys(data);
 
         const dx = (Number(data.toX) || 0) - (Number(data.fromX) || 0);
@@ -1001,7 +859,27 @@ export class EntityManager {
             radius: Number(data?.radius) || 0,
         });
 
-        return { key: keys.length === 1 ? keys[0] : keys.slice(), entry };
+        let keyRef = keys.length === 1 ? keys[0] : null;
+        if (keys.length > 1) {
+            if (reusableRef && Array.isArray(reusableRef.key)) {
+                const reusableKeys = reusableRef.key;
+                reusableKeys.length = 0;
+                for (let i = 0; i < keys.length; i++) {
+                    reusableKeys.push(keys[i]);
+                }
+                keyRef = reusableKeys;
+            } else {
+                keyRef = keys.slice();
+            }
+        }
+
+        if (reusableRef) {
+            reusableRef.key = keyRef;
+            reusableRef.entry = entry;
+            return reusableRef;
+        }
+
+        return { key: keyRef, entry };
     }
 
     unregisterTrailSegment(key, entry) {
@@ -1135,7 +1013,9 @@ export class EntityManager {
         this.botByPlayer.clear();
 
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
-            this._releaseProjectileMesh(this.projectiles[i]);
+            const projectile = this.projectiles[i];
+            this._releaseProjectileMesh(projectile);
+            this._releaseProjectileState(projectile);
         }
         this.projectiles.length = 0;
 
@@ -1161,6 +1041,8 @@ export class EntityManager {
         }
         this._projectileAssets.clear();
         this._projectilePools.clear();
+        this._projectileStatePool.length = 0;
     }
 }
+
 
