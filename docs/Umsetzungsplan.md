@@ -187,7 +187,7 @@ Letztes Update: 2026-03-01
   - [x] 10.1 Core Runtime Loop final entkoppeln (Erledigt: 2026-03-01)
   - [x] 10.2 UI-Verantwortung konsolidieren (UIManager vs MenuController) (Erledigt: 2026-03-01)
   - [x] 10.3 HUD- und Crosshair-Logik als eigene Systeme (Erledigt: 2026-03-01)
-  - [ ] 10.4 EntityManager Split I - ProjectileSystem
+  - [x] 10.4 EntityManager Split I - ProjectileSystem (Erledigt: 2026-03-01)
   - [ ] 10.5 EntityManager Split II - TrailSpatialIndex
   - [ ] 10.6 Arena Split - Builder / Collision / PortalGate
   - [ ] 10.7 Bot Split II - Recovery/Targeting/Scoring Ops
