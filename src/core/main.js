@@ -15,7 +15,7 @@ import { VEHICLE_DEFINITIONS } from '../entities/vehicle-registry.js';
 import { CUSTOM_MAP_KEY } from '../entities/MapSchema.js';
 import { UIManager } from '../ui/UIManager.js';
 import { SettingsManager, KEY_BIND_ACTIONS } from './SettingsManager.js';
-import { removeProfileByName, resolveActiveProfileName, upsertProfileEntry } from '../ui/ProfileDataOps.js';
+import { ProfileManager } from './ProfileManager.js';
 import { deriveProfileControlSelectState } from '../ui/ProfileControlStateOps.js';
 import { deriveProfileActionUiState } from '../ui/ProfileUiStateOps.js';
 import { createRoundStateController } from '../state/RoundStateController.js';
@@ -45,21 +45,15 @@ function deepClone(obj) {
 export class Game {
     constructor() {
         this.settingsManager = new SettingsManager();
-        this.profileDataOps = {
-            findProfileIndexByName: (profiles, profileName) => this.settingsManager.store.findProfileIndexByName(profiles, profileName),
-            findProfileByName: (profiles, profileName) => this.settingsManager.store.findProfileByName(profiles, profileName),
-        };
-        this.profileUiStateOps = {
-            normalizeProfileName: (rawName) => this.settingsManager.store.normalizeProfileName(rawName),
-            ...this.profileDataOps,
-        };
-        this.profileControlStateOps = {
-            normalizeProfileName: (rawName) => this.settingsManager.store.normalizeProfileName(rawName),
-            resolveActiveProfileName: (profiles, profileName) => resolveActiveProfileName(profiles, profileName, this.profileDataOps),
-        };
+        this.profileManager = new ProfileManager(this.settingsManager.store);
+
+        this.profileDataOps = this.profileManager.getProfileDataOps();
+        this.profileUiStateOps = this.profileManager.getProfileUiStateOps();
+        this.profileControlStateOps = this.profileManager.getProfileControlStateOps();
+
         this.settings = this._loadSettings();
-        this.settingsProfiles = this._loadProfiles();
-        this.activeProfileName = '';
+        this.settingsProfiles = this.profileManager.getProfiles();
+        this.activeProfileName = this.profileManager.getActiveProfileName();
         this.settingsDirty = false;
         this.config = CONFIG;
 
@@ -366,7 +360,7 @@ export class Game {
         this.ui.menuContext.textContent = `${section} · Profil: ${activeProfile} · ${dirtyState}`;
     }
 
-    
+
 
     _loadSettings() {
         return this.settingsManager.loadSettings();
@@ -379,24 +373,16 @@ export class Game {
         }
     }
 
-    _loadProfiles() {
-        return this.settingsManager.store.loadProfiles();
-    }
-
-    _saveProfiles() {
-        return this.settingsManager.store.saveProfiles(this.settingsProfiles);
-    }
-
     _normalizeProfileName(rawName) {
-        return this.settingsManager.store.normalizeProfileName(rawName);
+        return this.profileManager.normalizeProfileName(rawName);
     }
 
     _findProfileIndexByName(profileName) {
-        return this.settingsManager.store.findProfileIndexByName(this.settingsProfiles, profileName);
+        return this.profileManager.findProfileIndexByName(profileName);
     }
 
     _findProfileByName(profileName) {
-        return this.settingsManager.store.findProfileByName(this.settingsProfiles, profileName);
+        return this.profileManager.findProfileByName(profileName);
     }
 
     _applySettingsToRuntime() {
@@ -782,10 +768,8 @@ export class Game {
     }
 
     _syncProfileActionState() {
-        const effectiveActiveProfileName = resolveActiveProfileName(
-            this.settingsProfiles,
-            this.activeProfileName || this.ui.profileSelect?.value || '',
-            this.profileDataOps
+        const effectiveActiveProfileName = this.profileManager.resolveActiveProfileName(
+            this.activeProfileName || this.ui.profileSelect?.value || ''
         );
         const actionState = deriveProfileActionUiState(
             this.settingsProfiles,
@@ -811,50 +795,23 @@ export class Game {
     }
 
     _saveProfile(profileName) {
-        const name = this._normalizeProfileName(profileName);
-        if (!name || name.length < 2) {
-            this._showStatusToast('Name zu kurz oder ungueltig (min. 2 Zeichen)', 2000, 'error');
+        const result = this.profileManager.saveProfile(profileName, this.settings, this.activeProfileName);
+        if (!result.success) {
+            this._showStatusToast(result.error, 2000, 'error');
             return false;
         }
 
-        const idx = this._findProfileIndexByName(name);
-        const effectiveActiveProfileName = resolveActiveProfileName(
-            this.settingsProfiles,
-            this.activeProfileName || this.ui.profileSelect?.value || '',
-            this.profileDataOps
-        );
-        const activeIdx = this._findProfileIndexByName(effectiveActiveProfileName);
-        const canOverwrite = idx >= 0 && idx === activeIdx;
+        this.settingsProfiles = this.profileManager.getProfiles();
+        this.activeProfileName = this.profileManager.getActiveProfileName();
 
-        if (idx >= 0 && !canOverwrite) {
-            this._showStatusToast('Name existiert bereits', 1500, 'error');
-            return false;
-        }
-
-        const isUpdate = idx >= 0;
-        const entry = {
-            name,
-            updatedAt: Date.now(),
-            settings: deepClone(this.settings),
-        };
-
-        this.settingsProfiles = upsertProfileEntry(this.settingsProfiles, entry, this.profileDataOps).profiles;
-
-        this.activeProfileName = name;
         if (this.ui.profileNameInput) {
-            this.ui.profileNameInput.value = name;
+            this.ui.profileNameInput.value = result.name;
         }
 
-        const persisted = this._saveProfiles();
         this._syncProfileControls();
 
-        if (!persisted) {
-            this._showStatusToast('Profil konnte nicht gespeichert werden (Speicher voll?)', 1700, 'error');
-            return false;
-        }
-
         this._showStatusToast(
-            isUpdate ? `Profil aktualisiert: ${name}` : `Profil gespeichert: ${name}`,
+            result.isUpdate ? `Profil aktualisiert: ${result.name}` : `Profil gespeichert: ${result.name}`,
             1500,
             'success'
         );
@@ -862,41 +819,32 @@ export class Game {
     }
 
     _loadProfile(profileName) {
-        const name = this._normalizeProfileName(profileName);
-        const profile = this._findProfileByName(name);
-        if (!profile) {
-            this._showStatusToast('Profil nicht gefunden', 1500, 'error');
+        const result = this.profileManager.loadProfile(profileName);
+        if (!result.success) {
+            this._showStatusToast(result.error, 1500, 'error');
             return false;
         }
 
-        this.settings = this._sanitizeSettings(profile.settings);
-        this.activeProfileName = profile.name;
+        this.settings = result.profile.settings;
+        this.activeProfileName = this.profileManager.getActiveProfileName();
         this._onSettingsChanged();
         this._markSettingsDirty(false);
-        this._showStatusToast(`Profil geladen: ${profile.name}`, 1400, 'success');
+        this._showStatusToast(`Profil geladen: ${result.profile.name}`, 1400, 'success');
         return true;
     }
 
     _deleteProfile(profileName) {
-        const name = this._normalizeProfileName(profileName);
-        const index = this._findProfileIndexByName(name);
-        if (index < 0) {
-            this._showStatusToast('Profil nicht gefunden', 1500, 'error');
+        const result = this.profileManager.deleteProfile(profileName);
+        if (!result.success) {
+            this._showStatusToast(result.error, 1700, 'error');
             return false;
         }
 
-        const removeResult = removeProfileByName(this.settingsProfiles, name, this.profileDataOps);
-        const removedName = removeResult.removedProfile?.name || this.settingsProfiles[index].name;
-        this.settingsProfiles = removeResult.profiles;
-        this.activeProfileName = resolveActiveProfileName(this.settingsProfiles, this.activeProfileName, this.profileDataOps);
-        const persisted = this._saveProfiles();
+        this.settingsProfiles = this.profileManager.getProfiles();
+        this.activeProfileName = this.profileManager.getActiveProfileName();
         this._syncProfileControls();
-        if (!persisted) {
-            this._showStatusToast('Profil konnte nicht geloescht werden', 1700, 'error');
-            return false;
-        }
 
-        this._showStatusToast(`Profil geloescht: ${removedName}`, 1400, 'success');
+        this._showStatusToast(`Profil geloescht: ${result.removedName}`, 1400, 'success');
         return true;
     }
 

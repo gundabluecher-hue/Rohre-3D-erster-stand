@@ -17,7 +17,7 @@
 - **Umbau:** `main.js` instanziiert den `SettingsManager` und reicht ihn bei Bedarf weiter.
 - **Verifikation:** `npm run dev` starten, Settings aufrufen, aendern, Seite refreshen -> Werte muessen erhalten bleiben. `npm run test` falls Unit-Tests existieren.
 
-### [ ] Phase 9.2: ProfileManager extrahieren
+### [x] Phase 9.2: ProfileManager extrahieren
 
 - **Aufgabe:** Auslagern der Profil-Verwaltung (`_loadProfiles`, `_saveProfiles`, `_normalizeProfileName`, Finden des aktiven Profils).
 - **Umbau:** Verbindung zwischen `main.js` und dem neuen `ProfileManager` herstellen.
