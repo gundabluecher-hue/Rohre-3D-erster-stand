@@ -1,33 +1,34 @@
-# Idee: Boost-Anzeige (UI)
+﻿# Idee: Boost-Anzeige (UI)
 
 ## Beschreibung
 
-Eine optische Anzeige im HUD (Heads-Up Display) in Form einer blauen Leiste, die dem Spieler den aktuell verfügbaren "Boost" visualisiert. Wenn Boost verbraucht wird, leert sich die Leiste, und sie füllt sich wieder auf, wenn Boost regeneriert oder aufgesammelt wird.
+Eine optische Anzeige im HUD in Form einer blauen Leiste, die den verfuegbaren Boost visualisiert.
+Wenn Boost verbraucht wird, leert sich die Leiste. Bei Cooldown/Regeneration fuellt sie sich wieder.
 
 ## Gameplay-Impact
 
-- **Spielerwert:** Bessere Übersicht und Ressourcenkontrolle. Spieler können ihren Boost-Einsatz taktischer planen.
-- **Feedback:** Direktes visuelles Feedback beim Einsatz und Aufladen der Fähigkeit.
+- Spielerwert: Besseres Ressourcenmanagement und klarere Entscheidungen beim Boosten.
+- Feedback: Direkte visuelle Rueckmeldung waehrend Verbrauch und Wiederaufladung.
 
-## Scope & Betroffene Module
+## Scope und betroffene Module
 
-- **UI/HTML (`index.html`):** Neues HTML-Element für die Leiste (z.B. ein Container mit einem Füll-Balken).
-- **CSS (`css/style.css` o.ä.):** Styling der Leiste in Blau, mit weichen CSS-Transitions für die Größenänderung.
-- **Spiellogik / UI-Controller (`src/entities/Player.js` / UI-Skripte):** Der aktuelle Boost-Wert des Spielers muss in jedem Frame (oder bei Änderung) an das UI übermittelt werden, um die Breite der Leiste in Prozent anzupassen.
+- UI/HTML (`index.html`): Boost-Bar fuer P1/P2 im HUD.
+- CSS (`style.css`): Styling der Leiste inkl. Transition und Cooldown-Farbzustand.
+- UI-Logik (`src/ui/HUD.js`): Ableitung der Fuellmenge aus `boostTimer` und `boostCooldown`.
 
 ## Varianten
 
-- **Minimal:** Einfacher HTML-Balken (blau auf grau), dessen Breite per JS anhand des Boost-Wertes aktualisiert wird.
-- **Standard:** Animierte Leiste mit HUD-Rahmen. Verfärbt sich leicht, wenn der Boost kritisch niedrig ist.
-- **Full:** Ins Spiel integrierte Anzeige (z.B. Leuchten am Schiff selbst) oder komplettes HUD-Overlay mit Partikeln.
+- Minimal: Einfacher Balken mit Width-Update in Prozent.
+- Standard: Animierte Leiste mit Rahmen und Low-Energy-Farbwechsel.
+- Full: Erweiterte Effekte (z. B. Partikel/Glow im Cockpit-Layout).
 
 ## Offene Fragen
 
-- Ist die Boost-Mechanik (Verbrauch/Aufladung) bereits vollständig in der `Player.js` implementiert?
-- Brauchen wir die Anzeige mehrfach für lokale Multiplayer-Sichtfenster (Splitscreen)?
+- Soll die Anzeige in allen Kamera-Modi sichtbar sein oder nur im Fighter-HUD?
+- Reicht Width-basierte Darstellung, oder wird eine radial/circular Variante gewuenscht?
 
 ## Score
 
-- **Fun:** 7/10 (Essenzielles Feedback für schnelles Gameplay)
-- **Feasibility:** 9/10 (HTML/CSS-Balken ist sehr einfach umzusetzen)
-- **Fit:** 10/10 (Passt nahtlos in ein Sci-Fi-Rennspiel)
+- Fun: 7/10
+- Feasibility: 9/10
+- Fit: 10/10

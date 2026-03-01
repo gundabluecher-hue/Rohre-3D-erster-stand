@@ -1,4 +1,4 @@
----
+﻿---
 description: Implement a planned change from coding to verification and commit.
 ---
 
@@ -29,9 +29,9 @@ description: Implement a planned change from coding to verification and commit.
 
 ## 4. Documentation freshness (mandatory)
 
-- Run `.agents/workflows/aktualitaet-check.md`.
-- Sync affected docs if claims changed (`docs/Umsetzungsplan.md`, `docs/Analysebericht.md`, `docs/Feature_*.md`).
-- If no updates are needed, record: `Dokumentation aktuell (geprueft am YYYY-MM-DD)`.
+- Run `npm run docs:sync`.
+- Resolve findings from `docs/Dokumentationsstatus.md`.
+- Run `npm run docs:check` (must pass).
 
 ## 5. Definition of Done
 
@@ -55,6 +55,7 @@ git commit -m "[type]: [name] - [short reason]"
 ## Report
 
 Use standard output format from `.agents/rules/reporting_format.md`.
+
 
 
 

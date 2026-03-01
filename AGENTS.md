@@ -28,6 +28,7 @@ This file defines repository-specific operating rules for Codex.
 - Bug fixing: use `.agents/workflows/bugfix.md`
 - Phase execution from master plan: use `.agents/workflows/fix-planung.md`
 - Documentation/process freshness check: use `.agents/workflows/aktualitaet-check.md`
+- Documentation/process freshness sync: use `.agents/workflows/aktualitaet-sync.md`
 - Cleanup/refactor/release/status/rollback: use matching workflow in `.agents/workflows/`
 
 ## Verification Policy
@@ -35,7 +36,7 @@ This file defines repository-specific operating rules for Codex.
 - Select tests using `.agents/test_mapping.md`.
 - If no mapping matches, run `npm run test:core` as fallback.
 - For phase execution via `/fix-planung`, `/code` is the single source of truth for DoD and verification checks.
-- For any code/process update, run `.agents/workflows/aktualitaet-check.md` before closing the task.
+- For any code/process update, run `npm run docs:sync` and `npm run docs:check` before closing the task.
 
 ## Git Safety
 

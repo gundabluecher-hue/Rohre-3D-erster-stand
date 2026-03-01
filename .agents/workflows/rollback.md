@@ -1,4 +1,4 @@
----
+﻿---
 description: Roll back safely to an earlier state with plan sync.
 ---
 
@@ -30,12 +30,14 @@ git reset --hard <COMMIT>
 
 ## 5. Documentation freshness
 
-- Run `.agents/workflows/aktualitaet-check.md`.
+- Run `npm run docs:sync`.
 - Ensure analysis/report docs do not claim reverted behavior as active.
+- Run `npm run docs:check` (must pass).
 
 ## Report
 
 Use standard output format from `.agents/rules/reporting_format.md`.
+
 
 
 

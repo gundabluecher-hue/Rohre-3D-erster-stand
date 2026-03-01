@@ -1,6 +1,6 @@
 # AI Architecture Context (Aktiv)
 
-Stand: 2026-02-28
+Stand: 2026-03-01
 
 ## 1. Architekturparadigma
 
@@ -55,4 +55,4 @@ Stand: 2026-02-28
 ## 5. Verifikation
 
 - Testauswahl ueber `.agents/test_mapping.md`
-- Danach immer Doku-/Prozess-Check ueber `.agents/workflows/aktualitaet-check.md`
+- Danach immer Doku-/Prozess-Check ueber `npm run docs:sync` und `npm run docs:check`

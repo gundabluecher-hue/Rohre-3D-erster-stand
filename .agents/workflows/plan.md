@@ -1,4 +1,4 @@
----
+﻿---
 description: Create a compact implementation plan for a new feature or extension.
 ---
 
@@ -37,11 +37,12 @@ Create `docs/Feature_[Name].md` with:
 
 ## 5. Freshness hook
 
-- Add a verification note to run `.agents/workflows/aktualitaet-check.md` during implementation closure.
+- Add a verification note to run `npm run docs:sync` and `npm run docs:check` during implementation closure.
 
 ## Report
 
 Use standard output format from `.agents/rules/reporting_format.md`.
+
 
 
 

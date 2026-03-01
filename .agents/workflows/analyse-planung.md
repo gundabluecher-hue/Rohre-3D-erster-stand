@@ -1,4 +1,4 @@
----
+﻿---
 description: Run full test analysis, persist results, and update prioritized action plan.
 ---
 
@@ -36,8 +36,9 @@ description: Run full test analysis, persist results, and update prioritized act
 
 ## 5. Documentation freshness check
 
-- Run `.agents/workflows/aktualitaet-check.md`.
-- Resolve stale path/state/date references found in active docs/workflows/rules.
+- Run `npm run docs:sync`.
+- Resolve stale path/state/date references from `docs/Dokumentationsstatus.md`.
+- Run `npm run docs:check` (must pass).
 
 ## 6. Final consistency check
 
@@ -47,6 +48,7 @@ description: Run full test analysis, persist results, and update prioritized act
 ## Report
 
 Use standard output format from `.agents/rules/reporting_format.md`.
+
 
 
 

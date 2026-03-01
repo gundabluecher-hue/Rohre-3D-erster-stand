@@ -1,4 +1,4 @@
----
+﻿---
 description: Measure baseline, optimize bottlenecks, and verify impact.
 ---
 
@@ -29,12 +29,14 @@ description: Measure baseline, optimize bottlenecks, and verify impact.
 
 ## 5. Documentation freshness
 
-- Run `.agents/workflows/aktualitaet-check.md`.
+- Run `npm run docs:sync`.
 - Sync any changed performance claims in docs with explicit date.
+- Run `npm run docs:check` (must pass).
 
 ## Report
 
 Use standard output format from `.agents/rules/reporting_format.md`.
+
 
 
 

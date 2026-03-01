@@ -1,4 +1,4 @@
----
+﻿---
 description: Diagnose a reported issue and apply a targeted fix.
 ---
 
@@ -27,13 +27,14 @@ description: Diagnose a reported issue and apply a targeted fix.
 
 ## 4. Documentation sync
 
-- Run `.agents/workflows/aktualitaet-check.md`.
+- Run `npm run docs:sync`.
 - Update issue status in `docs/Analysebericht.md` and `docs/Umsetzungsplan.md` when bug state changed.
-- If no doc delta: add `Dokumentation aktuell (geprueft am YYYY-MM-DD)` to report.
+- Run `npm run docs:check` (must pass).
 
 ## Report
 
 Use standard output format from `.agents/rules/reporting_format.md`.
+
 
 
 

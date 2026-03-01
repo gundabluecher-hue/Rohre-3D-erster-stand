@@ -1,4 +1,4 @@
----
+﻿---
 description: Execute the next open phase from master plan with tight scope control.
 ---
 
@@ -33,13 +33,14 @@ Create `implementation_plan.md`:
 
 - Mark phase/task checkboxes done.
 - Add completion date.
-- Run `.agents/workflows/aktualitaet-check.md` before marking phase complete.
+- Run `npm run docs:sync` and `npm run docs:check` before marking phase complete.
 - Remove `implementation_plan.md`.
 
 ## Report
 
 Use standard output format from `.agents/rules/reporting_format.md`.
 Set `Next Step` to `/fix-planung`.
+
 
 
 

@@ -1,4 +1,4 @@
----
+﻿---
 description: Prepare and publish a safe release.
 ---
 
@@ -24,8 +24,9 @@ description: Prepare and publish a safe release.
 
 ## 4. Documentation freshness gate
 
-- Run `.agents/workflows/aktualitaet-check.md`.
+- Run `npm run docs:sync`.
 - Ensure release notes, plan status, and analysis claims are date-accurate.
+- Run `npm run docs:check` (must pass).
 
 ## 5. Tag and push
 
@@ -41,6 +42,7 @@ git tag -a v[X.Y.Z] -m "Release v[X.Y.Z]"
 ## Report
 
 Use standard output format from `.agents/rules/reporting_format.md`.
+
 
 
 

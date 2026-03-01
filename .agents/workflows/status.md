@@ -1,4 +1,4 @@
----
+﻿---
 description: Quick project status snapshot.
 ---
 
@@ -18,11 +18,12 @@ description: Quick project status snapshot.
 - Next phase
 - Uncommitted changes
 - Active branches
-- If documentation drift is suspected, run `.agents/workflows/aktualitaet-check.md`.
+- If documentation drift is suspected, run `npm run docs:sync` and then `npm run docs:check`.
 
 ## Report
 
 Use standard output format from `.agents/rules/reporting_format.md`.
+
 
 
 

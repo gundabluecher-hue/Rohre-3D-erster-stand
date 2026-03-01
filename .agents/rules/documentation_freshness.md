@@ -4,6 +4,8 @@ description: Rule for keeping docs/workflows/rules aligned with current code and
 ---
 
 - Before finishing any task, run a documentation freshness check if behavior, architecture, tests, scripts, workflows, or rules changed.
+- Run `npm run docs:sync` after relevant changes to auto-update dated documentation fields and `docs/Dokumentationsstatus.md`.
+- Run `npm run docs:check` as gate before closing the task.
 - Treat changes in `src/**`, `tests/**`, `scripts/**`, `editor/**`, `index.html`, `style.css`, `package.json`, and `.agents/**` as potentially documentation-relevant.
 - Update affected docs in the same task when claims changed (paths, module names, state names, commands, test outcomes, dates).
 - Prefer active runtime paths (`src/...`) and avoid reintroducing legacy paths (`js/main.js`, `js/modules/...`) unless explicitly marked as historical/archive context.

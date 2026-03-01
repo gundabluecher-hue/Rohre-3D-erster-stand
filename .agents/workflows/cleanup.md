@@ -1,4 +1,4 @@
----
+﻿---
 description: Detect and remove dead code/files with safe dry-run first.
 ---
 
@@ -34,8 +34,9 @@ description: Detect and remove dead code/files with safe dry-run first.
 
 ## 5. Documentation freshness
 
-- Run `.agents/workflows/aktualitaet-check.md`.
+- Run `npm run docs:sync`.
 - Update docs referencing removed/moved files.
+- Run `npm run docs:check` (must pass).
 
 ## 6. Commit
 
@@ -50,6 +51,7 @@ git commit -m "chore: cleanup - remove dead code/files"
 ## Report
 
 Use standard output format from `.agents/rules/reporting_format.md`.
+
 
 
 

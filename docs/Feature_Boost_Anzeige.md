@@ -2,12 +2,12 @@
 
 ## Ziel
 
-Visuelle Darstellung des aktuell verfuegbaren Boosts im HUD (Heads-Up Display) als blauer Balken fuer beide Spieler.
+Visuelle Darstellung des aktuell verfuegbaren Boosts im HUD (Heads-Up Display) als blauer Balken fuer beide Spieler, kameraunabhaengig sichtbar.
 
 ## Betroffene Dateien
 
 - **[MODIFY]** `index.html`
-  - Hinzufuegen von `<div class="hud-boost-bar"><div id="p1-hud-boost-fill" class="boost-fill"></div></div>` in `p1-fighter-hud` (und aequivalent fuer `p2`).
+  - Hinzufuegen der Boost-Bar-Elemente fuer P1/P2 im allgemeinen Player-HUD (`p1-hud` / `p2-hud`) fuer Sichtbarkeit in allen Kamera-Modi.
 - **[MODIFY]** `style.css`
   - Styling fuer `hud-boost-bar` (Container) und `boost-fill` (der eigentliche blaue Ladebalken). Positionierung passend zum bestehenden Fighter-HUD.
 - **[MODIFY]** `src/ui/HUD.js`

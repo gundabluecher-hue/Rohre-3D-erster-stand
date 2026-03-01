@@ -1,4 +1,4 @@
----
+﻿---
 description: Restructure code without changing behavior.
 ---
 
@@ -23,8 +23,9 @@ description: Restructure code without changing behavior.
 
 ## 4. Documentation freshness
 
-- Run `.agents/workflows/aktualitaet-check.md`.
+- Run `npm run docs:sync`.
 - Update docs when module structure/naming changed.
+- Run `npm run docs:check` (must pass).
 
 ## 5. Commit
 
@@ -39,6 +40,7 @@ git commit -m "refactor: [scope] - [reason]"
 ## Report
 
 Use standard output format from `.agents/rules/reporting_format.md`.
+
 
 
 

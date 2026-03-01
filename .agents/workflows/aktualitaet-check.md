@@ -1,5 +1,5 @@
----
-description: Verify that docs, workflows, and rules are current with code and verification state.
+﻿---
+description: Verify docs/workflows/rules are current with an automated gate.
 ---
 
 ## 0. Context
@@ -15,36 +15,23 @@ description: Verify that docs, workflows, and rules are current with code and ve
 - `rg --files docs .agents`
 - Identify changed runtime areas (`src/`, `tests/`, `scripts/`, `editor/`).
 
-## 2. Staleness scan
+## 2. Automated check (mandatory)
 
-- Check for legacy-path leaks in active docs/process files:
-  - `rg -n "js/main\\.js|js/modules/" docs .agents AGENTS.md -S -g "!docs/archive/**"`
-- Check for references to missing core docs:
-  - `rg -n "docs/ai_architecture_context\\.md|docs/architektur_ausfuehrlich\\.md" docs .agents AGENTS.md -S -g "!docs/archive/**"`
-- Validate that each changed status statement has an explicit date (`YYYY-MM-DD`).
+- Run `npm run docs:check`.
+- Read `docs/Dokumentationsstatus.md`.
 
-## 3. Reality check
+## 3. If check fails
 
-- Select verification via `.agents/test_mapping.md` from changed paths.
-- If no mapping matches, run `npm run test:core`.
-- If docs claim smoke stability, run corresponding smoke command(s):
-  - `npm run smoke:roundstate`
-  - `npm run smoke:selftrail`
+- Run workflow `.agents/workflows/aktualitaet-sync.md`.
+- Re-run `npm run docs:check` until PASS.
 
-## 4. Sync updates
+## 4. Gate
 
-- Update stale paths, commands, states, and dates in docs/workflows/rules.
-- Sync `docs/Umsetzungsplan.md` and `docs/Analysebericht.md` if outcomes changed.
-- Keep archive material explicitly marked as archive/historical when not updated.
-
-## 5. Gate
-
-- No unresolved stale references in active docs/workflows/rules.
+- `npm run docs:check` PASS.
+- `docs/Dokumentationsstatus.md` has current date and no blocking issues.
 - Verification commands and documented outcomes are consistent.
-- Record result as:
-  - `Dokumentation aktuell (geprueft am YYYY-MM-DD)` or
-  - concrete list of updated files and residual risks.
 
 ## Report
 
 Use standard output format from `.agents/rules/reporting_format.md`.
+
