@@ -75,7 +75,7 @@ Intervall L (vor Abschluss von 14.8):
 - [x] 14.4 Integration I: PlayingState nur dirty Overheat in `huntState` spiegeln
 - [x] 14.5 Integration II: Recorder im Runtime-Pfad sauber toggelbar machen
 - [x] 14.6 Wave-Regression (S+M) und Merge-Hygiene
-- [ ] 14.7 Abschluss-Benchmark und KPI-Vergleich gegen Baseline
+- [x] 14.7 Abschluss-Benchmark und KPI-Vergleich gegen Baseline
 - [ ] 14.8 Doku-Abschluss, Restrisiken, Masterplan-Status auf abgeschlossen
 
 ---
