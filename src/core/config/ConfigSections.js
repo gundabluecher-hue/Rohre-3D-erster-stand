@@ -2,6 +2,8 @@
 // ConfigSections.js - Ausgelagerte Config-Sektionen
 // ============================================
 
+import { HUNT_CONFIG } from '../../hunt/HuntConfig.js';
+
 export const CONFIG_SECTIONS = {
     // ---- Allgemein ----
     TICK_RATE: 60,
@@ -50,6 +52,14 @@ export const CONFIG_SECTIONS = {
         PORTAL_BEAMS: false,
         PLANAR_AIM_INPUT_SPEED: 1.5,
         PLANAR_AIM_RETURN_SPEED: 0.6,
+    },
+
+    // ---- Hunt Mode ----
+    HUNT: {
+        ENABLED: true,
+        ACTIVE_MODE: HUNT_CONFIG.DEFAULT_MODE,
+        RESPAWN_ENABLED: HUNT_CONFIG.DEFAULT_RESPAWN_ENABLED,
+        ...HUNT_CONFIG,
     },
 
     // ---- Trail (Schweifspur) ----

@@ -1,5 +1,6 @@
 import { CONFIG } from '../core/Config.js';
 import { CUSTOM_MAP_KEY } from '../entities/MapSchema.js';
+import { GAME_MODE_TYPES, resolveActiveGameMode } from '../hunt/HuntMode.js';
 
 function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
@@ -42,6 +43,7 @@ export class MenuController {
     setupListeners() {
         const ui = this.ui;
         const settings = this.settings;
+        const huntFeatureEnabled = CONFIG.HUNT?.ENABLED !== false;
 
         ui.modeButtons.forEach((btn) => {
             btn.addEventListener('click', () => {
@@ -49,6 +51,28 @@ export class MenuController {
                 this._emitSettingsChanged();
             });
         });
+
+        if (Array.isArray(ui.gameModeButtons)) {
+            ui.gameModeButtons.forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const requested = String(btn.dataset.gameMode || GAME_MODE_TYPES.CLASSIC);
+                    settings.gameMode = resolveActiveGameMode(requested, huntFeatureEnabled);
+                    if (settings.gameMode !== GAME_MODE_TYPES.HUNT) {
+                        if (!settings.hunt) settings.hunt = {};
+                        settings.hunt.respawnEnabled = false;
+                    }
+                    this._emitSettingsChanged();
+                });
+            });
+        }
+
+        if (ui.huntRespawnToggle) {
+            ui.huntRespawnToggle.addEventListener('change', () => {
+                if (!settings.hunt) settings.hunt = {};
+                settings.hunt.respawnEnabled = !!ui.huntRespawnToggle.checked;
+                this._emitSettingsChanged();
+            });
+        }
 
         if (ui.vehicleSelectP1) {
             ui.vehicleSelectP1.addEventListener('change', (e) => {

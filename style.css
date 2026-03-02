@@ -465,6 +465,13 @@ body {
     margin-top: 0;
 }
 
+.menu-hint {
+    display: block;
+    margin-top: 6px;
+    color: #8190aa;
+    font-size: 0.78rem;
+}
+
 .btn-group {
     display: flex;
     gap: 8px;

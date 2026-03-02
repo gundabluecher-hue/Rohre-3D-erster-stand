@@ -89,6 +89,24 @@
                         </div>
 
                         <div class="menu-section">
+                            <h2 class="section-title">Regelset</h2>
+                            <div class="btn-group">
+                                <button id="btn-mode-classic" class="mode-btn game-mode-btn active"
+                                    data-game-mode="CLASSIC">Classic</button>
+                                <button id="btn-mode-hunt" class="mode-btn game-mode-btn"
+                                    data-game-mode="HUNT">Jagd</button>
+                            </div>
+                            <small id="hunt-mode-hint" class="menu-hint">Regelset fuer die laufende Session waehlen.</small>
+                        </div>
+
+                        <div id="hunt-respawn-row" class="menu-section hidden">
+                            <label class="toggle-row" for="hunt-respawn-toggle">
+                                <input type="checkbox" id="hunt-respawn-toggle">
+                                Respawn aktivieren
+                            </label>
+                        </div>
+
+                        <div class="menu-section">
                             <label for="map-select">Map</label>
                             <select id="map-select">
                                 <option value="standard">Standard Arena</option>

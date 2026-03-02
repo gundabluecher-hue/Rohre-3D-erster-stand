@@ -1,4 +1,5 @@
 import { CONFIG } from './Config.js';
+import { GAME_MODE_TYPES, isHuntMode, resolveActiveGameMode } from '../hunt/HuntMode.js';
 
 function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
@@ -61,9 +62,13 @@ function resolveBotDifficulty(requestedDifficulty, botConfig) {
 export function createRuntimeConfigSnapshot(settings, { baseConfig = CONFIG } = {}) {
     const source = settings && typeof settings === 'object' ? settings : {};
     const gameplaySource = source.gameplay && typeof source.gameplay === 'object' ? source.gameplay : {};
+    const huntSource = source.hunt && typeof source.hunt === 'object' ? source.hunt : {};
 
     const mode = source.mode === '2p' ? '2p' : '1p';
     const numHumans = mode === '2p' ? 2 : 1;
+    const huntFeatureEnabled = baseConfig?.HUNT?.ENABLED !== false;
+    const activeGameMode = resolveActiveGameMode(source.gameMode, huntFeatureEnabled);
+    const huntModeActive = isHuntMode(activeGameMode, huntFeatureEnabled);
 
     const playerDefaults = baseConfig.PLAYER || CONFIG.PLAYER;
     const gameplayDefaults = baseConfig.GAMEPLAY || CONFIG.GAMEPLAY;
@@ -84,6 +89,7 @@ export function createRuntimeConfigSnapshot(settings, { baseConfig = CONFIG } = 
             winsNeeded: clamp(Math.round(toNumber(source.winsNeeded, 5)), 1, 15),
             mapKey: String(source.mapKey || 'standard'),
             portalsEnabled: !!source.portalsEnabled,
+            activeGameMode,
         },
         player: {
             speed: clamp(toNumber(gameplaySource.speed, playerDefaults.SPEED), 8, 40),
@@ -121,6 +127,10 @@ export function createRuntimeConfigSnapshot(settings, { baseConfig = CONFIG } = 
             lockOnAngle: clamp(Math.round(toNumber(gameplaySource.lockOnAngle, homingDefaults.LOCK_ON_ANGLE)), 5, 45),
         },
         controls: cloneControls(source.controls, controlsDefaults),
+        hunt: {
+            enabled: huntModeActive,
+            respawnEnabled: huntModeActive ? !!huntSource.respawnEnabled : false,
+        },
         settingsSnapshot: deepClone(source),
     };
 
@@ -154,6 +164,10 @@ export function applyRuntimeConfigCompatibility(runtimeConfig, targetConfig = CO
     targetConfig.PROJECTILE.COOLDOWN = runtimeConfig.projectile.cooldown;
     targetConfig.BOT.ACTIVE_DIFFICULTY = runtimeConfig.bot.activeDifficulty;
     targetConfig.HOMING.LOCK_ON_ANGLE = runtimeConfig.homing.lockOnAngle;
+    if (targetConfig.HUNT) {
+        targetConfig.HUNT.ACTIVE_MODE = runtimeConfig?.session?.activeGameMode || GAME_MODE_TYPES.CLASSIC;
+        targetConfig.HUNT.RESPAWN_ENABLED = !!runtimeConfig?.hunt?.respawnEnabled;
+    }
 
     return targetConfig;
 }

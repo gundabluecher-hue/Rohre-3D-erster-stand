@@ -31,6 +31,7 @@ import {
 import { HudRuntimeSystem } from '../ui/HudRuntimeSystem.js';
 import { CrosshairSystem } from '../ui/CrosshairSystem.js';
 import { applyRuntimeConfigCompatibility } from './RuntimeConfig.js';
+import { GAME_MODE_TYPES } from '../hunt/HuntMode.js';
 
 /* global __APP_VERSION__, __BUILD_TIME__, __BUILD_ID__ */
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
@@ -61,6 +62,7 @@ export class Game {
         this.settingsDirty = false;
         this.config = CONFIG;
         this.runtimeConfig = null;
+        this.activeGameMode = GAME_MODE_TYPES.CLASSIC;
 
         this.state = 'MENU';
         this.roundPause = 0;
@@ -118,7 +120,11 @@ export class Game {
             buildInfoDetail: document.getElementById('build-info-detail'),
             copyBuildButton: document.getElementById('btn-copy-build'),
 
-            modeButtons: Array.from(document.querySelectorAll('.mode-btn')),
+            modeButtons: Array.from(document.querySelectorAll('.mode-btn[data-mode]')),
+            gameModeButtons: Array.from(document.querySelectorAll('.game-mode-btn')),
+            huntRespawnToggle: document.getElementById('hunt-respawn-toggle'),
+            huntRespawnRow: document.getElementById('hunt-respawn-row'),
+            huntModeHint: document.getElementById('hunt-mode-hint'),
             mapSelect: document.getElementById('map-select'),
             botSlider: document.getElementById('bot-count'),
             botLabel: document.getElementById('bot-count-label'),
@@ -397,6 +403,7 @@ export class Game {
         this.numBots = this.runtimeConfig.session.numBots;
         this.mapKey = this.runtimeConfig.session.mapKey;
         this.winsNeeded = this.runtimeConfig.session.winsNeeded;
+        this.activeGameMode = this.runtimeConfig?.session?.activeGameMode || GAME_MODE_TYPES.CLASSIC;
 
         applyRuntimeConfigCompatibility(this.runtimeConfig, CONFIG);
 

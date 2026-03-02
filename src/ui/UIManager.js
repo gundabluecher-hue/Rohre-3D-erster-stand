@@ -4,6 +4,7 @@
 
 import { CONFIG } from '../core/Config.js';
 import { VEHICLE_DEFINITIONS } from '../entities/vehicle-registry.js';
+import { GAME_MODE_TYPES, resolveActiveGameMode } from '../hunt/HuntMode.js';
 
 export class UIManager {
     constructor(game) {
@@ -102,6 +103,36 @@ export class UIManager {
         });
         if (ui.vehicleP2Container) {
             ui.vehicleP2Container.classList.toggle('hidden', settings.mode !== '2p');
+        }
+
+        const huntFeatureEnabled = CONFIG.HUNT?.ENABLED !== false;
+        const resolvedGameMode = resolveActiveGameMode(settings.gameMode, huntFeatureEnabled);
+        settings.gameMode = resolvedGameMode;
+        if (!settings.hunt) settings.hunt = { respawnEnabled: false };
+        if (resolvedGameMode !== GAME_MODE_TYPES.HUNT) {
+            settings.hunt.respawnEnabled = false;
+        }
+
+        if (Array.isArray(ui.gameModeButtons)) {
+            ui.gameModeButtons.forEach((btn) => {
+                const buttonMode = resolveActiveGameMode(btn.dataset.gameMode, huntFeatureEnabled);
+                const isHuntButton = buttonMode === GAME_MODE_TYPES.HUNT;
+                btn.classList.toggle('active', buttonMode === resolvedGameMode);
+                btn.disabled = isHuntButton && !huntFeatureEnabled;
+                btn.title = btn.disabled ? 'Hunt-Modus ist per Feature-Flag deaktiviert' : '';
+            });
+        }
+        if (ui.huntModeHint) {
+            ui.huntModeHint.textContent = huntFeatureEnabled
+                ? 'Regelset fuer die laufende Session waehlen.'
+                : 'Hunt-Modus ist per Feature-Flag deaktiviert.';
+        }
+        if (ui.huntRespawnRow) {
+            ui.huntRespawnRow.classList.toggle('hidden', resolvedGameMode !== GAME_MODE_TYPES.HUNT);
+        }
+        if (ui.huntRespawnToggle) {
+            ui.huntRespawnToggle.checked = !!settings?.hunt?.respawnEnabled;
+            ui.huntRespawnToggle.disabled = resolvedGameMode !== GAME_MODE_TYPES.HUNT;
         }
 
         // Map

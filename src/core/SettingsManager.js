@@ -6,6 +6,7 @@ import { CONFIG } from './Config.js';
 import { CUSTOM_MAP_KEY } from '../entities/MapSchema.js';
 import { SettingsStore } from '../ui/SettingsStore.js';
 import { createRuntimeConfigSnapshot } from './RuntimeConfig.js';
+import { GAME_MODE_TYPES, resolveActiveGameMode } from '../hunt/HuntMode.js';
 
 function clamp(val, min, max) {
     return Math.min(Math.max(val, min), max);
@@ -40,6 +41,7 @@ export class SettingsManager {
     createDefaultSettings() {
         return {
             mode: '1p',
+            gameMode: resolveActiveGameMode(CONFIG.HUNT?.DEFAULT_MODE, CONFIG.HUNT?.ENABLED !== false),
             mapKey: 'standard',
             numBots: 1,
             botDifficulty: 'NORMAL',
@@ -58,6 +60,9 @@ export class SettingsManager {
                 PLAYER_2: 'ship5',
             },
             portalsEnabled: true,
+            hunt: {
+                respawnEnabled: !!CONFIG.HUNT?.DEFAULT_RESPAWN_ENABLED,
+            },
             gameplay: {
                 speed: 18,
                 turnSensitivity: 2.2,
@@ -106,8 +111,10 @@ export class SettingsManager {
         const defaults = this.createDefaultSettings();
         const src = saved && typeof saved === 'object' ? saved : {};
         const merged = deepClone(defaults);
+        const huntFeatureEnabled = CONFIG.HUNT?.ENABLED !== false;
 
         merged.mode = src.mode === '2p' ? '2p' : '1p';
+        merged.gameMode = resolveActiveGameMode(src.gameMode, huntFeatureEnabled);
         const requestedMapKey = String(src.mapKey || '');
         merged.mapKey = (requestedMapKey === CUSTOM_MAP_KEY || CONFIG.MAPS[requestedMapKey])
             ? requestedMapKey
@@ -129,6 +136,10 @@ export class SettingsManager {
         merged.vehicles.PLAYER_2 = src?.vehicles?.PLAYER_2 || 'ship5';
 
         merged.portalsEnabled = src?.portalsEnabled !== undefined ? !!src.portalsEnabled : defaults.portalsEnabled;
+        merged.hunt.respawnEnabled = !!(src?.hunt?.respawnEnabled ?? defaults.hunt.respawnEnabled);
+        if (merged.gameMode !== GAME_MODE_TYPES.HUNT) {
+            merged.hunt.respawnEnabled = false;
+        }
 
         merged.gameplay.speed = clamp(parseFloat(src?.gameplay?.speed ?? defaults.gameplay.speed), 8, 40);
         merged.gameplay.turnSensitivity = clamp(parseFloat(src?.gameplay?.turnSensitivity ?? defaults.gameplay.turnSensitivity), 0.8, 5);
