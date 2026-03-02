@@ -19,19 +19,13 @@ import { MenuController, MENU_CONTROLLER_EVENT_TYPES } from '../ui/MenuControlle
 import { deriveProfileControlSelectState } from '../ui/ProfileControlStateOps.js';
 import { deriveProfileActionUiState } from '../ui/ProfileUiStateOps.js';
 import { createRoundStateController } from '../state/RoundStateController.js';
-import { coordinateRoundEnd } from '../state/RoundEndCoordinator.js';
-import { disposeMatchSessionSystems, initializeMatchSession } from '../state/MatchSessionFactory.js';
 import { PlayingStateSystem } from './PlayingStateSystem.js';
 import { RoundStateTickSystem } from '../state/RoundStateTickSystem.js';
-import {
-    deriveMatchStartUiState,
-    deriveReturnToMenuUiState,
-    deriveRoundStartUiState,
-} from '../ui/MatchUiStateOps.js';
 import { HudRuntimeSystem } from '../ui/HudRuntimeSystem.js';
 import { CrosshairSystem } from '../ui/CrosshairSystem.js';
 import { applyRuntimeConfigCompatibility } from './RuntimeConfig.js';
 import { GAME_MODE_TYPES } from '../hunt/HuntMode.js';
+import { MatchFlowUiController } from '../ui/MatchFlowUiController.js';
 
 /* global __APP_VERSION__, __BUILD_TIME__, __BUILD_ID__ */
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
@@ -85,6 +79,7 @@ export class Game {
         this.hudP2 = new HUD('p2-fighter-hud', 1);
         this.hudRuntimeSystem = new HudRuntimeSystem(this);
         this.crosshairSystem = new CrosshairSystem(this);
+        this.matchFlowUiController = new MatchFlowUiController(this);
 
         // Debug Recorder
         this.recorder = new RoundRecorder();
@@ -789,49 +784,11 @@ export class Game {
     }
 
     _applyMatchUiState(uiState) {
-        const visibility = uiState?.visibility || {};
-        const hasOwn = (key) => Object.prototype.hasOwnProperty.call(visibility, key);
-        if (this.ui.mainMenu) {
-            if (hasOwn('mainMenuHidden')) {
-                this.ui.mainMenu.classList.toggle('hidden', visibility.mainMenuHidden !== false);
-            }
-        }
-        if (this.ui.hud) {
-            if (hasOwn('hudHidden')) {
-                this.ui.hud.classList.toggle('hidden', visibility.hudHidden === true);
-            }
-        }
-        if (this.ui.messageOverlay) {
-            if (typeof uiState?.messageText === 'string' && this.ui.messageText) {
-                this.ui.messageText.textContent = uiState.messageText;
-            }
-            if (typeof uiState?.messageSub === 'string' && this.ui.messageSub) {
-                this.ui.messageSub.textContent = uiState.messageSub;
-            }
-            if (hasOwn('messageOverlayHidden')) {
-                this.ui.messageOverlay.classList.toggle('hidden', visibility.messageOverlayHidden !== false);
-            }
-        }
-        if (this.ui.statusToast) {
-            if (hasOwn('statusToastHidden')) {
-                this.ui.statusToast.classList.toggle('hidden', visibility.statusToastHidden !== false);
-            }
-        }
-
-        if (typeof uiState?.splitScreenEnabled === 'boolean') {
-            this.renderer.setSplitScreen(uiState.splitScreenEnabled);
-        }
-        if (typeof uiState?.p2HudVisible === 'boolean') {
-            if (this.ui.p2Hud) {
-                this.ui.p2Hud.classList.toggle('hidden', !uiState.p2HudVisible);
-            } else {
-                this._syncP2HudVisibility();
-            }
-        }
+        this.matchFlowUiController.applyMatchUiState(uiState);
     }
 
     _applyMatchStartUiState(uiState) {
-        this._applyMatchUiState(uiState);
+        this.matchFlowUiController.applyMatchStartUiState(uiState);
     }
 
     _applyInitializedMatchSession(initializedMatch) {
@@ -876,123 +833,43 @@ export class Game {
     }
 
     _resetCrosshairElementUi(element) {
-        if (!element) return;
-        element.style.display = 'none';
-        element.style.left = '50%';
-        element.style.top = '50%';
-        element.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+        this.matchFlowUiController.resetCrosshairElementUi(element);
     }
 
     _resetCrosshairUi() {
-        this._resetCrosshairElementUi(this.ui.crosshairP1);
-        this._resetCrosshairElementUi(this.ui.crosshairP2);
+        this.matchFlowUiController.resetCrosshairUi();
     }
 
     startMatch() {
-        this.keyCapture = null;
-        this._applySettingsToRuntime();
-
-        this._applyMatchStartUiState(deriveMatchStartUiState({ numHumans: this.numHumans }));
-
-        const initializedMatch = initializeMatchSession({
-            renderer: this.renderer,
-            audio: this.audio,
-            recorder: this.recorder,
-            settings: this.settings,
-            runtimeConfig: this.runtimeConfig,
-            requestedMapKey: this.mapKey,
-            currentSession: this._getCurrentMatchSessionRefs(),
-            onPlayerFeedback: (player, message) => {
-                this._showPlayerFeedback(player, message);
-            },
-            onPlayerDied: (player, cause) => {
-                if (!player.isBot) {
-                    const msg = this._getDeathMessage(cause);
-                    this._showStatusToast(msg, 2500, 'error');
-                }
-            },
-            onRoundEnd: (winner) => {
-                this._onRoundEnd(winner);
-            },
-        });
-        this._applyInitializedMatchSession(initializedMatch);
-        this._applyMatchFeedbackPlan(initializedMatch.feedbackPlan);
-
-        this._startRound();
+        this.matchFlowUiController.startMatch();
     }
 
     _startRound() {
-        this.state = 'PLAYING';
-        this._hudTimer = 0;
-
-        // Crosshair initial reset (visibility is updated dynamically per mode)
-        if (this.ui.crosshairP1) {
-            this.ui.crosshairP1.style.display = 'none';
-        }
-        if (this.ui.crosshairP2) {
-            this.ui.crosshairP2.style.display = 'none';
-        }
-
-        this.roundPause = 0;
-
-        for (const p of this.entityManager.players) {
-            p.trail.clear();
-        }
-        this.powerupManager.clear();
-
-        // Recording Start
-        this.recorder.startRound(this.entityManager.players);
-
-        this.entityManager.spawnAll();
-        for (const player of this.entityManager.getHumanPlayers()) {
-            player.planarAimOffset = 0;
-        }
-
-        this.gameLoop.setTimeScale(1.0);
-        this._applyMatchUiState(deriveRoundStartUiState());
-        this.hudRuntimeSystem.updateScoreHud();
+        this.matchFlowUiController.startRound();
     }
 
     _onRoundEnd(winner) {
-        this.state = 'ROUND_END';
-        this.roundPause = 3.0;
-
-        const roundEndPlan = coordinateRoundEnd(this._buildRoundEndCoordinatorRequest(winner));
-        this._applyRoundEndCoordinatorPlan(roundEndPlan);
+        this.matchFlowUiController.onRoundEnd(winner);
     }
 
     _buildRoundEndCoordinatorRequest(winner) {
-        return {
-            recorder: this.recorder,
-            winner,
-            players: this.entityManager ? this.entityManager.players : [],
-            roundStateController: this.roundStateController,
-            humanPlayerCount: this.entityManager ? this.entityManager.getHumanPlayers().length : 0,
-            totalBots: this.numBots,
-            winsNeeded: this.winsNeeded,
-            logger: console,
-        };
+        return this.matchFlowUiController.buildRoundEndCoordinatorRequest(winner);
     }
 
     _applyRoundEndCoordinatorPlan(roundEndPlan) {
-        this._applyRoundEndControllerTransitionState(roundEndPlan?.transition);
-        this._applyRoundEndCoordinatorEffects(roundEndPlan?.effectsPlan);
-        this._applyRoundEndCoordinatorUiState(roundEndPlan?.uiState);
+        this.matchFlowUiController.applyRoundEndCoordinatorPlan(roundEndPlan);
     }
 
     _applyRoundEndCoordinatorEffects(effectsPlan) {
-        if (!effectsPlan?.shouldUpdateHud) return;
-        this.hudRuntimeSystem.updateScoreHud();
+        this.matchFlowUiController.applyRoundEndCoordinatorEffects(effectsPlan);
     }
 
     _applyRoundEndCoordinatorUiState(uiState) {
-        if (!uiState) return;
-        this._applyMatchUiState(uiState);
+        this.matchFlowUiController.applyRoundEndCoordinatorUiState(uiState);
     }
 
     _applyRoundEndControllerTransitionState(roundEndTransition) {
-        this.roundPause = roundEndTransition.roundPause;
-        this.state = roundEndTransition.nextState;
+        this.matchFlowUiController.applyRoundEndControllerTransitionState(roundEndTransition);
     }
 
     _getPlanarAimAxis(playerIndex) {
@@ -1119,13 +996,7 @@ export class Game {
     }
 
     _returnToMenu() {
-        this.state = 'MENU';
-        disposeMatchSessionSystems(this.renderer, this._getCurrentMatchSessionRefs());
-        this._clearMatchSessionRefs();
-        this._applyMatchUiState(deriveReturnToMenuUiState());
-        this._showMainNav(); // Reset to main navigation
-        this._resetCrosshairUi();
-        this.uiManager.syncAll();
+        this.matchFlowUiController.returnToMenu();
     }
     _showDebugLog(recorderDump) {
         // Disabled
