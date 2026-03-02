@@ -1,0 +1,55 @@
+﻿diff --git a/src/hunt/HuntHUD.js b/src/hunt/HuntHUD.js
+index 2377ab4..df81155 100644
+--- a/src/hunt/HuntHUD.js
++++ b/src/hunt/HuntHUD.js
+@@ -22,6 +22,8 @@ export class HuntHUD {
+         this.p2OverheatFill = document.getElementById('hunt-p2-overheat-fill');
+         this.p2OverheatText = document.getElementById('hunt-p2-overheat-text');
+         this.killFeedList = document.getElementById('hunt-kill-feed-list');
++        this._killFeedSlots = [];
++        this._killFeedCachedTexts = new Array(5).fill('');
+         this.damageIndicator = document.getElementById('hunt-damage-indicator');
+     }
+ 
+@@ -70,16 +72,36 @@ export class HuntHUD {
+         if (refs.overheatText) refs.overheatText.textContent = `${Math.round(overheatValue)}%`;
+     }
+ 
++    _ensureKillFeedSlots() {
++        if (!this.killFeedList || this._killFeedSlots.length > 0) return;
++        this.killFeedList.textContent = '';
++        for (let i = 0; i < 5; i++) {
++            const slot = document.createElement('li');
++            slot.hidden = true;
++            this.killFeedList.appendChild(slot);
++            this._killFeedSlots.push(slot);
++        }
++    }
++
+     _updateKillFeed() {
+         if (!this.killFeedList) return;
++        this._ensureKillFeedSlots();
++
+         const entries = Array.isArray(this.game?.huntState?.killFeed)
+             ? this.game.huntState.killFeed
+             : [];
+-        this.killFeedList.innerHTML = '';
+-        for (const entry of entries.slice(0, 5)) {
+-            const item = document.createElement('li');
+-            item.textContent = String(entry);
+-            this.killFeedList.appendChild(item);
++        for (let i = 0; i < 5; i++) {
++            const slot = this._killFeedSlots[i];
++            const nextText = i < entries.length ? String(entries[i]) : '';
++            if (this._killFeedCachedTexts[i] !== nextText) {
++                slot.textContent = nextText;
++                this._killFeedCachedTexts[i] = nextText;
++            }
++
++            const shouldHide = nextText === '';
++            if (slot.hidden !== shouldHide) {
++                slot.hidden = shouldHide;
++            }
+         }
+     }
+ 

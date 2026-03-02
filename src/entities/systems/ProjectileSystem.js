@@ -15,6 +15,18 @@ function getNowMilliseconds() {
     return Date.now();
 }
 
+function getHuntRocketConfig() {
+    return CONFIG?.HUNT?.ROCKET || {};
+}
+
+function resolveRocketVisualScale(type, rocketConfig) {
+    const normalized = String(type || '').toUpperCase();
+    if (normalized === 'ROCKET_STRONG') return Math.max(1, Number(rocketConfig?.VISUAL_SCALE_STRONG || 2.2));
+    if (normalized === 'ROCKET_MEDIUM') return Math.max(1, Number(rocketConfig?.VISUAL_SCALE_MEDIUM || 1.95));
+    if (normalized === 'ROCKET_WEAK') return Math.max(1, Number(rocketConfig?.VISUAL_SCALE_WEAK || 1.7));
+    return 1;
+}
+
 export class ProjectileSystem {
     constructor(options = {}) {
         this.renderer = options.renderer || null;
@@ -64,6 +76,27 @@ export class ProjectileSystem {
         if (!power) {
             return { ok: false, reason: 'Item ungueltig' };
         }
+        const huntRocket = isHuntHealthActive() && isRocketTierType(type);
+        const huntRocketConfig = getHuntRocketConfig();
+        const visualScale = huntRocket ? resolveRocketVisualScale(type, huntRocketConfig) : 1;
+        const collisionRadiusMultiplier = huntRocket
+            ? Math.max(1, Number(huntRocketConfig.COLLISION_RADIUS_MULTIPLIER || 1.65))
+            : 1;
+        const baseTurnRate = Math.max(0.1, Number(CONFIG?.HOMING?.TURN_RATE || 3));
+        const homingTurnRate = huntRocket
+            ? Math.max(baseTurnRate, Number(huntRocketConfig.HOMING_TURN_RATE || 6.2))
+            : baseTurnRate;
+        const baseLockOnAngle = Math.max(5, Number(CONFIG?.HOMING?.LOCK_ON_ANGLE || 15));
+        const homingLockOnAngle = huntRocket
+            ? Math.max(baseLockOnAngle, Number(huntRocketConfig.HOMING_LOCK_ON_ANGLE || 32))
+            : baseLockOnAngle;
+        const baseHomingRange = Math.max(10, Number(CONFIG?.HOMING?.MAX_LOCK_RANGE || 100));
+        const homingRange = huntRocket
+            ? Math.max(baseHomingRange, Number(huntRocketConfig.HOMING_RANGE || 130))
+            : baseHomingRange;
+        const homingReacquireInterval = huntRocket
+            ? Math.max(0.04, Number(huntRocketConfig.HOMING_REACQUIRE_INTERVAL || 0.12))
+            : 0.2;
 
         player.getAimDirection(this._tmpDir).normalize();
         this._tmpVec.copy(player.position).addScaledVector(this._tmpDir, 2.2);
@@ -71,6 +104,7 @@ export class ProjectileSystem {
         const speed = CONFIG.PROJECTILE.SPEED;
         const radius = CONFIG.PROJECTILE.RADIUS;
         const rocketGroup = this._acquireProjectileMesh(type, power.color);
+        rocketGroup.scale.setScalar(visualScale);
         rocketGroup.position.copy(this._tmpVec);
         this._tmpVec2.copy(this._tmpVec).add(this._tmpDir);
         rocketGroup.lookAt(this._tmpVec2);
@@ -81,12 +115,22 @@ export class ProjectileSystem {
         projectile.poolKey = type;
         projectile.owner = player;
         projectile.type = type;
+        projectile.huntRocket = huntRocket;
+        projectile.visualScale = visualScale;
         projectile.position.copy(this._tmpVec);
         projectile.velocity.copy(this._tmpDir).multiplyScalar(speed);
-        projectile.radius = radius;
+        projectile.radius = radius * collisionRadiusMultiplier;
         projectile.ttl = CONFIG.PROJECTILE.LIFE_TIME;
         projectile.traveled = 0;
+        projectile.homingTurnRate = homingTurnRate;
+        projectile.homingLockOnAngle = homingLockOnAngle;
+        projectile.homingRange = homingRange;
+        projectile.homingReacquireInterval = homingReacquireInterval;
+        projectile.homingReacquireTimer = 0;
         projectile.target = this.resolveLockOn(player);
+        if (huntRocket && (!projectile.target || !projectile.target.alive)) {
+            projectile.target = this._acquireHomingTarget(projectile, this.getPlayers());
+        }
         projectile.foamBounces = 0;
         projectile.foamBounceCooldown = 0;
         this.projectiles.push(projectile);
@@ -114,6 +158,13 @@ export class ProjectileSystem {
             ttl: 0,
             traveled: 0,
             target: null,
+            huntRocket: false,
+            visualScale: 1,
+            homingTurnRate: 0,
+            homingLockOnAngle: 0,
+            homingRange: 0,
+            homingReacquireInterval: 0,
+            homingReacquireTimer: 0,
             foamBounces: 0,
             foamBounceCooldown: 0,
         };
@@ -132,6 +183,13 @@ export class ProjectileSystem {
         projectile.ttl = 0;
         projectile.traveled = 0;
         projectile.target = null;
+        projectile.huntRocket = false;
+        projectile.visualScale = 1;
+        projectile.homingTurnRate = 0;
+        projectile.homingLockOnAngle = 0;
+        projectile.homingRange = 0;
+        projectile.homingReacquireInterval = 0;
+        projectile.homingReacquireTimer = 0;
         projectile.foamBounces = 0;
         projectile.foamBounceCooldown = 0;
         this._projectileStatePool.push(projectile);
@@ -268,6 +326,48 @@ export class ProjectileSystem {
         return true;
     }
 
+    _acquireHomingTarget(projectile, players) {
+        if (!projectile || !Array.isArray(players) || players.length === 0) return null;
+
+        const owner = projectile.owner;
+        const maxRange = Math.max(10, Number(projectile.homingRange || CONFIG?.HOMING?.MAX_LOCK_RANGE || 100));
+        const maxRangeSq = maxRange * maxRange;
+        const lockOnAngle = Math.max(5, Number(projectile.homingLockOnAngle || CONFIG?.HOMING?.LOCK_ON_ANGLE || 15));
+        const minDot = Math.cos(THREE.MathUtils.degToRad(lockOnAngle));
+
+        this._tmpVec2.copy(projectile.velocity);
+        const speed = this._tmpVec2.length();
+        if (speed <= 0.0001) return null;
+        this._tmpVec2.divideScalar(speed);
+
+        let bestTarget = null;
+        let bestDistSq = Infinity;
+        let bestFallbackTarget = null;
+        let bestFallbackDistSq = Infinity;
+        for (const target of players) {
+            if (!target || !target.alive || target === owner) continue;
+
+            this._tmpVec.subVectors(target.position, projectile.position);
+            const distSq = this._tmpVec.lengthSq();
+            if (distSq <= 1 || distSq > maxRangeSq) continue;
+            if (distSq < bestFallbackDistSq) {
+                bestFallbackDistSq = distSq;
+                bestFallbackTarget = target;
+            }
+
+            const distance = Math.sqrt(distSq);
+            this._tmpDir.copy(this._tmpVec).multiplyScalar(1 / distance);
+            if (this._tmpVec2.dot(this._tmpDir) < minDot) continue;
+
+            if (distSq < bestDistSq) {
+                bestDistSq = distSq;
+                bestTarget = target;
+            }
+        }
+        if (bestTarget) return bestTarget;
+        return projectile.huntRocket ? bestFallbackTarget : null;
+    }
+
     update(dt) {
         const arena = this.getArena();
         const players = this.getPlayers();
@@ -301,11 +401,20 @@ export class ProjectileSystem {
                 projectile.mesh.position.copy(projectile.position);
             }
 
+            if (projectile.huntRocket) {
+                projectile.homingReacquireTimer = Math.max(0, (projectile.homingReacquireTimer || 0) - dt);
+                if (!projectile.target || !projectile.target.alive || projectile.homingReacquireTimer <= 0) {
+                    projectile.target = this._acquireHomingTarget(projectile, players);
+                    projectile.homingReacquireTimer = Math.max(0.04, Number(projectile.homingReacquireInterval || 0.12));
+                }
+            }
+
             if (projectile.target && projectile.target.alive) {
                 this._tmpVec.subVectors(projectile.target.position, projectile.position).normalize();
                 this._tmpVec2.copy(projectile.velocity);
                 const speed = this._tmpVec2.length();
-                this._tmpVec2.normalize().lerp(this._tmpVec, Math.min(CONFIG.HOMING.TURN_RATE * dt, 1.0)).normalize();
+                const turnRate = Math.max(0.1, Number(projectile.homingTurnRate || CONFIG.HOMING.TURN_RATE));
+                this._tmpVec2.normalize().lerp(this._tmpVec, Math.min(turnRate * dt, 1.0)).normalize();
                 projectile.velocity.copy(this._tmpVec2.multiplyScalar(speed));
                 this._tmpVec.addVectors(projectile.position, projectile.velocity);
                 projectile.mesh.lookAt(this._tmpVec);
@@ -408,6 +517,7 @@ export class ProjectileSystem {
             this.renderer.removeFromScene(projectile.mesh);
         }
         projectile.mesh.visible = false;
+        projectile.mesh.scale.setScalar(1);
 
         const pool = this._getProjectilePool(projectile.poolKey || projectile.type);
         pool.push(projectile.mesh);

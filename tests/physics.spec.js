@@ -19,6 +19,29 @@ async function startHuntGame(page) {
     }, { timeout: 15000 });
 }
 
+async function startHuntGameWithBots(page, botCount = 1) {
+    await loadGame(page);
+    await page.click('#menu-nav [data-submenu="submenu-game"]');
+    await page.waitForSelector('#submenu-game:not(.hidden)', { timeout: 3000 });
+    await page.evaluate((count) => {
+        const slider = document.getElementById('bot-count');
+        slider.value = String(count);
+        slider.dispatchEvent(new Event('input', { bubbles: true }));
+    }, botCount);
+    await page.click('#btn-mode-hunt');
+    await page.click('#submenu-game:not(.hidden) #btn-start');
+    await page.waitForFunction(() => {
+        const hud = document.getElementById('hud');
+        const huntHud = document.getElementById('hunt-hud');
+        const game = window.GAME_INSTANCE;
+        return !!(
+            hud && !hud.classList.contains('hidden')
+            && huntHud && !huntHud.classList.contains('hidden')
+            && game?.entityManager?.players?.length > 1
+        );
+    }, { timeout: 15000 });
+}
+
 test.describe('T41-60: Physik & AI', () => {
 
     test('T41: Arena-Kollision erkennt Wand (außerhalb)', async ({ page }) => {
@@ -354,5 +377,83 @@ test.describe('T41-60: Physik & AI', () => {
         expect(result.fireOk).toBeTruthy();
         expect(result.trailHit).toBeTruthy();
         expect(result.destroyed).toBeTruthy();
+    });
+
+    test('T62: Hunt-Rakete ist groesser und sucht Ziele nach', async ({ page }) => {
+        await startHuntGameWithBots(page, 1);
+        const result = await page.evaluate(() => {
+            const game = window.GAME_INSTANCE;
+            const entityManager = game?.entityManager;
+            const player = entityManager?.players?.[0];
+            const target = entityManager?.players?.find((p, idx) => idx !== 0 && p?.alive);
+            if (!entityManager || !player || !target) {
+                return { error: 'missing-players' };
+            }
+            if (String(game?.activeGameMode || '').toUpperCase() !== 'HUNT') {
+                return { error: 'hunt-not-active' };
+            }
+
+            entityManager._projectileSystem?.clear?.();
+            player.trail?.clear?.();
+            target.trail?.clear?.();
+            player.shootCooldown = 0;
+            player.inventory = ['ROCKET_STRONG'];
+            player.selectedItemIndex = 0;
+
+            player.position.set(0, 50, 0);
+            target.position.set(30, 50, -36);
+            player.group?.lookAt(0, 50, -120);
+
+            const targetHpBefore = Number(target.hp || 0);
+            const shot = entityManager._shootItemProjectile(player, 0);
+            if (!shot?.ok) {
+                return { error: 'shot-failed', reason: shot?.reason || null };
+            }
+
+            const projectile = entityManager.projectiles[entityManager.projectiles.length - 1];
+            if (!projectile) {
+                return { error: 'projectile-missing' };
+            }
+
+            const baseRadius = Number(game?.config?.PROJECTILE?.RADIUS || 0);
+            const visualScale = Number(projectile.mesh?.scale?.x || 0);
+            const projectileRadius = Number(projectile.radius || 0);
+            let acquiredDuringFlight = !!projectile.target;
+
+            const toTargetStart = target.position.clone().sub(projectile.position).normalize();
+            const velocityStart = projectile.velocity.clone().normalize();
+            const initialDot = velocityStart.dot(toTargetStart);
+            let finalDot = initialDot;
+
+            for (let i = 0; i < 45; i++) {
+                entityManager._projectileSystem.update(1 / 60);
+                const stillActive = entityManager.projectiles.includes(projectile);
+                if (!stillActive) break;
+                if (projectile.target === target) acquiredDuringFlight = true;
+                const toTarget = target.position.clone().sub(projectile.position);
+                if (toTarget.lengthSq() > 0.0001) {
+                    toTarget.normalize();
+                    finalDot = projectile.velocity.clone().normalize().dot(toTarget);
+                }
+            }
+
+            const targetHpAfter = Number(target.hp || 0);
+            entityManager._projectileSystem?.clear?.();
+            return {
+                error: null,
+                visualScale,
+                projectileRadius,
+                baseRadius,
+                acquiredDuringFlight,
+                guided: finalDot > initialDot + 0.04,
+                hitApplied: targetHpAfter < targetHpBefore,
+            };
+        });
+
+        expect(result.error).toBeNull();
+        expect(result.visualScale).toBeGreaterThan(1.2);
+        expect(result.projectileRadius).toBeGreaterThan(result.baseRadius);
+        expect(result.acquiredDuringFlight).toBeTruthy();
+        expect(result.guided || result.hitApplied).toBeTruthy();
     });
 });
