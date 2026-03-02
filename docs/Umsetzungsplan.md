@@ -89,7 +89,7 @@ Letztes Update: 2026-03-02
 - Teilphasen:
   - **Block A - konfliktfrei, sofort startbar (parallel zu Phase 11):**
   - [x] 12.1 `Config.js` Split A - Map-Presets auslagern
-  - [ ] 12.2 `Config.js` Split B - Config-Sections komponieren
+  - [x] 12.2 `Config.js` Split B - Config-Sections komponieren
   - [ ] 12.3 `PortalGateSystem` Split A - Mesh-Fabrik auslagern
   - [ ] 12.4 `PortalGateSystem` Split B - Placement/Resolver auslagern
   - [ ] 12.5 `EditorMapManager` Split A - Import/Export Serializer auslagern
