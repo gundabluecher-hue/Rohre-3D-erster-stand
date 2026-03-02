@@ -9,9 +9,6 @@ const UNIT_CYLINDER_GEOMETRY = new THREE.CylinderGeometry(1, 1, 1, 4);
 const UP_AXIS = new THREE.Vector3(0, 1, 0);
 const DUMMY = new THREE.Object3D();
 
-// Spatial Hashing Config
-const CELL_SIZE = 10;
-
 function getTrailSegmentHp() {
     const configured = Number(CONFIG?.HUNT?.TRAIL_SEGMENT_HP);
     if (!Number.isFinite(configured) || configured <= 0) {

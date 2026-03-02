@@ -44,7 +44,7 @@ Neue Findings aus dem Analysebericht fliessen hier ein.
 
 ---
 
-## Phase 11: [ ] Jagd-Modus (neuer Spielmodus)
+## Phase 11: [x] Jagd-Modus (neuer Spielmodus)
 
 Geplant: 2026-03-02
 **Parallelbetrieb:** Laeuft parallel zu Phase 12. Phase 12.9 und 12.10 warten auf Teilphasen aus Phase 11 (siehe Gates in Phase 12).
@@ -65,7 +65,7 @@ Geplant: 2026-03-02
   - [x] 11.8 Screen-Shake, Schadens-Indikator, Kill-Feed
   - [x] 11.9 Respawn-System + erweitertes Scoring
   - [x] 11.10 Bot-KI fuer Jagd-Modus (HuntBotPolicy)
-  - [ ] 11.11 Abschluss, Balancing, Cleanup
+  - [x] 11.11 Abschluss, Balancing, Cleanup
 - Verifikation pro Teilphase:
   - `npm run test:core`, `npm run test:physics`, `npm run smoke:selftrail`, `npm run build`
   - Classic-Modus Regressionstest bei jeder Phase
