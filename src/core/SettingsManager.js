@@ -24,7 +24,8 @@ export const KEY_BIND_ACTIONS = [
     { label: 'Rollen Links', key: 'ROLL_LEFT' },
     { label: 'Rollen Rechts', key: 'ROLL_RIGHT' },
     { label: 'Boost', key: 'BOOST' },
-    { label: 'Schiessen', key: 'SHOOT' },
+    { label: 'Schiessen (Item)', key: 'SHOOT' },
+    { label: 'MG Schiessen', key: 'SHOOT_MG' },
     { label: 'Item Abwerfen', key: 'DROP' },
     { label: 'Item Wechseln', key: 'NEXT_ITEM' },
     { label: 'Kamera', key: 'CAMERA' },
@@ -92,6 +93,23 @@ export class SettingsManager {
 
     normalizePlayerControls(source, fallback) {
         const src = source || {};
+        const shoot = src.SHOOT || fallback.SHOOT;
+        let shootMg = src.SHOOT_MG || fallback.SHOOT_MG;
+        let drop = src.DROP || fallback.DROP;
+
+        if (shootMg === shoot) {
+            const fallbackShootMg = fallback.SHOOT_MG;
+            if (fallbackShootMg && fallbackShootMg !== shoot) {
+                shootMg = fallbackShootMg;
+            }
+        }
+        if (drop === shootMg) {
+            const fallbackDrop = fallback.DROP;
+            if (fallbackDrop && fallbackDrop !== shoot && fallbackDrop !== shootMg) {
+                drop = fallbackDrop;
+            }
+        }
+
         return {
             UP: src.UP || fallback.UP,
             DOWN: src.DOWN || fallback.DOWN,
@@ -100,9 +118,10 @@ export class SettingsManager {
             ROLL_LEFT: src.ROLL_LEFT || fallback.ROLL_LEFT,
             ROLL_RIGHT: src.ROLL_RIGHT || fallback.ROLL_RIGHT,
             BOOST: src.BOOST || fallback.BOOST,
-            SHOOT: src.SHOOT || fallback.SHOOT,
+            SHOOT: shoot,
+            SHOOT_MG: shootMg,
             NEXT_ITEM: src.NEXT_ITEM || fallback.NEXT_ITEM,
-            DROP: src.DROP || fallback.DROP,
+            DROP: drop,
             CAMERA: src.CAMERA || fallback.CAMERA,
         };
     }

@@ -67,10 +67,10 @@ export class HuntBotPolicy {
         const aggression = clamp(0.55 + (healthRatio - enemyHealthRatio) * 0.8, 0.15, 1.0);
         const mgRange = Math.max(12, Number(CONFIG?.HUNT?.MG?.RANGE || 95));
         const mgRangeSq = mgRange * mgRange;
+        input.shootMG = false;
 
         if (enemy && distSq <= mgRangeSq && healthRatio > 0.15 && aggression >= 0.45) {
-            input.shootItem = true;
-            input.shootItemIndex = -1;
+            input.shootMG = true;
         }
 
         const rocketIndex = findStrongestRocketIndex(player.inventory);

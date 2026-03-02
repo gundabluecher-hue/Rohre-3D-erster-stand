@@ -55,7 +55,7 @@
                         <div class="nav-help-title">Schnellstart</div>
                         <div class="nav-help-content">
                             <span><kbd>ESC</kbd> Zurueck ins Menue</span>
-                            <span><kbd>F</kbd> FPS Overlay</span>
+                            <span><kbd>O</kbd> FPS Overlay</span>
                             <span><kbd>P</kbd> Grafik umschalten</span>
                         </div>
                     </div>
@@ -379,7 +379,7 @@
                             </button>
                         </div>
                         <div class="menu-section">
-                            <p class="debug-hint">Drücke <kbd>F</kbd> im Spiel für FPS-Overlay</p>
+                            <p class="debug-hint">Drücke <kbd>O</kbd> im Spiel für FPS-Overlay</p>
                             <p class="debug-hint">Drücke <kbd>P</kbd> im Spiel für Grafik-Toggle</p>
                         </div>
                     </div>
@@ -417,11 +417,6 @@
                     <div class="tape-scale horizontal" id="p1-hud-heading-scale"></div>
                     <div class="tape-marker">▼</div>
                 </div>
-                <!-- neu: Boost HUD -->
-                <div class="hud-boost-bar">
-                    <div class="boost-label">BOOST</div>
-                    <div id="p1-hud-boost-fill" class="boost-fill"></div>
-                </div>
                 <div id="p1-lock-reticle" class="hud-lock-reticle hidden">
                     <div class="lock-box"></div>
                     <div class="lock-dist"></div>
@@ -454,11 +449,6 @@
                     <div class="tape-scale horizontal" id="p2-hud-heading-scale"></div>
                     <div class="tape-marker">▼</div>
                 </div>
-                <!-- neu: Boost HUD -->
-                <div class="hud-boost-bar">
-                    <div class="boost-label">BOOST</div>
-                    <div id="p2-hud-boost-fill" class="boost-fill"></div>
-                </div>
                 <div id="p2-lock-reticle" class="hud-lock-reticle hidden">
                     <div class="lock-box"></div>
                     <div class="lock-dist"></div>
@@ -468,11 +458,19 @@
             <div id="p1-hud" class="player-hud left">
                 <div class="player-name">Spieler 1</div>
                 <div class="player-score">0</div>
+                <div class="hud-boost-bar">
+                    <div class="boost-label">BOOST</div>
+                    <div id="p1-hud-boost-fill" class="boost-fill"></div>
+                </div>
                 <div id="p1-items" class="item-bar"></div>
             </div>
             <div id="p2-hud" class="player-hud right hidden">
                 <div class="player-name">Spieler 2</div>
                 <div class="player-score">0</div>
+                <div class="hud-boost-bar">
+                    <div class="boost-label">BOOST</div>
+                    <div id="p2-hud-boost-fill" class="boost-fill"></div>
+                </div>
                 <div id="p2-items" class="item-bar"></div>
             </div>
             <div id="message-overlay" class="hidden" role="alert" aria-live="assertive" aria-atomic="true">
@@ -583,7 +581,7 @@
                 </button>
             </div>
             <div class="menu-section">
-                <p class="debug-hint">Drücke <kbd>F</kbd> im Spiel für FPS-Overlay</p>
+                <p class="debug-hint">Drücke <kbd>O</kbd> im Spiel für FPS-Overlay</p>
                 <p class="debug-hint">Drücke <kbd>P</kbd> im Spiel für Grafik-Toggle</p>
             </div>
         </div>
@@ -680,11 +678,24 @@
 
         <div id="hunt-hud" class="hunt-hud hidden" aria-hidden="true">
             <div id="hunt-p1-panel" class="hunt-player-panel">
-                <div class="hunt-label">P1 HP</div>
+                <div class="hunt-label">P1 Leben</div>
                 <div class="hunt-bar hunt-bar-hp">
                     <div id="hunt-p1-hp-fill" class="hunt-fill"></div>
                 </div>
                 <div id="hunt-p1-hp-text" class="hunt-value">0 / 0</div>
+
+                <div class="hunt-label">Schild</div>
+                <div class="hunt-bar hunt-bar-shield">
+                    <div id="hunt-p1-shield-fill" class="hunt-fill"></div>
+                </div>
+                <div id="hunt-p1-shield-text" class="hunt-value">0 / 0</div>
+
+                <div class="hunt-label">Boost</div>
+                <div class="hunt-bar hunt-bar-boost">
+                    <div id="hunt-p1-boost-fill" class="hunt-fill"></div>
+                </div>
+                <div id="hunt-p1-boost-text" class="hunt-value">100%</div>
+
                 <div class="hunt-label">Overheat</div>
                 <div class="hunt-bar hunt-bar-overheat">
                     <div id="hunt-p1-overheat-fill" class="hunt-fill"></div>
@@ -692,11 +703,24 @@
                 <div id="hunt-p1-overheat-text" class="hunt-value">0%</div>
             </div>
             <div id="hunt-p2-panel" class="hunt-player-panel hidden">
-                <div class="hunt-label">P2 HP</div>
+                <div class="hunt-label">P2 Leben</div>
                 <div class="hunt-bar hunt-bar-hp">
                     <div id="hunt-p2-hp-fill" class="hunt-fill"></div>
                 </div>
                 <div id="hunt-p2-hp-text" class="hunt-value">0 / 0</div>
+
+                <div class="hunt-label">Schild</div>
+                <div class="hunt-bar hunt-bar-shield">
+                    <div id="hunt-p2-shield-fill" class="hunt-fill"></div>
+                </div>
+                <div id="hunt-p2-shield-text" class="hunt-value">0 / 0</div>
+
+                <div class="hunt-label">Boost</div>
+                <div class="hunt-bar hunt-bar-boost">
+                    <div id="hunt-p2-boost-fill" class="hunt-fill"></div>
+                </div>
+                <div id="hunt-p2-boost-text" class="hunt-value">100%</div>
+
                 <div class="hunt-label">Overheat</div>
                 <div class="hunt-bar hunt-bar-overheat">
                     <div id="hunt-p2-overheat-fill" class="hunt-fill"></div>

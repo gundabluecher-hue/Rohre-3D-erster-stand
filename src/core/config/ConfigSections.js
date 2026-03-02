@@ -283,8 +283,9 @@ export const CONFIG_SECTIONS = {
             ROLL_RIGHT: 'KeyE',
             BOOST: 'ShiftLeft',
             SHOOT: 'KeyF',
+            SHOOT_MG: 'KeyG',
             NEXT_ITEM: 'KeyR',
-            DROP: 'KeyG',
+            DROP: 'KeyX',
             CAMERA: 'KeyC',
         },
         PLAYER_2: {
@@ -296,6 +297,7 @@ export const CONFIG_SECTIONS = {
             ROLL_RIGHT: 'KeyM',
             BOOST: 'ShiftRight',
             SHOOT: 'KeyJ',
+            SHOOT_MG: 'KeyK',
             NEXT_ITEM: 'KeyL',
             DROP: 'KeyH',
             CAMERA: 'KeyV',

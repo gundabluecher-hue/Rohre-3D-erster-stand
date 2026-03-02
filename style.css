@@ -1274,3 +1274,169 @@ input[type="range"]::-webkit-slider-thumb {
     background: linear-gradient(90deg, #883333, #ff4444);
     box-shadow: 0 0 10px rgba(255, 68, 68, 0.6);
 }
+/* ========================================= */
+/* Jagd-Modus HUD                            */
+/* ========================================= */
+
+.hunt-hud {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.hunt-hud.hidden {
+    display: none !important;
+}
+
+.hunt-player-panel {
+    position: absolute;
+    width: 200px;
+    background: rgba(0, 15, 30, 0.4);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.hunt-player-panel.hidden {
+    display: none !important;
+}
+
+#hunt-p1-panel {
+    top: 20px;
+    right: 20px;
+    width: 240px;
+}
+
+#hunt-p2-panel {
+    top: 20px;
+    left: 20px;
+    width: 240px;
+}
+
+.hunt-label {
+    font-size: 10px;
+    color: #00ffff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.hunt-bar {
+    width: 100%;
+    height: 12px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+}
+
+.hunt-bar-hp .hunt-fill {
+    background: linear-gradient(90deg, #ff0044, #ff8800);
+}
+
+.hunt-bar-shield .hunt-fill {
+    background: linear-gradient(90deg, #2a88ff, #66f0ff);
+}
+
+.hunt-bar-boost .hunt-fill {
+    background: linear-gradient(90deg, #00b45c, #c1ff41);
+}
+
+.hunt-bar-boost .hunt-fill.cooldown {
+    background: linear-gradient(90deg, #1f5068, #4d90bf);
+}
+
+.hunt-bar-overheat .hunt-fill {
+    background: linear-gradient(90deg, #ffff00, #ff0000);
+}
+
+.hunt-fill {
+    height: 100%;
+    width: 0%;
+    transition: width 0.1s linear;
+}
+
+.hunt-value {
+    font-size: 12px;
+    color: #ffffff;
+    text-align: right;
+    font-family: monospace;
+    margin-bottom: 5px;
+}
+
+.hunt-kill-feed {
+    position: absolute;
+    top: 230px;
+    right: 20px;
+    width: 240px;
+    background: rgba(0, 15, 30, 0.4);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    padding: 10px;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 11px;
+    font-family: monospace;
+}
+
+.hunt-kill-feed ul {
+    list-style: none;
+    padding: 0;
+    margin: 5px 0 0 0;
+}
+
+.hunt-kill-feed li {
+    padding: 2px 0;
+    border-bottom: 1px dashed rgba(255,255,255,0.1);
+}
+
+.hunt-damage-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 120px;
+    color: red;
+    text-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+    pointer-events: none;
+    z-index: 90;
+    transition: opacity 0.1s;
+}
+
+.hunt-damage-indicator.hidden {
+    opacity: 0 !important;
+}
+
+@media (max-width: 900px) {
+    #hunt-p1-panel,
+    #hunt-p2-panel {
+        width: 45vw;
+        max-width: 240px;
+    }
+
+    #hunt-p1-panel {
+        top: 10px;
+        right: 10px;
+    }
+
+    #hunt-p2-panel {
+        top: 10px;
+        left: 10px;
+    }
+
+    .hunt-kill-feed {
+        top: auto;
+        bottom: 12px;
+        right: 10px;
+        width: min(45vw, 240px);
+        max-height: 24vh;
+        overflow: auto;
+    }
+}

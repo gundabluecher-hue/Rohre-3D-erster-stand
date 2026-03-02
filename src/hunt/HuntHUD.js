@@ -1,4 +1,5 @@
 import { GAME_MODE_TYPES } from './HuntMode.js';
+import { CONFIG } from '../core/Config.js';
 
 function clamp01(value) {
     return Math.max(0, Math.min(1, Number(value) || 0));
@@ -14,11 +15,19 @@ export class HuntHUD {
         this.root = document.getElementById('hunt-hud');
         this.p1HpFill = document.getElementById('hunt-p1-hp-fill');
         this.p1HpText = document.getElementById('hunt-p1-hp-text');
+        this.p1ShieldFill = document.getElementById('hunt-p1-shield-fill');
+        this.p1ShieldText = document.getElementById('hunt-p1-shield-text');
+        this.p1BoostFill = document.getElementById('hunt-p1-boost-fill');
+        this.p1BoostText = document.getElementById('hunt-p1-boost-text');
         this.p1OverheatFill = document.getElementById('hunt-p1-overheat-fill');
         this.p1OverheatText = document.getElementById('hunt-p1-overheat-text');
         this.p2Panel = document.getElementById('hunt-p2-panel');
         this.p2HpFill = document.getElementById('hunt-p2-hp-fill');
         this.p2HpText = document.getElementById('hunt-p2-hp-text');
+        this.p2ShieldFill = document.getElementById('hunt-p2-shield-fill');
+        this.p2ShieldText = document.getElementById('hunt-p2-shield-text');
+        this.p2BoostFill = document.getElementById('hunt-p2-boost-fill');
+        this.p2BoostText = document.getElementById('hunt-p2-boost-text');
         this.p2OverheatFill = document.getElementById('hunt-p2-overheat-fill');
         this.p2OverheatText = document.getElementById('hunt-p2-overheat-text');
         this.killFeedList = document.getElementById('hunt-kill-feed-list');
@@ -30,6 +39,7 @@ export class HuntHUD {
         this._indicatorTickTimer = 0;
         this._wasHuntActive = false;
     }
+
     _resolveUiHotpathInterval(key, fallback) {
         const configured = Number(this.game?.runtimeConfig?.uiHotpath?.[key]);
         if (Number.isFinite(configured) && configured > 0) {
@@ -83,6 +93,10 @@ export class HuntHUD {
             this._updatePlayerPanel(humans[0], {
                 hpFill: this.p1HpFill,
                 hpText: this.p1HpText,
+                shieldFill: this.p1ShieldFill,
+                shieldText: this.p1ShieldText,
+                boostFill: this.p1BoostFill,
+                boostText: this.p1BoostText,
                 overheatFill: this.p1OverheatFill,
                 overheatText: this.p1OverheatText,
             });
@@ -93,6 +107,10 @@ export class HuntHUD {
                     this._updatePlayerPanel(humans[1], {
                         hpFill: this.p2HpFill,
                         hpText: this.p2HpText,
+                        shieldFill: this.p2ShieldFill,
+                        shieldText: this.p2ShieldText,
+                        boostFill: this.p2BoostFill,
+                        boostText: this.p2BoostText,
                         overheatFill: this.p2OverheatFill,
                         overheatText: this.p2OverheatText,
                     });
@@ -116,6 +134,28 @@ export class HuntHUD {
         const hpRatio = hp / maxHp;
         if (refs.hpFill) refs.hpFill.style.width = toPercent(hpRatio);
         if (refs.hpText) refs.hpText.textContent = `${Math.round(hp)} / ${Math.round(maxHp)}`;
+
+        const shield = Math.max(0, Number(player?.shieldHP) || 0);
+        const maxShield = Math.max(1, Number(player?.maxShieldHp) || 1);
+        const shieldRatio = shield / maxShield;
+        if (refs.shieldFill) refs.shieldFill.style.width = toPercent(shieldRatio);
+        if (refs.shieldText) refs.shieldText.textContent = `${Math.round(shield)} / ${Math.round(maxShield)}`;
+
+        const boostDuration = Math.max(0.001, Number(CONFIG?.PLAYER?.BOOST_DURATION) || 1);
+        const boostCooldown = Math.max(0.001, Number(CONFIG?.PLAYER?.BOOST_COOLDOWN) || 1);
+        let boostRatio = 1;
+        let isBoostCooldown = false;
+        if (player?.isBoosting) {
+            boostRatio = clamp01((Number(player.boostTimer) || 0) / boostDuration);
+        } else if ((Number(player?.boostCooldown) || 0) > 0) {
+            boostRatio = clamp01(1 - ((Number(player.boostCooldown) || 0) / boostCooldown));
+            isBoostCooldown = true;
+        }
+        if (refs.boostFill) {
+            refs.boostFill.style.width = toPercent(boostRatio);
+            refs.boostFill.classList.toggle('cooldown', isBoostCooldown);
+        }
+        if (refs.boostText) refs.boostText.textContent = `${Math.round(boostRatio * 100)}%`;
 
         const overheatValue = Number(this.game?.huntState?.overheatByPlayer?.[player?.index] || 0);
         const overheatRatio = clamp01(overheatValue / 100);

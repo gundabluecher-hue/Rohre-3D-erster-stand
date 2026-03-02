@@ -45,15 +45,22 @@ export class PlayerLifecycleSystem {
             let result = null;
             if (huntModeActive && Number.isInteger(input.shootItemIndex) && input.shootItemIndex >= 0) {
                 result = entityManager._shootItemProjectile(player, input.shootItemIndex);
-            } else if (huntModeActive) {
-                result = entityManager._shootHuntGun(player);
-            } else {
+            } else if (!huntModeActive) { // Classic mode logic
                 result = entityManager._shootItemProjectile(player, input.shootItemIndex);
             }
+            if (result && !result.ok && !player.isBot) {
+                entityManager._notifyPlayerFeedback(player, result.reason);
+            } else if (result && result.ok && entityManager.recorder) {
+                entityManager.recorder.logEvent('ITEM_USE', player.index, `mode=shoot type=${result.type}`);
+            }
+        }
+
+        if (input.shootMG && huntModeActive) {
+            const result = entityManager._shootHuntGun(player);
             if (!result.ok && !player.isBot) {
                 entityManager._notifyPlayerFeedback(player, result.reason);
             } else if (result.ok && entityManager.recorder) {
-                entityManager.recorder.logEvent('ITEM_USE', player.index, `mode=shoot type=${result.type}`);
+                entityManager.recorder.logEvent('ITEM_USE', player.index, `mode=mg type=${result.type}`);
             }
         }
 

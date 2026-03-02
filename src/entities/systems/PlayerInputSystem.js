@@ -14,6 +14,7 @@ const SHARED_EMPTY_INPUT = {
     cameraSwitch: false,
     dropItem: false,
     shootItem: false,
+    shootMG: false,
     shootItemIndex: -1,
     nextItem: false,
     useItem: -1,
@@ -30,6 +31,7 @@ function getEmptyInput() {
     SHARED_EMPTY_INPUT.cameraSwitch = false;
     SHARED_EMPTY_INPUT.dropItem = false;
     SHARED_EMPTY_INPUT.shootItem = false;
+    SHARED_EMPTY_INPUT.shootMG = false;
     SHARED_EMPTY_INPUT.shootItemIndex = -1;
     SHARED_EMPTY_INPUT.nextItem = false;
     SHARED_EMPTY_INPUT.useItem = -1;
@@ -54,7 +56,27 @@ export class PlayerInputSystem {
         }
 
         const includeSecondaryBindings = entityManager.humanPlayers.length === 1 && player.index === 0;
-        input = inputManager.getPlayerInput(player.index, { includeSecondaryBindings });
+        const inputState = inputManager.getPlayerInput(player.index, { includeSecondaryBindings });
+        if (inputState) {
+            input.pitchUp = inputState.pitchUp;
+            input.pitchDown = inputState.pitchDown;
+            input.yawLeft = inputState.yawLeft;
+            input.yawRight = inputState.yawRight;
+            input.rollLeft = inputState.rollLeft;
+            input.rollRight = inputState.rollRight;
+            input.boost = inputState.boost;
+            input.cameraSwitch = inputState.cameraSwitch;
+            input.dropItem = inputState.dropItem;
+            input.shootItem = inputState.shootItem;
+            input.shootMG = inputState.shootMG;
+            input.nextItem = inputState.nextItem;
+
+            if (input.shootItem && Array.isArray(player.inventory) && player.inventory.length > 0) {
+                const selectedIndex = Number.isInteger(player.selectedItemIndex) ? player.selectedItemIndex : 0;
+                input.shootItemIndex = Math.max(0, Math.min(selectedIndex, player.inventory.length - 1));
+            }
+        }
+
         if (input.cameraSwitch) {
             entityManager.renderer.cycleCamera(player.index);
             player.cameraMode = entityManager.renderer.cameraModes[player.index] || 0;
