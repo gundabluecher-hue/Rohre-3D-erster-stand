@@ -14,7 +14,7 @@ Gate: PASS
 - Keine Legacy-Pfade gefunden.
 
 ## Encoding-Warnungen (Mojibake)
-- docs/Umsetzungsplan.md: Zeilen 103, 104
+- Keine Mojibake-Muster gefunden.
 
 ## Ergebnis
 - Dokumentation aktuell (geprueft am 2026-03-02).

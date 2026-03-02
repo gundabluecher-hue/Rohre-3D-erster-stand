@@ -100,8 +100,8 @@ Letztes Update: 2026-03-02
   - [x] 12.8 `main.js` Split B - Keybind-Editor Controller entkoppeln
   - [x] 12.11 `Player.js` Split B - Motion/Update Ops auslagern
   - **Block C - Dependency-Gates, warten auf Phase 11:**
-  - [x] 12.9 `main.js` Split C - Match/UI-Flow Controller entkoppeln â€” **GATE: wartet auf 11.1 [x]**
-  - [x] 12.10 `Player.js` Split A - Effects/Inventory Ops auslagern â€” **GATE: wartet auf 11.2a [x]**
+  - [x] 12.9 `main.js` Split C - Match/UI-Flow Controller entkoppeln - **GATE: wartet auf 11.1 [x]**
+  - [x] 12.10 `Player.js` Split A - Effects/Inventory Ops auslagern - **GATE: wartet auf 11.2a [x]**
   - **Abschluss:**
   - [x] 12.12 Abschluss, Verifikation, Cleanup
 - Verifikation pro Teilphase:
