@@ -136,6 +136,14 @@ export class OverheatGunSystem {
         const damage = baseDamage * (1 - (1 - minFalloff) * distRatio);
 
         const damageResult = target.takeDamage(damage);
+        if (this.entityManager?._emitHuntDamageEvent) {
+            this.entityManager._emitHuntDamageEvent({
+                target,
+                sourcePlayer: attacker,
+                cause: 'MG_BULLET',
+                damageResult,
+            });
+        }
         this._emitTracerImpact(target);
         if (damageResult.isDead) {
             this.entityManager._killPlayer(target, 'PROJECTILE');

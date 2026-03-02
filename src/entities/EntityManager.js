@@ -78,6 +78,13 @@ export class EntityManager {
                 if (this.audio) this.audio.play('POWERUP');
             },
             onProjectileDamage: (target, owner, type, damageResult) => {
+                this._emitHuntDamageEvent({
+                    target,
+                    sourcePlayer: owner || null,
+                    cause: type || 'PROJECTILE',
+                    damageResult,
+                    projectileType: type || null,
+                });
                 if (damageResult?.isDead) {
                     this._killPlayer(target, 'PROJECTILE');
                 }
@@ -101,6 +108,7 @@ export class EntityManager {
         this._playerLifecycleSystem = new PlayerLifecycleSystem(this);
         this._overheatGunSystem = new OverheatGunSystem(this);
         this.onHuntFeedEvent = null;
+        this.onHuntDamageEvent = null;
 
         // Wiederverwendbare temp-Vektoren (vermeidet GC-Druck)
         this._tmpVec = new THREE.Vector3();
@@ -462,6 +470,11 @@ export class EntityManager {
 
     _notifyPlayerFeedback(player, message) { if (this.onPlayerFeedback) this.onPlayerFeedback(player, message); }
 
+    _emitHuntDamageEvent(event) {
+        if (typeof this.onHuntDamageEvent !== 'function') return;
+        this.onHuntDamageEvent(event || null);
+    }
+
     _killPlayer(player, cause = 'UNKNOWN') {
         player.kill();
         if (this.particles) this.particles.spawnExplosion(player.position, player.color);
@@ -615,6 +628,8 @@ export class EntityManager {
 
         this._trailSpatialIndex.clear();
         this._lockOnCache.clear();
+        this.onHuntDamageEvent = null;
+        this.onHuntFeedEvent = null;
     }
 
     dispose() {

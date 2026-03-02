@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { coordinateRoundEnd } from '../state/RoundEndCoordinator.js';
 import { disposeMatchSessionSystems, initializeMatchSession } from '../state/MatchSessionFactory.js';
 import {
@@ -9,6 +10,10 @@ import {
 export class MatchFlowUiController {
     constructor(game) {
         this.game = game;
+        this._damageDir = new THREE.Vector3();
+        this._damageForward = new THREE.Vector3();
+        this._damageRight = new THREE.Vector3();
+        this._damageWorldUp = new THREE.Vector3(0, 1, 0);
     }
 
     applyMatchUiState(uiState) {
@@ -66,6 +71,63 @@ export class MatchFlowUiController {
         this.resetCrosshairElementUi(game.ui.crosshairP2);
     }
 
+    _resolveDamageIndicatorAngle(target, event) {
+        if (!target) return 0;
+
+        if (event?.sourcePlayer?.position) {
+            this._damageDir.subVectors(event.sourcePlayer.position, target.position);
+        } else if (event?.hitNormal) {
+            this._damageDir.copy(event.hitNormal).multiplyScalar(-1);
+        } else {
+            target.getDirection(this._damageDir).multiplyScalar(-1);
+        }
+
+        if (this._damageDir.lengthSq() <= 0.000001) {
+            return 0;
+        }
+        this._damageDir.normalize();
+
+        target.getDirection(this._damageForward).normalize();
+        this._damageRight.crossVectors(this._damageWorldUp, this._damageForward);
+        if (this._damageRight.lengthSq() <= 0.000001) {
+            this._damageRight.set(1, 0, 0);
+        } else {
+            this._damageRight.normalize();
+        }
+
+        const forwardDot = THREE.MathUtils.clamp(this._damageForward.dot(this._damageDir), -1, 1);
+        const sideDot = THREE.MathUtils.clamp(this._damageRight.dot(this._damageDir), -1, 1);
+        return THREE.MathUtils.radToDeg(Math.atan2(sideDot, forwardDot));
+    }
+
+    _handleHuntDamageEvent(event) {
+        const game = this.game;
+        if (!game.huntState) return;
+
+        if (game.screenShake?.triggerForDamage) {
+            game.screenShake.triggerForDamage(event);
+        }
+
+        const target = event?.target;
+        if (!target || target.isBot || !target.alive) return;
+
+        const humans = game.entityManager?.getHumanPlayers ? game.entityManager.getHumanPlayers() : [];
+        if (!humans.includes(target)) return;
+
+        const damageResult = event?.damageResult || {};
+        const applied = Math.max(0, Number(damageResult.applied) || 0);
+        const absorbed = Math.max(0, Number(damageResult.absorbedByShield) || 0);
+        const damageValue = Math.max(applied, absorbed);
+        if (damageValue <= 0) return;
+
+        const intensity = THREE.MathUtils.clamp(0.2 + damageValue / 60, 0.2, 1.0);
+        game.huntState.damageIndicator = {
+            angleDeg: this._resolveDamageIndicatorAngle(target, event),
+            intensity,
+            ttl: THREE.MathUtils.clamp(0.35 + intensity * 0.55, 0.35, 0.95),
+        };
+    }
+
     startMatch() {
         const game = this.game;
         game.keyCapture = null;
@@ -102,6 +164,9 @@ export class MatchFlowUiController {
                 if (game.huntState.killFeed.length > 5) {
                     game.huntState.killFeed.length = 5;
                 }
+            };
+            game.entityManager.onHuntDamageEvent = (event) => {
+                this._handleHuntDamageEvent(event);
             };
         }
         game._applyMatchFeedbackPlan(initializedMatch.feedbackPlan);

@@ -29,6 +29,7 @@ import { MatchFlowUiController } from '../ui/MatchFlowUiController.js';
 import { RuntimeDiagnosticsSystem } from './RuntimeDiagnosticsSystem.js';
 import { KeybindEditorController } from '../ui/KeybindEditorController.js';
 import { HuntHUD } from '../hunt/HuntHUD.js';
+import { ScreenShake } from '../hunt/ScreenShake.js';
 
 /* global __APP_VERSION__, __BUILD_TIME__, __BUILD_ID__ */
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
@@ -83,6 +84,7 @@ export class Game {
         this.hudP1 = new HUD('p1-fighter-hud', 0);
         this.hudP2 = new HUD('p2-fighter-hud', 1);
         this.huntHud = new HuntHUD(this);
+        this.screenShake = new ScreenShake(this.renderer);
         this.hudRuntimeSystem = new HudRuntimeSystem(this);
         this.crosshairSystem = new CrosshairSystem(this);
         this.matchFlowUiController = new MatchFlowUiController(this);

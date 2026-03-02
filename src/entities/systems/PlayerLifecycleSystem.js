@@ -116,6 +116,13 @@ export class PlayerLifecycleSystem {
                     if (huntModeActive) {
                         const wallDamage = resolveCollisionDamage('WALL');
                         const damageResult = player.takeDamage(wallDamage);
+                        entityManager._emitHuntDamageEvent({
+                            target: player,
+                            sourcePlayer: null,
+                            cause: 'WALL',
+                            hitNormal: arenaCollision.normal || null,
+                            damageResult,
+                        });
                         if (damageResult.isDead) {
                             entityManager._killPlayer(player, 'WALL');
                             return;
@@ -141,6 +148,15 @@ export class PlayerLifecycleSystem {
                         if (entityManager.audio) entityManager.audio.play('HIT');
                         if (entityManager.particles) entityManager.particles.spawnHit(player.position, player.color);
                         const damageResult = player.takeDamage(resolveCollisionDamage('TRAIL'));
+                        const sourcePlayer = collision.playerIndex >= 0 && collision.playerIndex !== player.index
+                            ? entityManager.players[collision.playerIndex]
+                            : null;
+                        entityManager._emitHuntDamageEvent({
+                            target: player,
+                            sourcePlayer,
+                            cause: trailCause,
+                            damageResult,
+                        });
                         if (damageResult.isDead) {
                             entityManager._killPlayer(player, trailCause);
                             return;

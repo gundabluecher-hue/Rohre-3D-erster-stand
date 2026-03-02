@@ -39,6 +39,9 @@ export class Renderer {
         this.cameraTargets = []; // Smoothing-Ziele
         this.cameraModes = [];
         this.cameraBoostBlend = [];
+        this.cameraShakeTimers = [];
+        this.cameraShakeDurations = [];
+        this.cameraShakeIntensities = [];
 
         this.splitScreen = false;
 
@@ -50,6 +53,7 @@ export class Renderer {
         this._tmpLookAt = new THREE.Vector3();
         this._tmpCamDir = new THREE.Vector3();
         this._tmpCamProbe = new THREE.Vector3();
+        this._tmpShakeOffset = new THREE.Vector3();
     }
 
     _setupLights() {
@@ -107,6 +111,9 @@ export class Renderer {
         });
         this.cameraModes.push(0); // THIRD_PERSON
         this.cameraBoostBlend.push(0);
+        this.cameraShakeTimers.push(0);
+        this.cameraShakeDurations.push(0);
+        this.cameraShakeIntensities.push(0);
         return cam;
     }
 
@@ -123,6 +130,60 @@ export class Renderer {
 
     getCameraMode(playerIndex) {
         return CONFIG.CAMERA.MODES[this.cameraModes[playerIndex] || 0];
+    }
+
+    triggerCameraShake(playerIndex, intensity = 0.2, duration = 0.2) {
+        if (!Number.isInteger(playerIndex) || playerIndex < 0 || playerIndex >= this.cameras.length) return;
+        const safeIntensity = THREE.MathUtils.clamp(Number(intensity) || 0, 0, 1.5);
+        const safeDuration = Math.max(0.05, Number(duration) || 0.2);
+        this.cameraShakeIntensities[playerIndex] = Math.max(
+            this.cameraShakeIntensities[playerIndex] || 0,
+            safeIntensity
+        );
+        this.cameraShakeDurations[playerIndex] = Math.max(
+            this.cameraShakeDurations[playerIndex] || 0,
+            safeDuration
+        );
+        this.cameraShakeTimers[playerIndex] = Math.max(
+            this.cameraShakeTimers[playerIndex] || 0,
+            safeDuration
+        );
+    }
+
+    _resolveCameraShakeOffset(playerIndex, dt, out) {
+        out.set(0, 0, 0);
+        if (!Number.isInteger(playerIndex) || playerIndex < 0 || playerIndex >= this.cameraShakeTimers.length) {
+            return out;
+        }
+
+        const timer = this.cameraShakeTimers[playerIndex] || 0;
+        if (timer <= 0) {
+            this.cameraShakeIntensities[playerIndex] = 0;
+            this.cameraShakeDurations[playerIndex] = 0;
+            return out;
+        }
+
+        const duration = Math.max(0.05, this.cameraShakeDurations[playerIndex] || timer);
+        const nextTimer = Math.max(0, timer - Math.max(0, dt));
+        this.cameraShakeTimers[playerIndex] = nextTimer;
+
+        const normalized = THREE.MathUtils.clamp(nextTimer / duration, 0, 1);
+        const amplitude = Math.max(0, this.cameraShakeIntensities[playerIndex] || 0) * normalized;
+        if (amplitude <= 0.0001) {
+            this.cameraShakeIntensities[playerIndex] = 0;
+            return out;
+        }
+
+        const now = (typeof performance !== 'undefined' && performance.now)
+            ? performance.now() * 0.001
+            : Date.now() * 0.001;
+        const phase = now * 44 + playerIndex * 11.7;
+        out.set(
+            Math.sin(phase * 1.9) * amplitude * 0.58,
+            Math.cos(phase * 2.3 + 1.2) * amplitude * 0.36,
+            Math.sin(phase * 2.7 + 2.4) * amplitude * 0.42
+        );
+        return out;
     }
 
     /** Aktualisiert die Kameraposition für einen Spieler */
@@ -162,6 +223,8 @@ export class Renderer {
             CONFIG.CAMERA.FIRST_PERSON_BOOST_OFFSET || CONFIG.CAMERA.FIRST_PERSON_OFFSET,
             boostBlend
         );
+        const shakeOffset = this._resolveCameraShakeOffset(playerIndex, dt, this._tmpShakeOffset);
+        const hasShake = shakeOffset.x !== 0 || shakeOffset.y !== 0 || shakeOffset.z !== 0;
 
         if (cockpitCamera && playerQuaternion) {
             if (mode === 'THIRD_PERSON') {
@@ -184,6 +247,9 @@ export class Renderer {
                 this._tmpVec.set(0, 40, 5);
                 this._tmpVec.applyQuaternion(playerQuaternion);
                 target.position.copy(playerPosition).add(this._tmpVec);
+            }
+            if (hasShake) {
+                target.position.add(shakeOffset);
             }
 
             const smoothFactor = firstPersonHardLock ? 1 : (1 - Math.pow(1 - smooth, dt * 60));
@@ -220,6 +286,10 @@ export class Renderer {
             } else if (mode === 'TOP_DOWN') {
                 target.position.set(playerPosition.x, playerPosition.y + 40, playerPosition.z + 5);
                 target.lookAt.copy(playerPosition);
+            }
+            if (hasShake) {
+                target.position.add(shakeOffset);
+                target.lookAt.addScaledVector(shakeOffset, 0.35);
             }
 
             if (firstPersonHardLock) {
@@ -345,6 +415,9 @@ export class Renderer {
         this.cameraTargets = [];
         this.cameraModes = [];
         this.cameraBoostBlend = [];
+        this.cameraShakeTimers = [];
+        this.cameraShakeDurations = [];
+        this.cameraShakeIntensities = [];
     }
 
     clearMatchScene() {
