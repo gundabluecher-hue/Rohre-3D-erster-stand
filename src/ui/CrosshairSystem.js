@@ -15,21 +15,57 @@ export class CrosshairSystem {
         this._tmpAimVec = new THREE.Vector3();
         this._tmpAimDir = new THREE.Vector3();
         this._tmpRollEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+        this._domStateByElement = new WeakMap();
+    }
+
+    _getDomState(crosshairElement) {
+        let state = this._domStateByElement.get(crosshairElement);
+        if (!state) {
+            state = {
+                display: null,
+                left: null,
+                top: null,
+                transform: null,
+                locked: null,
+                overheat: null,
+            };
+            this._domStateByElement.set(crosshairElement, state);
+        }
+        return state;
+    }
+
+    _setCrosshairDisplay(crosshairElement, isVisible) {
+        if (!crosshairElement) return;
+        const state = this._getDomState(crosshairElement);
+        const nextDisplay = isVisible ? 'block' : 'none';
+        if (state.display !== nextDisplay) {
+            crosshairElement.style.display = nextDisplay;
+            state.display = nextDisplay;
+        }
+    }
+
+    _setCrosshairStyleValue(crosshairElement, key, nextValue) {
+        if (!crosshairElement) return;
+        const state = this._getDomState(crosshairElement);
+        if (state[key] !== nextValue) {
+            crosshairElement.style[key] = nextValue;
+            state[key] = nextValue;
+        }
     }
 
     _updateCrosshairPosition(player, crosshairElement) {
         const game = this.game;
         if (!player || !player.alive || !crosshairElement) {
-            if (crosshairElement) crosshairElement.style.display = 'none';
+            this._setCrosshairDisplay(crosshairElement, false);
             return;
         }
 
         const camera = game.renderer.cameras[player.index];
         if (!camera) {
-            crosshairElement.style.display = 'none';
+            this._setCrosshairDisplay(crosshairElement, false);
             return;
         }
-        crosshairElement.style.display = 'block';
+        this._setCrosshairDisplay(crosshairElement, true);
 
         const screenW = window.innerWidth;
         const screenH = window.innerHeight;
@@ -48,26 +84,35 @@ export class CrosshairSystem {
         this._tmpRollEuler.setFromQuaternion(player.quaternion, 'YXZ');
         const rollDeg = THREE.MathUtils.radToDeg(this._tmpRollEuler.z);
 
-        crosshairElement.style.left = `${x}px`;
-        crosshairElement.style.top = `${y}px`;
-        crosshairElement.style.transform = `translate(-50%, -50%) rotate(${rollDeg.toFixed(2)}deg)`;
+        this._setCrosshairStyleValue(crosshairElement, 'left', `${x}px`);
+        this._setCrosshairStyleValue(crosshairElement, 'top', `${y}px`);
+        this._setCrosshairStyleValue(
+            crosshairElement,
+            'transform',
+            `translate(-50%, -50%) rotate(${rollDeg.toFixed(2)}deg)`,
+        );
     }
 
     _syncCrosshairLockState(playerIndex, crosshairElement) {
         if (!crosshairElement) return;
         const lockTarget = this.game.entityManager.getLockOnTarget(playerIndex);
-        if (lockTarget) {
-            crosshairElement.classList.add('locked');
-        } else {
-            crosshairElement.classList.remove('locked');
+        const state = this._getDomState(crosshairElement);
+        const isLocked = !!lockTarget;
+        if (state.locked !== isLocked) {
+            crosshairElement.classList.toggle('locked', isLocked);
+            state.locked = isLocked;
         }
     }
 
     _syncCrosshairOverheatState(player, crosshairElement) {
         if (!crosshairElement || !player) return;
         const overheat = Number(this.game?.huntState?.overheatByPlayer?.[player.index] || 0);
-        const ratio = clamp(overheat / 100, 0, 1);
-        crosshairElement.style.setProperty('--crosshair-overheat', ratio.toFixed(2));
+        const overheatRatio = clamp(overheat / 100, 0, 1).toFixed(2);
+        const state = this._getDomState(crosshairElement);
+        if (state.overheat !== overheatRatio) {
+            crosshairElement.style.setProperty('--crosshair-overheat', overheatRatio);
+            state.overheat = overheatRatio;
+        }
     }
 
     updateCrosshairs() {
@@ -88,7 +133,7 @@ export class CrosshairSystem {
             if (shouldShowScreenCrosshair(p1)) {
                 this._updateCrosshairPosition(p1, game.ui.crosshairP1);
             } else {
-                game.ui.crosshairP1.style.display = 'none';
+                this._setCrosshairDisplay(game.ui.crosshairP1, false);
             }
             this._syncCrosshairLockState(0, game.ui.crosshairP1);
             this._syncCrosshairOverheatState(p1, game.ui.crosshairP1);
@@ -99,12 +144,12 @@ export class CrosshairSystem {
                 if (shouldShowScreenCrosshair(p2)) {
                     this._updateCrosshairPosition(p2, game.ui.crosshairP2);
                 } else {
-                    game.ui.crosshairP2.style.display = 'none';
+                    this._setCrosshairDisplay(game.ui.crosshairP2, false);
                 }
                 this._syncCrosshairLockState(1, game.ui.crosshairP2);
                 this._syncCrosshairOverheatState(p2, game.ui.crosshairP2);
             } else {
-                game.ui.crosshairP2.style.display = 'none';
+                this._setCrosshairDisplay(game.ui.crosshairP2, false);
             }
         }
     }

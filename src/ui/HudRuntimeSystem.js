@@ -7,6 +7,7 @@ import { CONFIG } from '../core/Config.js';
 export class HudRuntimeSystem {
     constructor(game) {
         this.game = game;
+        this._hudP2Visible = null;
     }
 
     updateScoreHud() {
@@ -70,6 +71,12 @@ export class HudRuntimeSystem {
         }
     }
 
+    _setHudP2Visibility(isVisible) {
+        if (this._hudP2Visible === isVisible) return;
+        this._hudP2Visible = isVisible;
+        this.game.hudP2.setVisibility(isVisible);
+    }
+
     updatePlayingHudTick(dt) {
         const game = this.game;
         if (!game.entityManager) return;
@@ -86,10 +93,11 @@ export class HudRuntimeSystem {
         if (p1) game.hudP1.update(p1, dt, game.entityManager);
 
         if (game.numHumans === 2) {
+            this._setHudP2Visibility(true);
             const p2 = game.entityManager.players[1];
             if (p2) game.hudP2.update(p2, dt, game.entityManager);
         } else {
-            game.hudP2.setVisibility(false);
+            this._setHudP2Visibility(false);
         }
     }
 }

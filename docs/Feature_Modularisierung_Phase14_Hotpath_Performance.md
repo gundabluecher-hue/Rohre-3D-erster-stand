@@ -68,7 +68,7 @@ Intervall L (vor Abschluss von 14.8):
 - [x] 14.0 Baseline, Metrik-Gates und Ownership finalisieren
 - [x] 14.1A HuntHUD Kill-Feed inkrementell statt Full-Rebuild
 - [x] 14.1B RuntimeDiagnostics FPS-Ringbuffer ohne per-frame reduce/shift
-- [ ] 14.2A HUD/Crosshair nur bei Aenderung in DOM schreiben
+- [x] 14.2A HUD/Crosshair nur bei Aenderung in DOM schreiben
 - [x] 14.2B Bot-Portal-Intent ohne Loop-Allokationen
 - [ ] 14.3A HUD-Tick-Entzerrung (getrennte Frequenzen Score/Feed/Indikator)
 - [x] 14.3B Overheat-Snapshot als mutable Ref + dirty-Flag
