@@ -4,6 +4,8 @@
 
 import * as THREE from 'three';
 import { CONFIG } from '../core/Config.js';
+import { isHuntHealthActive } from '../hunt/HealthSystem.js';
+import { isRocketTierType, pickWeightedRocketTierType } from '../hunt/RocketPickupSystem.js';
 
 export class PowerupManager {
     constructor(renderer, arena) {
@@ -47,7 +49,25 @@ export class PowerupManager {
     }
 
     _spawnRandom() {
-        const type = this.typeKeys[Math.floor(Math.random() * this.typeKeys.length)];
+        const huntModeActive = isHuntHealthActive();
+        const spawnableTypes = this.typeKeys.filter((typeKey) => {
+            const entry = CONFIG.POWERUP.TYPES[typeKey];
+            if (!entry) return false;
+            if (entry.huntOnly && !huntModeActive) return false;
+            if (entry.classicOnly && huntModeActive) return false;
+            return true;
+        });
+        if (spawnableTypes.length === 0) return;
+
+        let type = spawnableTypes[Math.floor(Math.random() * spawnableTypes.length)];
+        const rocketSpawnChance = Math.max(0, Number(CONFIG?.HUNT?.ROCKET_PICKUP_SPAWN_CHANCE || 0));
+        if (huntModeActive && Math.random() < rocketSpawnChance) {
+            const weightedRocketType = pickWeightedRocketTierType();
+            if (spawnableTypes.includes(weightedRocketType) || isRocketTierType(weightedRocketType)) {
+                type = weightedRocketType;
+            }
+        }
+
         const config = CONFIG.POWERUP.TYPES[type];
         let pos = null;
         if (CONFIG.GAMEPLAY.PLANAR_MODE && this.arena?.getPortalLevels) {

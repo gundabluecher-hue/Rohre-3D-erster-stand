@@ -4,6 +4,8 @@
 
 import * as THREE from 'three';
 import { CONFIG } from '../../core/Config.js';
+import { isHuntHealthActive } from '../../hunt/HealthSystem.js';
+import { isRocketTierType, resolveRocketTierDamage } from '../../hunt/RocketPickupSystem.js';
 
 function getNowMilliseconds() {
     if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
@@ -30,6 +32,7 @@ export class ProjectileSystem {
         this.onShoot = typeof options.onShoot === 'function' ? options.onShoot : (() => { });
         this.onProjectileHit = typeof options.onProjectileHit === 'function' ? options.onProjectileHit : (() => { });
         this.onProjectilePowerup = typeof options.onProjectilePowerup === 'function' ? options.onProjectilePowerup : (() => { });
+        this.onProjectileDamage = typeof options.onProjectileDamage === 'function' ? options.onProjectileDamage : (() => { });
 
         this.projectiles = [];
         this._projectileAssets = new Map();
@@ -345,7 +348,13 @@ export class ProjectileSystem {
                 }
 
                 if (hit) {
-                    if (target.hasShield) {
+                    const huntRocketHit = isHuntHealthActive() && isRocketTierType(projectile.type);
+                    if (huntRocketHit) {
+                        const damage = resolveRocketTierDamage(projectile.type);
+                        const damageResult = target.takeDamage(damage);
+                        this.onProjectilePowerup(target, projectile);
+                        this.onProjectileDamage(target, projectile.owner, projectile.type, damageResult);
+                    } else if (target.hasShield) {
                         target.hasShield = false;
                     } else {
                         target.applyPowerup(projectile.type);

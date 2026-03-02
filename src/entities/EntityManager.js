@@ -70,6 +70,21 @@ export class EntityManager {
                 if (this.particles) this.particles.spawnExplosion(target.position, 0xff0000);
                 if (this.audio) this.audio.play('POWERUP');
             },
+            onProjectileDamage: (target, owner, type, damageResult) => {
+                if (damageResult?.isDead) {
+                    this._killPlayer(target, 'PROJECTILE');
+                }
+                if (damageResult?.isDead && this.onHuntFeedEvent && owner) {
+                    const attackerLabel = owner.isBot ? `Bot ${owner.index + 1}` : `P${owner.index + 1}`;
+                    const targetLabel = target.isBot ? `Bot ${target.index + 1}` : `P${target.index + 1}`;
+                    this.onHuntFeedEvent(`${attackerLabel} -> ${targetLabel}: ELIMINATED`);
+                }
+                if (!damageResult?.isDead && this.onHuntFeedEvent && owner) {
+                    const attackerLabel = owner.isBot ? `Bot ${owner.index + 1}` : `P${owner.index + 1}`;
+                    const targetLabel = target.isBot ? `Bot ${target.index + 1}` : `P${target.index + 1}`;
+                    this.onHuntFeedEvent(`${attackerLabel} -> ${targetLabel}: -${Math.round(damageResult?.applied || 0)} HP`);
+                }
+            },
         });
         this.projectiles = this._projectileSystem.projectiles;
         this.onPlayerDied = null;
