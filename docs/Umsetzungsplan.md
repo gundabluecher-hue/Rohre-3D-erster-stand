@@ -96,7 +96,7 @@ Letztes Update: 2026-03-02
   - [x] 12.6 `EditorMapManager` Split B - Mesh/Registry Ops auslagern
   - **Block B - parallel zu Phase 11 moeglich (kein Datei-Overlap):**
   - [x] 12.7 `main.js` Split A - Runtime Diagnostics entkoppeln
-  - [ ] 12.8 `main.js` Split B - Keybind-Editor Controller entkoppeln
+  - [x] 12.8 `main.js` Split B - Keybind-Editor Controller entkoppeln
   - [ ] 12.11 `Player.js` Split B - Motion/Update Ops auslagern
   - **Block C - Dependency-Gates, warten auf Phase 11:**
   - [x] 12.9 `main.js` Split C - Match/UI-Flow Controller entkoppeln — **GATE: wartet auf 11.1 [x]**

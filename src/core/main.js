@@ -13,7 +13,7 @@ import { RoundRecorder } from '../state/RoundRecorder.js';
 import { VEHICLE_DEFINITIONS } from '../entities/vehicle-registry.js';
 import { CUSTOM_MAP_KEY } from '../entities/MapSchema.js';
 import { UIManager } from '../ui/UIManager.js';
-import { SettingsManager, KEY_BIND_ACTIONS } from './SettingsManager.js';
+import { SettingsManager } from './SettingsManager.js';
 import { ProfileManager } from './ProfileManager.js';
 import { MenuController, MENU_CONTROLLER_EVENT_TYPES } from '../ui/MenuController.js';
 import { deriveProfileControlSelectState } from '../ui/ProfileControlStateOps.js';
@@ -27,6 +27,7 @@ import { applyRuntimeConfigCompatibility } from './RuntimeConfig.js';
 import { GAME_MODE_TYPES } from '../hunt/HuntMode.js';
 import { MatchFlowUiController } from '../ui/MatchFlowUiController.js';
 import { RuntimeDiagnosticsSystem } from './RuntimeDiagnosticsSystem.js';
+import { KeybindEditorController } from '../ui/KeybindEditorController.js';
 
 /* global __APP_VERSION__, __BUILD_TIME__, __BUILD_ID__ */
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
@@ -79,6 +80,7 @@ export class Game {
         this.crosshairSystem = new CrosshairSystem(this);
         this.matchFlowUiController = new MatchFlowUiController(this);
         this.runtimeDiagnosticsSystem = new RuntimeDiagnosticsSystem(this);
+        this.keybindEditorController = new KeybindEditorController(this);
 
         // Debug Recorder
         this.recorder = new RoundRecorder();
@@ -188,7 +190,7 @@ export class Game {
 
         this.gameLoop.start();
 
-        window.addEventListener('keydown', (e) => this._handleKeyCapture(e), true);
+        window.addEventListener('keydown', (e) => this.keybindEditorController.handleKeyCapture(e), true);
 
         this._autoStartPlaytestIfRequested();
     }
@@ -575,138 +577,39 @@ export class Game {
     }
 
     _renderKeybindEditor() {
-        const conflicts = this._collectKeyConflicts();
-        this._renderKeybindRows('PLAYER_1', this.ui.keybindP1, conflicts);
-        this._renderKeybindRows('PLAYER_2', this.ui.keybindP2, conflicts);
-        this._updateKeyConflictWarning(conflicts);
+        this.keybindEditorController.renderEditor();
     }
 
     _renderKeybindRows(playerKey, container, conflicts) {
-        container.innerHTML = '';
-
-        for (const action of KEY_BIND_ACTIONS) {
-            const row = document.createElement('div');
-            row.className = 'key-row';
-
-            const label = document.createElement('div');
-            label.className = 'key-action';
-            label.textContent = action.label;
-
-            const value = this._getControlValue(playerKey, action.key);
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'keybind-btn';
-            button.dataset.action = action.key;
-            const isConflict = !!value && (conflicts.get(value) || 0) > 1;
-            button.textContent = this._formatKeyCode(value) + (isConflict ? '  (Konflikt)' : '');
-            if (isConflict) {
-                row.classList.add('conflict');
-                button.classList.add('conflict');
-            }
-
-            if (this.keyCapture && this.keyCapture.playerKey === playerKey && this.keyCapture.actionKey === action.key) {
-                button.classList.add('listening');
-                button.textContent = 'Taste druecken...';
-            }
-
-            row.appendChild(label);
-            row.appendChild(button);
-            container.appendChild(row);
-        }
+        this.keybindEditorController.renderKeybindRows(playerKey, container, conflicts);
     }
 
     _startKeyCapture(playerKey, actionKey) {
-        this.keyCapture = { playerKey, actionKey };
-        this._renderKeybindEditor();
+        this.keybindEditorController.startKeyCapture(playerKey, actionKey);
     }
 
     _handleKeyCapture(event) {
-        if (!this.keyCapture || this.ui.mainMenu.classList.contains('hidden')) {
-            return;
-        }
-
-        event.preventDefault();
-        event.stopPropagation();
-
-        if (event.code === 'Escape') {
-            this.keyCapture = null;
-            this._renderKeybindEditor();
-            return;
-        }
-
-        this._setControlValue(this.keyCapture.playerKey, this.keyCapture.actionKey, event.code);
-        this.keyCapture = null;
-        this._onSettingsChanged();
-        this._showStatusToast('✅ Taste gespeichert!');
+        this.keybindEditorController.handleKeyCapture(event);
     }
 
     _getControlValue(playerKey, actionKey) {
-        return this.settings.controls[playerKey][actionKey] || '';
+        return this.keybindEditorController.getControlValue(playerKey, actionKey);
     }
 
     _setControlValue(playerKey, actionKey, value) {
-        this.settings.controls[playerKey][actionKey] = value;
+        this.keybindEditorController.setControlValue(playerKey, actionKey, value);
     }
 
     _collectKeyConflicts() {
-        const counts = new Map();
-        for (const playerKey of ['PLAYER_1', 'PLAYER_2']) {
-            for (const action of KEY_BIND_ACTIONS) {
-                const code = this._getControlValue(playerKey, action.key);
-                if (!code) continue;
-                counts.set(code, (counts.get(code) || 0) + 1);
-            }
-        }
-        return counts;
+        return this.keybindEditorController.collectKeyConflicts();
     }
 
     _updateKeyConflictWarning(conflicts) {
-        const conflictCodes = Array.from(conflicts.entries())
-            .filter(([, count]) => count > 1)
-            .map(([code]) => this._formatKeyCode(code));
-
-        if (conflictCodes.length === 0) {
-            this.ui.keybindWarning.classList.add('hidden');
-            this.ui.keybindWarning.textContent = '';
-            return;
-        }
-
-        this.ui.keybindWarning.classList.remove('hidden');
-        this.ui.keybindWarning.textContent = `Achtung: Mehrfachbelegte Tasten: ${conflictCodes.join(', ')}`;
+        this.keybindEditorController.updateKeyConflictWarning(conflicts);
     }
 
     _formatKeyCode(code) {
-        if (!code) return '-';
-
-        const named = {
-            ArrowUp: 'Arrow Up',
-            ArrowDown: 'Arrow Down',
-            ArrowLeft: 'Arrow Left',
-            ArrowRight: 'Arrow Right',
-            ShiftLeft: 'Shift Left',
-            ShiftRight: 'Shift Right',
-            Space: 'Space',
-            Enter: 'Enter',
-            Escape: 'Escape',
-            ControlLeft: 'Ctrl Left',
-            ControlRight: 'Ctrl Right',
-            AltLeft: 'Alt Left',
-            AltRight: 'Alt Right',
-        };
-
-        if (named[code]) {
-            return named[code];
-        }
-        if (code.startsWith('Key')) {
-            return code.slice(3);
-        }
-        if (code.startsWith('Digit')) {
-            return code.slice(5);
-        }
-        if (code.startsWith('Numpad')) {
-            return `Num ${code.slice(6)}`;
-        }
-        return code;
+        return this.keybindEditorController.formatKeyCode(code);
     }
 
     _showStatusToast(message, durationMs = 1200, tone = 'info') {
