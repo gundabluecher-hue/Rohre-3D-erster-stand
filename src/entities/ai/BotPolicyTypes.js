@@ -4,6 +4,7 @@
 
 export const BOT_POLICY_TYPES = Object.freeze({
     RULE_BASED: 'rule-based',
+    HUNT: 'hunt',
 });
 
 export const DEFAULT_BOT_POLICY_TYPE = BOT_POLICY_TYPES.RULE_BASED;

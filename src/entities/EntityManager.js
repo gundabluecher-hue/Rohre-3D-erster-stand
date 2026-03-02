@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { CONFIG } from '../core/Config.js';
 import { Player } from './Player.js';
 import { BotPolicyRegistry } from './ai/BotPolicyRegistry.js';
-import { DEFAULT_BOT_POLICY_TYPE } from './ai/BotPolicyTypes.js';
+import { BOT_POLICY_TYPES, DEFAULT_BOT_POLICY_TYPE } from './ai/BotPolicyTypes.js';
 import { getVehicleIds, isValidVehicleId } from './vehicle-registry.js';
 import { ProjectileSystem } from './systems/ProjectileSystem.js';
 import { PlayerInputSystem } from './systems/PlayerInputSystem.js';
@@ -196,7 +196,10 @@ export class EntityManager {
         const humanConfigs = Array.isArray(options.humanConfigs) ? options.humanConfigs : [];
         const modelScale = typeof options.modelScale === 'number' ? options.modelScale : (CONFIG.PLAYER.MODEL_SCALE || 1);
         this.botDifficulty = options.botDifficulty || CONFIG.BOT.ACTIVE_DIFFICULTY || this.botDifficulty;
-        this.botPolicyType = options.botPolicyType || this.botPolicyType;
+        const requestedPolicyType = options.botPolicyType || this.botPolicyType;
+        this.botPolicyType = isHuntHealthActive()
+            ? BOT_POLICY_TYPES.HUNT
+            : requestedPolicyType;
         const availableVehicleIds = getVehicleIds();
         const defaultVehicleId = String(CONFIG.PLAYER.DEFAULT_VEHICLE_ID || availableVehicleIds[0] || 'aircraft');
         const normalizeVehicleId = (value) => {

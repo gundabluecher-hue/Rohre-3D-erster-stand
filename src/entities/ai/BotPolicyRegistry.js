@@ -9,11 +9,13 @@ import {
     normalizeBotPolicyType,
 } from './BotPolicyTypes.js';
 import { RuleBasedBotPolicy } from './RuleBasedBotPolicy.js';
+import { HuntBotPolicy } from '../../hunt/HuntBotPolicy.js';
 
 export class BotPolicyRegistry {
     constructor() {
         this._factories = new Map();
         this.register(BOT_POLICY_TYPES.RULE_BASED, (options) => new RuleBasedBotPolicy(options));
+        this.register(BOT_POLICY_TYPES.HUNT, (options) => new HuntBotPolicy(options));
     }
 
     register(type, factory) {

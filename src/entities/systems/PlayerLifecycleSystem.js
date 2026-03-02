@@ -42,9 +42,14 @@ export class PlayerLifecycleSystem {
         }
 
         if (input.shootItem) {
-            const result = huntModeActive
-                ? entityManager._shootHuntGun(player)
-                : entityManager._shootItemProjectile(player, input.shootItemIndex);
+            let result = null;
+            if (huntModeActive && Number.isInteger(input.shootItemIndex) && input.shootItemIndex >= 0) {
+                result = entityManager._shootItemProjectile(player, input.shootItemIndex);
+            } else if (huntModeActive) {
+                result = entityManager._shootHuntGun(player);
+            } else {
+                result = entityManager._shootItemProjectile(player, input.shootItemIndex);
+            }
             if (!result.ok && !player.isBot) {
                 entityManager._notifyPlayerFeedback(player, result.reason);
             } else if (result.ok && entityManager.recorder) {
