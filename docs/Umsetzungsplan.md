@@ -166,8 +166,8 @@ Letztes Update: 2026-03-02
 - Referenzplan: `docs/Feature_Modularisierung_Phase14_Hotpath_Performance.md`
 - Teilphasen:
   - [x] 14.0 Baseline, Metrik-Gates und Ownership finalisieren
-  - [ ] 14.1A HuntHUD Kill-Feed inkrementell statt Full-Rebuild
-  - [ ] 14.1B RuntimeDiagnostics FPS-Ringbuffer ohne per-frame reduce/shift
+  - [x] 14.1A HuntHUD Kill-Feed inkrementell statt Full-Rebuild
+  - [x] 14.1B RuntimeDiagnostics FPS-Ringbuffer ohne per-frame reduce/shift
   - [ ] 14.2A HUD/Crosshair nur bei Aenderung in DOM schreiben
   - [ ] 14.2B Bot-Portal-Intent ohne Loop-Allokationen
   - [ ] 14.3A HUD-Tick-Entzerrung (getrennte Frequenzen Score/Feed/Indikator)
@@ -188,4 +188,5 @@ Letztes Update: 2026-03-02
   - Intervall L zum Abschluss: `npm run benchmark:baseline`, `npm run docs:sync`, `npm run docs:check`
 - Prompt-Regel:
   - Nach jeder Phase direkt die naechste Phase starten, nur bei rotem Gate stoppen.
+
 

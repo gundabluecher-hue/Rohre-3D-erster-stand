@@ -66,8 +66,8 @@ Intervall L (vor Abschluss von 14.8):
 ## Fortschrittsboard
 
 - [x] 14.0 Baseline, Metrik-Gates und Ownership finalisieren
-- [ ] 14.1A HuntHUD Kill-Feed inkrementell statt Full-Rebuild
-- [ ] 14.1B RuntimeDiagnostics FPS-Ringbuffer ohne per-frame reduce/shift
+- [x] 14.1A HuntHUD Kill-Feed inkrementell statt Full-Rebuild
+- [x] 14.1B RuntimeDiagnostics FPS-Ringbuffer ohne per-frame reduce/shift
 - [ ] 14.2A HUD/Crosshair nur bei Aenderung in DOM schreiben
 - [ ] 14.2B Bot-Portal-Intent ohne Loop-Allokationen
 - [ ] 14.3A HUD-Tick-Entzerrung (getrennte Frequenzen Score/Feed/Indikator)
@@ -487,4 +487,5 @@ Start erster Schritt:
 Weiter nach jedem Schritt:
 
 `Markiere Phase 14.X als erledigt und starte unmittelbar die naechste Phase aus docs/Feature_Modularisierung_Phase14_Hotpath_Performance.md inklusive der dort definierten Verifikation.`
+
 

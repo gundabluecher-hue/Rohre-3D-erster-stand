@@ -1,3 +1,32 @@
+const FPS_TRACKER_WINDOW = 60;
+
+function createFpsTracker(windowSize = FPS_TRACKER_WINDOW) {
+    return {
+        samples: new Float32Array(windowSize),
+        writeIndex: 0,
+        count: 0,
+        sum: 0,
+        avg: 60,
+        update(dt) {
+            if (!(dt > 0)) return;
+
+            const fps = 1 / dt;
+            if (this.count < windowSize) {
+                this.samples[this.writeIndex] = fps;
+                this.sum += fps;
+                this.count++;
+            } else {
+                const previous = this.samples[this.writeIndex];
+                this.samples[this.writeIndex] = fps;
+                this.sum += fps - previous;
+            }
+
+            this.writeIndex = (this.writeIndex + 1) % windowSize;
+            this.avg = this.count > 0 ? this.sum / this.count : 60;
+        },
+    };
+}
+
 export class RuntimeDiagnosticsSystem {
     constructor(game) {
         this.game = game;
@@ -7,17 +36,7 @@ export class RuntimeDiagnosticsSystem {
         game._statsTimer = 0;
         game.isLowQuality = false;
         game.stats = null;
-        game._fpsTracker = {
-            samples: [],
-            avg: 60,
-            update(dt) {
-                if (dt > 0) this.samples.push(1 / dt);
-                if (this.samples.length > 60) this.samples.shift();
-                this.avg = this.samples.length > 0
-                    ? this.samples.reduce((a, b) => a + b, 0) / this.samples.length
-                    : 60;
-            },
-        };
+        game._fpsTracker = createFpsTracker();
 
         window.addEventListener('keydown', this._onKeyDown);
     }
@@ -34,7 +53,7 @@ export class RuntimeDiagnosticsSystem {
             return;
         }
 
-        if (event.code !== 'KeyF') return;
+        if (event.code !== 'KeyO') return;
 
         if (!game.stats) {
             game.stats = document.createElement('div');
