@@ -25,6 +25,33 @@ export class HuntHUD {
         this._killFeedSlots = [];
         this._killFeedCachedTexts = new Array(5).fill('');
         this.damageIndicator = document.getElementById('hunt-damage-indicator');
+        this._playerPanelTickTimer = 0;
+        this._killFeedTickTimer = 0;
+        this._indicatorTickTimer = 0;
+        this._wasHuntActive = false;
+    }
+    _resolveUiHotpathInterval(key, fallback) {
+        const configured = Number(this.game?.runtimeConfig?.uiHotpath?.[key]);
+        if (Number.isFinite(configured) && configured > 0) {
+            return configured;
+        }
+        return fallback;
+    }
+
+    _consumeTick(timerKey, dt, interval) {
+        const elapsed = this[timerKey] + dt;
+        if (elapsed < interval) {
+            this[timerKey] = elapsed;
+            return 0;
+        }
+        this[timerKey] = elapsed % interval;
+        return elapsed;
+    }
+
+    _resetTickState() {
+        this._playerPanelTickTimer = 0;
+        this._killFeedTickTimer = 0;
+        this._indicatorTickTimer = 0;
     }
 
     update(dt) {
@@ -33,30 +60,54 @@ export class HuntHUD {
         const game = this.game;
         const huntActive = game.activeGameMode === GAME_MODE_TYPES.HUNT && game.state !== 'MENU';
         this.root.classList.toggle('hidden', !huntActive);
-        if (!huntActive) return;
+        if (!huntActive) {
+            if (this._wasHuntActive) {
+                this._resetTickState();
+            }
+            this._wasHuntActive = false;
+            return;
+        }
 
-        const humans = game.entityManager ? game.entityManager.getHumanPlayers() : [];
-        this._updatePlayerPanel(humans[0], {
-            hpFill: this.p1HpFill,
-            hpText: this.p1HpText,
-            overheatFill: this.p1OverheatFill,
-            overheatText: this.p1OverheatText,
-        });
-        if (this.p2Panel) {
-            const p2Visible = humans.length > 1;
-            this.p2Panel.classList.toggle('hidden', !p2Visible);
-            if (p2Visible) {
-                this._updatePlayerPanel(humans[1], {
-                    hpFill: this.p2HpFill,
-                    hpText: this.p2HpText,
-                    overheatFill: this.p2OverheatFill,
-                    overheatText: this.p2OverheatText,
-                });
+        const playerPanelInterval = this._resolveUiHotpathInterval('huntPlayerPanelInterval', 0.12);
+        const killFeedInterval = this._resolveUiHotpathInterval('huntKillFeedInterval', 0.12);
+        const indicatorInterval = this._resolveUiHotpathInterval('huntIndicatorInterval', 0.04);
+        if (!this._wasHuntActive) {
+            this._playerPanelTickTimer = playerPanelInterval;
+            this._killFeedTickTimer = killFeedInterval;
+            this._indicatorTickTimer = indicatorInterval;
+            this._wasHuntActive = true;
+        }
+
+        if (this._consumeTick('_playerPanelTickTimer', dt, playerPanelInterval) > 0) {
+            const humans = game.entityManager ? game.entityManager.getHumanPlayers() : [];
+            this._updatePlayerPanel(humans[0], {
+                hpFill: this.p1HpFill,
+                hpText: this.p1HpText,
+                overheatFill: this.p1OverheatFill,
+                overheatText: this.p1OverheatText,
+            });
+            if (this.p2Panel) {
+                const p2Visible = humans.length > 1;
+                this.p2Panel.classList.toggle('hidden', !p2Visible);
+                if (p2Visible) {
+                    this._updatePlayerPanel(humans[1], {
+                        hpFill: this.p2HpFill,
+                        hpText: this.p2HpText,
+                        overheatFill: this.p2OverheatFill,
+                        overheatText: this.p2OverheatText,
+                    });
+                }
             }
         }
 
-        this._updateKillFeed();
-        this._updateDamageIndicator(dt);
+        if (this._consumeTick('_killFeedTickTimer', dt, killFeedInterval) > 0) {
+            this._updateKillFeed();
+        }
+
+        const indicatorElapsed = this._consumeTick('_indicatorTickTimer', dt, indicatorInterval);
+        if (indicatorElapsed > 0) {
+            this._updateDamageIndicator(indicatorElapsed);
+        }
     }
 
     _updatePlayerPanel(player, refs) {

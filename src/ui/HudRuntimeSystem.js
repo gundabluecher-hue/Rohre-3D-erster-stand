@@ -77,14 +77,23 @@ export class HudRuntimeSystem {
         this.game.hudP2.setVisibility(isVisible);
     }
 
+    _resolveScoreHudInterval() {
+        const configuredInterval = Number(this.game?.runtimeConfig?.uiHotpath?.scoreInventoryInterval);
+        if (Number.isFinite(configuredInterval) && configuredInterval > 0) {
+            return configuredInterval;
+        }
+        return 0.2;
+    }
+
     updatePlayingHudTick(dt) {
         const game = this.game;
         if (!game.entityManager) return;
 
-        // HUD nur alle ~200ms aktualisieren (reicht fuer UI)
+        // Score/Inventory laufen auf eigener, konservativer Tick-Frequenz.
+        const scoreHudInterval = this._resolveScoreHudInterval();
         game._hudTimer += dt;
-        if (game._hudTimer >= 0.2) {
-            game._hudTimer = 0;
+        if (game._hudTimer >= scoreHudInterval) {
+            game._hudTimer %= scoreHudInterval;
             this.updateScoreHud();
         }
 
