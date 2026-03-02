@@ -31,7 +31,7 @@ Das Spiel wird in kleinen, sicheren Schritten weiter modularisiert, damit:
 - [x] 10.6 Arena Split - Builder / Collision / PortalGate (Erledigt: 2026-03-02)
 - [x] 10.7 Bot Split II - Recovery/Targeting/Scoring Ops (Erledigt: 2026-03-02)
 - [x] 10.8 RuntimeConfig Snapshot statt globaler Streuung (Erledigt: 2026-03-02)
-- [ ] 10.9 Abschluss, Baseline-Vergleich, Cleanup
+- [/] 10.9 Abschluss, Baseline-Vergleich, Cleanup (In Bearbeitung: 2026-03-02)
 
 ---
 
