@@ -158,7 +158,7 @@ export class PlayerLifecycleSystem {
                             damageResult,
                         });
                         if (damageResult.isDead) {
-                            entityManager._killPlayer(player, trailCause);
+                            entityManager._killPlayer(player, trailCause, { killer: sourcePlayer || null });
                             return;
                         }
                     } else if (player.hasShield) {

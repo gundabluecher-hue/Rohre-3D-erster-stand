@@ -13,6 +13,9 @@ import { PlayerInputSystem } from './systems/PlayerInputSystem.js';
 import { PlayerLifecycleSystem } from './systems/PlayerLifecycleSystem.js';
 import { TrailSpatialIndex } from './systems/TrailSpatialIndex.js';
 import { OverheatGunSystem } from '../hunt/OverheatGunSystem.js';
+import { RespawnSystem } from '../hunt/RespawnSystem.js';
+import { HuntScoring } from '../hunt/HuntScoring.js';
+import { isHuntHealthActive } from '../hunt/HealthSystem.js';
 
 function clampInt(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -86,7 +89,7 @@ export class EntityManager {
                     projectileType: type || null,
                 });
                 if (damageResult?.isDead) {
-                    this._killPlayer(target, 'PROJECTILE');
+                    this._killPlayer(target, 'PROJECTILE', { killer: owner || null });
                 }
                 if (damageResult?.isDead && this.onHuntFeedEvent && owner) {
                     const attackerLabel = owner.isBot ? `Bot ${owner.index + 1}` : `P${owner.index + 1}`;
@@ -107,6 +110,8 @@ export class EntityManager {
         this._playerInputSystem = new PlayerInputSystem(this);
         this._playerLifecycleSystem = new PlayerLifecycleSystem(this);
         this._overheatGunSystem = new OverheatGunSystem(this);
+        this._respawnSystem = new RespawnSystem(this);
+        this._huntScoring = new HuntScoring();
         this.onHuntFeedEvent = null;
         this.onHuntDamageEvent = null;
 
@@ -260,6 +265,7 @@ export class EntityManager {
 
     spawnAll() {
         this._roundEnded = false;
+        this._respawnSystem.reset();
         const isPlanar = !!CONFIG.GAMEPLAY.PLANAR_MODE;
         const planarSpawnLevel = isPlanar ? this._getPlanarSpawnLevel() : null;
 
@@ -374,6 +380,7 @@ export class EntityManager {
         this._lockOnCache.clear();
         this._projectileSystem.update(dt);
         this._overheatGunSystem.update(dt);
+        this._respawnSystem.update(dt);
 
         for (const player of this.players) {
             if (!player.alive) continue;
@@ -392,12 +399,16 @@ export class EntityManager {
                 lastHumanAlive = h;
             }
         }
+        const huntRespawnEnabled = isHuntHealthActive() && !!CONFIG?.HUNT?.RESPAWN_ENABLED;
+        const pendingHumanRespawns = huntRespawnEnabled
+            ? this._respawnSystem.getPendingCountForPlayers(this.humanPlayers)
+            : 0;
 
         let shouldEnd = false;
         let winner = null;
 
         if (this.humanPlayers.length === 1) {
-            if (humansAlive === 0) {
+            if (humansAlive === 0 && pendingHumanRespawns === 0) {
                 shouldEnd = true;
                 for (let i = 0; i < this.bots.length; i++) {
                     const botPlayer = this.bots[i].player;
@@ -405,7 +416,10 @@ export class EntityManager {
                 }
             }
         } else if (this.humanPlayers.length >= 2) {
-            if (humansAlive <= 1) { shouldEnd = true; winner = lastHumanAlive; }
+            if (humansAlive <= 1 && pendingHumanRespawns === 0) {
+                shouldEnd = true;
+                winner = lastHumanAlive;
+            }
         }
 
         if (shouldEnd) {
@@ -443,6 +457,14 @@ export class EntityManager {
         return this._overheatGunSystem.getOverheatSnapshot();
     }
 
+    getHuntScoreboard() {
+        return this._huntScoring.getScoreboard(this.players);
+    }
+
+    getHuntScoreboardSummary(maxEntries = 3) {
+        return this._huntScoring.formatSummary(this.players, { maxEntries });
+    }
+
     _checkLockOn(player) {
         if (this._lockOnCache.has(player.index)) return this._lockOnCache.get(player.index);
         player.getDirection(this._tmpDir).normalize();
@@ -471,15 +493,29 @@ export class EntityManager {
     _notifyPlayerFeedback(player, message) { if (this.onPlayerFeedback) this.onPlayerFeedback(player, message); }
 
     _emitHuntDamageEvent(event) {
+        if (isHuntHealthActive()) {
+            this._huntScoring.registerDamage(event?.sourcePlayer, event?.target, event?.damageResult);
+        }
         if (typeof this.onHuntDamageEvent !== 'function') return;
         this.onHuntDamageEvent(event || null);
     }
 
-    _killPlayer(player, cause = 'UNKNOWN') {
+    _killPlayer(player, cause = 'UNKNOWN', options = {}) {
+        if (!player || !player.alive) return;
         player.kill();
+        if (isHuntHealthActive()) {
+            this._huntScoring.registerElimination(player, {
+                killer: options?.killer || null,
+            });
+        }
+        this._respawnSystem.onPlayerDied(player);
         if (this.particles) this.particles.spawnExplosion(player.position, player.color);
         if (this.audio) this.audio.play('EXPLOSION');
-        if (this.recorder) { this.recorder.markPlayerDeath(player, cause); this.recorder.logEvent('KILL', player.index, `cause=${cause}`); }
+        if (this.recorder) {
+            const killerIndex = Number.isInteger(options?.killer?.index) ? options.killer.index : -1;
+            this.recorder.markPlayerDeath(player, cause);
+            this.recorder.logEvent('KILL', player.index, `cause=${cause} killer=${killerIndex}`);
+        }
         if (this.onPlayerDied) this.onPlayerDied(player, cause);
     }
 
@@ -621,6 +657,8 @@ export class EntityManager {
         this.botByPlayer.clear();
         this._projectileSystem.clear();
         this._overheatGunSystem.reset();
+        this._respawnSystem.reset();
+        this._huntScoring.reset();
 
         if (this.powerupManager) {
             this.powerupManager.clear();

@@ -63,7 +63,7 @@ Geplant: 2026-03-02
   - [x] 11.6 Zerstoerbare Spur (niedrige Trail-HP, schnell kaputt)
   - [x] 11.7 Schild-Powerup + 3D-Powerup-Modelle (lizenzfrei)
   - [x] 11.8 Screen-Shake, Schadens-Indikator, Kill-Feed
-  - [ ] 11.9 Respawn-System + erweitertes Scoring
+  - [x] 11.9 Respawn-System + erweitertes Scoring
   - [ ] 11.10 Bot-KI fuer Jagd-Modus (HuntBotPolicy)
   - [ ] 11.11 Abschluss, Balancing, Cleanup
 - Verifikation pro Teilphase:

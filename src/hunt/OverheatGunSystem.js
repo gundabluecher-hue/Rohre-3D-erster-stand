@@ -146,7 +146,7 @@ export class OverheatGunSystem {
         }
         this._emitTracerImpact(target);
         if (damageResult.isDead) {
-            this.entityManager._killPlayer(target, 'PROJECTILE');
+            this.entityManager._killPlayer(target, 'PROJECTILE', { killer: attacker });
             this._pushKillFeed(attacker, target, 'ELIMINATED');
             return;
         }

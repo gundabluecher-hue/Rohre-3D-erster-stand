@@ -215,6 +215,14 @@ export class MatchFlowUiController {
         game.roundPause = 3.0;
 
         const roundEndPlan = coordinateRoundEnd(this.buildRoundEndCoordinatorRequest(winner));
+        const huntSummary = game.entityManager?.getHuntScoreboardSummary
+            ? game.entityManager.getHuntScoreboardSummary(4)
+            : '';
+        if (huntSummary) {
+            if (!roundEndPlan.uiState) roundEndPlan.uiState = {};
+            const baseText = String(roundEndPlan.uiState.messageText || '').trim();
+            roundEndPlan.uiState.messageText = baseText ? `${baseText}\n${huntSummary}` : huntSummary;
+        }
         this.applyRoundEndCoordinatorPlan(roundEndPlan);
     }
 
