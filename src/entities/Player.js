@@ -101,6 +101,8 @@ export class Player {
         this.selectedItemIndex = 0;
         this.hasShield = false;
         this.shieldHP = 0;
+        this.maxShieldHp = 1;
+        this.shieldHitFeedback = 0;
         this.isGhost = false;
         this.invertControls = false;
         this.maxHp = 1;
@@ -139,6 +141,7 @@ export class Player {
         this._tmpWorldToLocal = new THREE.Matrix4();
         this._tmpLocalPoint = new THREE.Vector3();
         this._tmpLocalSphere = new THREE.Sphere();
+        this._shieldBaseScale = new THREE.Vector3(1, 1, 1);
 
         this.vehicleMesh = null;
         this._vehicleBounds = { minZ: -1.95, maxZ: 1.9, sizeY: 1.0 };
@@ -184,7 +187,8 @@ export class Player {
                 this.hitboxBox.getCenter(center);
 
                 // Etwas Puffer (15% größer)
-                this.shieldMesh.scale.set(size.x * 1.15, size.y * 1.15, size.z * 1.15);
+                this._shieldBaseScale.set(size.x * 1.15, size.y * 1.15, size.z * 1.15);
+                this.shieldMesh.scale.copy(this._shieldBaseScale);
                 this.shieldMesh.position.copy(center);
             }
         };
@@ -292,6 +296,7 @@ export class Player {
         if (!this.alive) return;
         this.spawnProtectionTimer = Math.max(0, this.spawnProtectionTimer - dt);
         this.steeringLockTimer = Math.max(0, (this.steeringLockTimer || 0) - dt);
+        this.shieldHitFeedback = Math.max(0, (this.shieldHitFeedback || 0) - dt * 3.2);
         const steeringLocked = this.steeringLockTimer > 0;
         updatePlayerHealthRegen(this, dt);
 
@@ -335,12 +340,17 @@ export class Player {
         if (this.shieldMesh) {
             this.shieldMesh.visible = this.hasShield;
             if (this.hasShield) {
-                const shieldOpacity = 0.3 + Math.sin(time * 6) * 0.15;
-                this.shieldMesh.material.opacity = shieldOpacity;
+                const shieldRatio = Math.max(0, Math.min(1, this.shieldHP / Math.max(1, this.maxShieldHp || 1)));
+                const hitPulse = Math.max(0, Math.min(1, this.shieldHitFeedback || 0));
+                const flicker = Math.sin(time * 6) * 0.12;
+                this.shieldMesh.material.opacity = Math.max(0.08, 0.18 + shieldRatio * 0.24 + hitPulse * 0.32 + flicker);
+                this.shieldMesh.scale.copy(this._shieldBaseScale).multiplyScalar(
+                    Math.max(0.68, 0.9 + shieldRatio * 0.12 - hitPulse * 0.18)
+                );
 
                 const inner = this.shieldMesh.getObjectByName("innerShield");
                 if (inner) {
-                    inner.material.opacity = 0.1 + Math.sin(time * 6 + 1) * 0.05;
+                    inner.material.opacity = Math.max(0.04, 0.08 + shieldRatio * 0.14 + hitPulse * 0.18 + Math.sin(time * 9 + 1.5) * 0.05);
                 }
             }
         }

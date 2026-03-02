@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { CONFIG } from '../core/Config.js';
 import { isHuntHealthActive } from '../hunt/HealthSystem.js';
 import { isRocketTierType, pickWeightedRocketTierType } from '../hunt/RocketPickupSystem.js';
+import { PowerupModelFactory } from './PowerupModelFactory.js';
 
 export class PowerupManager {
     constructor(renderer, arena) {
@@ -19,6 +20,7 @@ export class PowerupManager {
 
         // Shared Geometries (einmal erstellen, wiederverwenden)
         const size = CONFIG.POWERUP.SIZE;
+        this._modelFactory = new PowerupModelFactory(size);
         this._sharedGeo = new THREE.BoxGeometry(size, size, size);
         this._sharedWireGeo = new THREE.BoxGeometry(size * 1.15, size * 1.15, size * 1.15);
     }
@@ -81,32 +83,9 @@ export class PowerupManager {
             pos = this.arena.getRandomPosition(8);
         }
 
-        // Würfel-Mesh
-        const geo = this._sharedGeo;
-        const mat = new THREE.MeshStandardMaterial({
-            color: config.color,
-            emissive: config.color,
-            emissiveIntensity: 0.5,
-            roughness: 0.2,
-            metalness: 0.8,
-            transparent: true,
-            opacity: 0.85,
-        });
-
-        const mesh = new THREE.Mesh(geo, mat);
+        const mesh = this._createPowerupMesh(type, config);
         mesh.position.copy(pos);
         mesh.castShadow = false;
-
-        // Wireframe-Overlay
-        const wireGeo = this._sharedWireGeo;
-        const wireMat = new THREE.MeshBasicMaterial({
-            color: config.color,
-            wireframe: true,
-            transparent: true,
-            opacity: 0.3,
-        });
-        const wire = new THREE.Mesh(wireGeo, wireMat);
-        mesh.add(wire);
 
         this.renderer.addToScene(mesh);
 
@@ -124,7 +103,35 @@ export class PowerupManager {
         });
     }
 
-    /** Prüft ob ein Spieler ein Item einsammelt */
+    _createPowerupMesh(type, config) {
+        if (this._modelFactory) {
+            const model = this._modelFactory.createModel(type, config);
+            if (model) return model;
+        }
+
+        const mat = new THREE.MeshStandardMaterial({
+            color: config.color,
+            emissive: config.color,
+            emissiveIntensity: 0.5,
+            roughness: 0.2,
+            metalness: 0.8,
+            transparent: true,
+            opacity: 0.85,
+        });
+        const mesh = new THREE.Mesh(this._sharedGeo, mat);
+
+        const wireMat = new THREE.MeshBasicMaterial({
+            color: config.color,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.3,
+        });
+        const wire = new THREE.Mesh(this._sharedWireGeo, wireMat);
+        mesh.add(wire);
+        return mesh;
+    }
+
+    /** Prueft ob ein Spieler ein Item einsammelt */
     checkPickup(playerPosition, radius) {
         this._pickupSphere.center.copy(playerPosition);
         this._pickupSphere.radius = radius + CONFIG.POWERUP.PICKUP_RADIUS;
@@ -168,6 +175,10 @@ export class PowerupManager {
 
     dispose() {
         this.clear();
+        if (this._modelFactory) {
+            this._modelFactory.dispose();
+            this._modelFactory = null;
+        }
         if (this._sharedGeo) {
             this._sharedGeo.dispose();
             this._sharedGeo = null;
@@ -178,3 +189,4 @@ export class PowerupManager {
         }
     }
 }
+

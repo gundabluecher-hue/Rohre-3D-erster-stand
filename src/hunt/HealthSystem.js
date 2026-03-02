@@ -36,20 +36,24 @@ export function resetPlayerHealth(player, config = CONFIG) {
     if (!isHuntHealthActive(config)) {
         player.maxHp = 1;
         player.hp = 1;
+        player.maxShieldHp = 1;
         player.shieldHP = player.hasShield ? 1 : 0;
         player.lastDamageTimestamp = -Infinity;
+        player.shieldHitFeedback = 0;
         return player;
     }
 
     const maxHp = getPlayerMaxHp(config);
     player.maxHp = maxHp;
     player.hp = maxHp;
+    player.maxShieldHp = getShieldMaxHp(config);
     if (player.hasShield) {
-        player.shieldHP = getShieldMaxHp(config);
+        player.shieldHP = player.maxShieldHp;
     } else {
         player.shieldHP = 0;
     }
     player.lastDamageTimestamp = -Infinity;
+    player.shieldHitFeedback = 0;
     return player;
 }
 
@@ -89,6 +93,10 @@ export function applyDamage(player, amount, options = {}, config = CONFIG) {
         absorbedByShield = Math.min(player.shieldHP, remainingDamage);
         player.shieldHP = Math.max(0, player.shieldHP - absorbedByShield);
         remainingDamage -= absorbedByShield;
+        if (absorbedByShield > 0) {
+            const feedbackValue = Math.min(1, Math.max(0.2, absorbedByShield / Math.max(1, player.maxShieldHp || getShieldMaxHp(config))));
+            player.shieldHitFeedback = Math.max(player.shieldHitFeedback || 0, feedbackValue);
+        }
         if (player.shieldHP <= 0) {
             player.hasShield = false;
         }
@@ -163,9 +171,13 @@ export function grantShield(player, config = CONFIG) {
     if (!player) return 0;
     player.hasShield = true;
     if (!isHuntHealthActive(config)) {
+        player.maxShieldHp = 1;
         player.shieldHP = 1;
+        player.shieldHitFeedback = 0;
         return player.shieldHP;
     }
-    player.shieldHP = getShieldMaxHp(config);
+    player.maxShieldHp = getShieldMaxHp(config);
+    player.shieldHP = player.maxShieldHp;
+    player.shieldHitFeedback = 0;
     return player.shieldHP;
 }

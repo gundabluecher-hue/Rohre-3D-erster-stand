@@ -17,6 +17,7 @@ export function removePlayerEffect(player, effect) {
         case 'SHIELD':
             player.hasShield = false;
             player.shieldHP = 0;
+            player.shieldHitFeedback = 0;
             break;
         case 'GHOST':
             player.isGhost = false;
