@@ -59,10 +59,17 @@ export class EntityManager {
             getPlayers: () => this.players,
             takeInventoryItem: (player, preferredIndex) => this._takeInventoryItem(player, preferredIndex),
             resolveLockOn: (player) => this._checkLockOn(player),
+            getTrailSpatialIndex: () => this._trailSpatialIndex,
             onShoot: () => {
                 if (this.audio) this.audio.play('SHOOT');
             },
             onProjectileHit: (position, color, owner) => {
+                if (this.particles) this.particles.spawnHit(position, color);
+                if (this.audio && !owner?.isBot) this.audio.play('HIT');
+            },
+            onTrailSegmentHit: (position, owner, projectile, trailHit) => {
+                const isDestroyed = !!trailHit?.destroyed;
+                const color = isDestroyed ? 0x66ddff : 0x3388ff;
                 if (this.particles) this.particles.spawnHit(position, color);
                 if (this.audio && !owner?.isBot) this.audio.play('HIT');
             },

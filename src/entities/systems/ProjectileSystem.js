@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { CONFIG } from '../../core/Config.js';
 import { isHuntHealthActive } from '../../hunt/HealthSystem.js';
 import { isRocketTierType, resolveRocketTierDamage } from '../../hunt/RocketPickupSystem.js';
+import { applyTrailDamageFromProjectile } from '../../hunt/DestructibleTrail.js';
 
 function getNowMilliseconds() {
     if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
@@ -29,10 +30,14 @@ export class ProjectileSystem {
         this.resolveLockOn = typeof options.resolveLockOn === 'function'
             ? options.resolveLockOn
             : (() => null);
+        this.getTrailSpatialIndex = typeof options.getTrailSpatialIndex === 'function'
+            ? options.getTrailSpatialIndex
+            : (() => options.trailSpatialIndex || null);
         this.onShoot = typeof options.onShoot === 'function' ? options.onShoot : (() => { });
         this.onProjectileHit = typeof options.onProjectileHit === 'function' ? options.onProjectileHit : (() => { });
         this.onProjectilePowerup = typeof options.onProjectilePowerup === 'function' ? options.onProjectilePowerup : (() => { });
         this.onProjectileDamage = typeof options.onProjectileDamage === 'function' ? options.onProjectileDamage : (() => { });
+        this.onTrailSegmentHit = typeof options.onTrailSegmentHit === 'function' ? options.onTrailSegmentHit : (() => { });
 
         this.projectiles = [];
         this._projectileAssets = new Map();
@@ -266,6 +271,7 @@ export class ProjectileSystem {
     update(dt) {
         const arena = this.getArena();
         const players = this.getPlayers();
+        const trailSpatialIndex = this.getTrailSpatialIndex();
         const time = getNowMilliseconds() * 0.001;
 
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
@@ -331,6 +337,22 @@ export class ProjectileSystem {
             }
 
             if (bouncedOnFoam) {
+                continue;
+            }
+
+            const trailHit = applyTrailDamageFromProjectile(trailSpatialIndex, projectile);
+            if (trailHit) {
+                if (trailHit.closestPoint) {
+                    this._tmpVec.set(
+                        trailHit.closestPoint.closestX,
+                        trailHit.closestPoint.closestY,
+                        trailHit.closestPoint.closestZ
+                    );
+                } else {
+                    this._tmpVec.copy(projectile.position);
+                }
+                this.onTrailSegmentHit(this._tmpVec, projectile.owner, projectile, trailHit);
+                this._removeProjectileAt(i);
                 continue;
             }
 

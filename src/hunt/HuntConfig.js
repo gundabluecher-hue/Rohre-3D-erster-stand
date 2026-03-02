@@ -27,6 +27,7 @@ export const HUNT_CONFIG = Object.freeze({
         STRONG: Object.freeze({ damage: 60, spawnChance: 0.1 }),
     }),
     ROCKET_PICKUP_SPAWN_CHANCE: 0.45,
+    TRAIL_SEGMENT_HP: 3,
     RESPAWN: Object.freeze({
         DELAY_SECONDS: 3.0,
         INVULNERABILITY_SECONDS: 1.0,

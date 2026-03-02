@@ -60,7 +60,7 @@ Geplant: 2026-03-02
   - [x] 11.3 HUD: HP-Bar, Overheat-Bar, Kill-Feed, Schadens-Indikator
   - [x] 11.4 MG mit Ueberhitzung (OverheatGunSystem, Tracer, Falloff)
   - [x] 11.5 3-Stufen-Raketen (schwach/mittel/stark, Arena-Pickups)
-  - [ ] 11.6 Zerstoerbare Spur (niedrige Trail-HP, schnell kaputt)
+  - [x] 11.6 Zerstoerbare Spur (niedrige Trail-HP, schnell kaputt)
   - [ ] 11.7 Schild-Powerup + 3D-Powerup-Modelle (lizenzfrei)
   - [ ] 11.8 Screen-Shake, Schadens-Indikator, Kill-Feed
   - [ ] 11.9 Respawn-System + erweitertes Scoring

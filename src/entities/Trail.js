@@ -12,6 +12,14 @@ const DUMMY = new THREE.Object3D();
 // Spatial Hashing Config
 const CELL_SIZE = 10;
 
+function getTrailSegmentHp() {
+    const configured = Number(CONFIG?.HUNT?.TRAIL_SEGMENT_HP);
+    if (!Number.isFinite(configured) || configured <= 0) {
+        return 3;
+    }
+    return Math.max(1, Math.round(configured));
+}
+
 export class Trail {
     constructor(renderer, color, playerIndex, entityManager = null) {
         this.renderer = renderer;
@@ -157,9 +165,21 @@ export class Trail {
         this._dirty = true;
 
         // Register in global grid
+        const segmentHp = getTrailSegmentHp();
         if (this.trailSpatialIndex) {
             this.segmentRefs[this.writeIndex] = this.trailSpatialIndex.registerTrailSegment(this.playerIndex, this.writeIndex, {
-                midX, midZ, fromX, fromY, fromZ, toX, toY, toZ, radius
+                midX,
+                midZ,
+                fromX,
+                fromY,
+                fromZ,
+                toX,
+                toY,
+                toZ,
+                radius,
+                hp: segmentHp,
+                maxHp: segmentHp,
+                ownerTrail: this,
             }, reusableRef);
         }
 
@@ -167,6 +187,27 @@ export class Trail {
         if (this.segmentCount < this.maxSegments) {
             this.segmentCount++;
         }
+    }
+
+    destroySegmentByEntry(entry) {
+        if (!entry) return false;
+
+        const segmentIdx = Number(entry.segmentIdx);
+        if (!Number.isInteger(segmentIdx) || segmentIdx < 0 || segmentIdx >= this.maxSegments) {
+            return false;
+        }
+
+        const ref = this.segmentRefs[segmentIdx];
+        if (!ref || ref.entry !== entry) {
+            return false;
+        }
+
+        DUMMY.scale.set(0, 0, 0);
+        DUMMY.updateMatrix();
+        this.mesh.setMatrixAt(segmentIdx, DUMMY.matrix);
+        this.segmentRefs[segmentIdx] = null;
+        this._dirty = true;
+        return true;
     }
 
     clear() {
