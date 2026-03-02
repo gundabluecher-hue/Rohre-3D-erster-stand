@@ -93,7 +93,7 @@ Letztes Update: 2026-03-02
   - [x] 12.3 `PortalGateSystem` Split A - Mesh-Fabrik auslagern
   - [x] 12.4 `PortalGateSystem` Split B - Placement/Resolver auslagern
   - [x] 12.5 `EditorMapManager` Split A - Import/Export Serializer auslagern
-  - [ ] 12.6 `EditorMapManager` Split B - Mesh/Registry Ops auslagern
+  - [x] 12.6 `EditorMapManager` Split B - Mesh/Registry Ops auslagern
   - **Block B - parallel zu Phase 11 moeglich (kein Datei-Overlap):**
   - [ ] 12.7 `main.js` Split A - Runtime Diagnostics entkoppeln
   - [ ] 12.8 `main.js` Split B - Keybind-Editor Controller entkoppeln
