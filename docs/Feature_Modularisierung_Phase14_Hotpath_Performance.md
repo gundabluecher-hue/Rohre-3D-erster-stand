@@ -65,7 +65,7 @@ Intervall L (vor Abschluss von 14.8):
 
 ## Fortschrittsboard
 
-- [ ] 14.0 Baseline, Metrik-Gates und Ownership finalisieren
+- [x] 14.0 Baseline, Metrik-Gates und Ownership finalisieren
 - [ ] 14.1A HuntHUD Kill-Feed inkrementell statt Full-Rebuild
 - [ ] 14.1B RuntimeDiagnostics FPS-Ringbuffer ohne per-frame reduce/shift
 - [ ] 14.2A HUD/Crosshair nur bei Aenderung in DOM schreiben
@@ -107,6 +107,22 @@ Verifikation:
 
 - `npm run test:core`
 - `npm run benchmark:baseline`
+
+14.0 Ergebnis (2026-03-02):
+
+- Baseline aus `npm run benchmark:baseline` dokumentiert.
+- Ownership bestaetigt: Agent A (`src/hunt/HuntHUD.js`, `src/ui/HudRuntimeSystem.js`, `src/ui/CrosshairSystem.js`), Agent B (`src/core/RuntimeDiagnosticsSystem.js`, `src/hunt/OverheatGunSystem.js`, `src/entities/Bot.js`, `src/state/RoundRecorder.js`).
+- Baseline-KPIs (Overall):
+  - FPS-Mittel: `59.54`
+  - Draw Calls (Mittel): `28.49`
+  - Stuck-Events: `0`
+  - Runden: `16`, Performance-Samples: `43`
+- KPI-Gates fuer 14.7-Abnahme:
+  - `test:core`, lane-spezifische Intervall-S/M-Gates muessen durchgehend gruen bleiben.
+  - FPS-Mittel Overall darf max. `5%` fallen (`>= 56.56`).
+  - Draw Calls Overall duerfen max. `10%` steigen (`<= 31.34`).
+  - Stuck-Events duerfen nicht steigen (`<= 0`).
+- Wave-1-Startfreigabe erteilt.
 
 ---
 
@@ -471,3 +487,4 @@ Start erster Schritt:
 Weiter nach jedem Schritt:
 
 `Markiere Phase 14.X als erledigt und starte unmittelbar die naechste Phase aus docs/Feature_Modularisierung_Phase14_Hotpath_Performance.md inklusive der dort definierten Verifikation.`
+

@@ -165,7 +165,7 @@ Letztes Update: 2026-03-02
   3. Wirksamkeit ueber feste Testintervalle und Benchmark-Gates nachweisen.
 - Referenzplan: `docs/Feature_Modularisierung_Phase14_Hotpath_Performance.md`
 - Teilphasen:
-  - [ ] 14.0 Baseline, Metrik-Gates und Ownership finalisieren
+  - [x] 14.0 Baseline, Metrik-Gates und Ownership finalisieren
   - [ ] 14.1A HuntHUD Kill-Feed inkrementell statt Full-Rebuild
   - [ ] 14.1B RuntimeDiagnostics FPS-Ringbuffer ohne per-frame reduce/shift
   - [ ] 14.2A HUD/Crosshair nur bei Aenderung in DOM schreiben
@@ -177,9 +177,15 @@ Letztes Update: 2026-03-02
   - [ ] 14.6 Wave-Regression (S+M) und Merge-Hygiene
   - [ ] 14.7 Abschluss-Benchmark und KPI-Vergleich gegen Baseline
   - [ ] 14.8 Doku-Abschluss, Restrisiken, Masterplan-Status auf abgeschlossen
+- KPI-Gates (Baseline 2026-03-02):
+  - FPS-Mittel Overall: Baseline `59.54`, Gate `>= 56.56` (max. -5%).
+  - Draw Calls Overall: Baseline `28.49`, Gate `<= 31.34` (max. +10%).
+  - Stuck-Events: Baseline `0`, Gate `<= 0`.
+  - Funktionale Gates: alle Intervall-S/M/L-Testkommandos ohne neue Fehler.
 - Verifikation:
   - Intervall S je Mikro-Phase: lane-spezifische Tests gemaess `docs/Feature_Modularisierung_Phase14_Hotpath_Performance.md`
   - Intervall M je Wave: `npm run smoke:roundstate`, `npm run smoke:selftrail`
   - Intervall L zum Abschluss: `npm run benchmark:baseline`, `npm run docs:sync`, `npm run docs:check`
 - Prompt-Regel:
   - Nach jeder Phase direkt die naechste Phase starten, nur bei rotem Gate stoppen.
+
