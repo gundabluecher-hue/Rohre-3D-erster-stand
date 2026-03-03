@@ -630,4 +630,76 @@ test.describe('T41-60: Physik & AI', () => {
         expect(result.destroyed).toBeTruthy();
         expect(result.enemyHpAfter).toBe(result.enemyHpBefore);
     });
+
+    test('T65: Bot-Action-Contract sanitizt invalide Payloads robust', async ({ page }) => {
+        await loadGame(page);
+        const result = await page.evaluate(async () => {
+            const { sanitizeBotAction } = await import('/src/entities/ai/actions/BotActionContract.js');
+            const warnings = [];
+            const sanitized = sanitizeBotAction({
+                yawLeft: 'true',
+                boost: 1,
+                shootItem: 'yes',
+                shootItemIndex: 99,
+                useItem: -5,
+            }, {
+                inventoryLength: 3,
+                onInvalid: (message) => warnings.push(String(message || '')),
+            });
+            const invalidPayload = sanitizeBotAction(null, {
+                inventoryLength: 3,
+                onInvalid: (message) => warnings.push(String(message || '')),
+            });
+            return { sanitized, invalidPayload, warnings };
+        });
+
+        expect(result.sanitized.yawLeft).toBeTruthy();
+        expect(result.sanitized.boost).toBeTruthy();
+        expect(result.sanitized.shootItem).toBeTruthy();
+        expect(result.sanitized.shootItemIndex).toBe(2);
+        expect(result.sanitized.useItem).toBe(-1);
+        expect(result.invalidPayload.shootItem).toBeFalsy();
+        expect(result.invalidPayload.shootItemIndex).toBe(-1);
+        expect(result.warnings.length).toBeGreaterThan(0);
+    });
+
+    test('T66: Bot-Input bleibt stabil wenn Policy-Update abstuerzt', async ({ page }) => {
+        await startGameWithBots(page, 1);
+        const result = await page.evaluate(() => {
+            const game = window.GAME_INSTANCE;
+            const entityManager = game?.entityManager;
+            const bot = entityManager?.players?.find((p) => p?.isBot);
+            if (!entityManager || !bot) {
+                return { error: 'missing-bot' };
+            }
+
+            const policy = entityManager.botByPlayer.get(bot);
+            if (!policy) {
+                return { error: 'missing-policy' };
+            }
+
+            const originalUpdate = policy.update;
+            let crashed = false;
+            let action = null;
+            try {
+                policy.update = () => {
+                    throw new Error('simulated-bot-failure');
+                };
+                action = entityManager._playerInputSystem.resolvePlayerInput(bot, 1 / 60, null);
+            } catch (error) {
+                crashed = true;
+            } finally {
+                policy.update = originalUpdate;
+            }
+
+            return { error: null, crashed, action };
+        });
+
+        expect(result.error).toBeNull();
+        expect(result.crashed).toBeFalsy();
+        expect(result.action.shootItem).toBeFalsy();
+        expect(result.action.shootMG).toBeFalsy();
+        expect(result.action.shootItemIndex).toBe(-1);
+        expect(result.action.useItem).toBe(-1);
+    });
 });

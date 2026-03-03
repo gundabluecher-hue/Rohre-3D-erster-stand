@@ -77,3 +77,23 @@ Stand: 2026-03-03
 
 - Testauswahl ueber `.agents/test_mapping.md`
 - Danach immer Doku-/Prozess-Check ueber `npm run docs:sync` und `npm run docs:check`
+
+## 6. Bot-Bridge Vertrag V1 (eingefroren am 2026-03-03)
+
+- Observation:
+  - `schemaVersion`: `v1`
+  - `length`: `40`
+  - `0..19`: Core-Features (u. a. `WALL_DISTANCE_FRONT=3`, `MODE_ID=18`)
+  - `20..39`: feste Item-Slots (`ITEM_SLOT_00..ITEM_SLOT_19`)
+- Wertebereiche:
+  - Ratio: `0..1`
+  - Signed: `-1..1`
+  - Bool: `0|1`
+  - `MODE_ID`: `0=classic`, `1=hunt`
+- Action-Contract V1:
+  - Bool-Flags: `pitchUp`, `pitchDown`, `yawLeft`, `yawRight`, `boost`, `shootItem`, `shootMG`
+  - Index-Felder: `useItem`, `shootItemIndex` im Bereich `-1..19`
+- Sicherheitsregel:
+  - Bei Observation-/Action-Contract-Verletzung wird die Ausgabe neutralisiert und auf `rule-based` zurueckgefallen.
+- V1 Nicht-Ziele:
+  - keine History-Frames, keine Reward-/Telemetriefelder im Runtime-Vektor, keine verpflichtende Netzwerk-Bridge.

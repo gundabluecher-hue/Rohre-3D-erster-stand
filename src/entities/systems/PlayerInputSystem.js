@@ -2,6 +2,8 @@
 // PlayerInputSystem.js - resolves human and bot player input
 // ============================================
 
+import { sanitizeBotAction } from '../ai/actions/BotActionContract.js';
+
 // Reused input object to reduce GC
 const SHARED_EMPTY_INPUT = {
     pitchUp: false,
@@ -41,6 +43,18 @@ function getEmptyInput() {
 export class PlayerInputSystem {
     constructor(entityManager) {
         this.entityManager = entityManager;
+        this._botActionWarningCooldownMs = 2000;
+        this._botActionWarnings = new Map();
+    }
+
+    _warnInvalidBotAction(player, reason, error = null) {
+        const playerIndex = Number.isInteger(player?.index) ? player.index : -1;
+        const now = Date.now();
+        const lastWarning = this._botActionWarnings.get(playerIndex) || 0;
+        if (now - lastWarning < this._botActionWarningCooldownMs) return;
+        this._botActionWarnings.set(playerIndex, now);
+        const errorMessage = error ? ` (${error.message || String(error)})` : '';
+        console.warn(`[BotActionContract] Sanitized invalid action for bot index ${playerIndex}: ${reason}${errorMessage}`);
     }
 
     resolvePlayerInput(player, dt, inputManager) {
@@ -50,7 +64,17 @@ export class PlayerInputSystem {
         if (player.isBot) {
             const botAI = entityManager.botByPlayer.get(player);
             if (botAI) {
-                input = botAI.update(dt, player, entityManager.arena, entityManager.players, entityManager.projectiles);
+                const sanitizeOptions = {
+                    inventoryLength: Array.isArray(player.inventory) ? player.inventory.length : 0,
+                    onInvalid: (reason) => this._warnInvalidBotAction(player, reason),
+                };
+                try {
+                    const output = botAI.update(dt, player, entityManager.arena, entityManager.players, entityManager.projectiles);
+                    input = sanitizeBotAction(output, sanitizeOptions, input);
+                } catch (error) {
+                    this._warnInvalidBotAction(player, 'policy update threw', error);
+                    input = getEmptyInput();
+                }
             }
             return input;
         }

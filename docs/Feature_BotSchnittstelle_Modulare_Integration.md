@@ -60,9 +60,9 @@ Datei-Ownership:
 
 ## Fortschrittsboard
 
-- [ ] 15.0 Scope, Contract und Semantik einfrieren
+- [x] 15.0 Scope, Contract und Semantik einfrieren
 - [ ] 15.1A Observation-Schema V1 + Index-Konstanten (Agent A)
-- [ ] 15.1B Action-Contract + Fallback-Regeln (Agent B)
+- [x] 15.1B Action-Contract + Fallback-Regeln (Agent B)
 - [ ] 15.2A Observation-Extraktion aus Runtime entkoppeln (Agent A)
 - [ ] 15.2B 20-Slot-Item-Encoding + Mode-ID Features (Agent B)
 - [ ] 15.3A Runtime-Context-Wiring in Entity/Input-System (Agent A)
@@ -112,6 +112,31 @@ Verifikation:
 - `npm run test:core`
 - `npm run docs:sync`
 - `npm run docs:check`
+
+Eingefrorener V1-Vertrag (Stand: 2026-03-03):
+
+1. Observation-Schema:
+   - `OBSERVATION_SCHEMA_VERSION = "v1"`
+   - `OBSERVATION_LENGTH_V1 = 40`
+   - Indizes `0..19` sind Core-Features, `20..39` sind `ITEM_SLOT_00..ITEM_SLOT_19`.
+2. Verbindliche Schluesselindizes:
+   - `WALL_DISTANCE_FRONT = 3`
+   - `MODE_ID = 18`
+   - `ITEM_SLOT_00 = 20`
+   - `ITEM_SLOT_19 = 39`
+3. Wertebereiche:
+   - Ratio-Features: `0..1`
+   - Signed-Features: `-1..1`
+   - Booleans: `0` oder `1`
+   - `MODE_ID`: `0=classic`, `1=hunt`
+4. Action-Semantik V1:
+   - Bool-Flags: `pitchUp`, `pitchDown`, `yawLeft`, `yawRight`, `boost`, `shootItem`, `shootMG`
+   - Integer-Felder: `useItem`, `shootItemIndex` (jeweils `-1..19`)
+   - Contract-Verletzung wird sanitisiert; bei ungueltiger Payload gilt Fallback auf `rule-based`.
+5. Explizite Nicht-Bestandteile von V1:
+   - Keine Rekurrenz/History-Frames im Observation-Vektor.
+   - Keine Telemetrie-/Reward-Felder im Runtime-Observation-Pfad.
+   - Keine netzwerkgebundene Trainer-Bridge als Pflichtbestandteil.
 
 ---
 
