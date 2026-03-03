@@ -74,6 +74,7 @@ export class SettingsManager {
                 itemAmount: 8,
                 fireRate: 0.45,
                 lockOnAngle: 15,
+                mgTrailAimRadius: clamp(parseFloat(CONFIG?.HUNT?.MG?.TRAIL_HIT_RADIUS ?? 0.78), 0.2, 3.0),
                 planarMode: false,
                 portalCount: 0,
                 planarLevelCount: 5,
@@ -169,6 +170,11 @@ export class SettingsManager {
         merged.gameplay.itemAmount = clamp(parseInt(src?.gameplay?.itemAmount ?? defaults.gameplay.itemAmount, 10), 1, 20);
         merged.gameplay.fireRate = clamp(parseFloat(src?.gameplay?.fireRate ?? defaults.gameplay.fireRate), 0.1, 2.0);
         merged.gameplay.lockOnAngle = clamp(parseInt(src?.gameplay?.lockOnAngle ?? defaults.gameplay.lockOnAngle, 10), 5, 45);
+        merged.gameplay.mgTrailAimRadius = clamp(
+            parseFloat(src?.gameplay?.mgTrailAimRadius ?? defaults.gameplay.mgTrailAimRadius),
+            0.2,
+            3.0
+        );
         merged.gameplay.planarMode = !!(src?.gameplay?.planarMode ?? defaults.gameplay.planarMode);
         merged.gameplay.portalCount = clamp(parseInt(src?.gameplay?.portalCount ?? defaults.gameplay.portalCount, 10), 0, 20);
         merged.gameplay.planarLevelCount = clamp(parseInt(src?.gameplay?.planarLevelCount ?? defaults.gameplay.planarLevelCount, 10), 2, 10);

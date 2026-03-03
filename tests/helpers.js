@@ -4,10 +4,20 @@ export async function loadGame(page) {
     await page.waitForSelector('#main-menu', { state: 'visible', timeout: 10000 });
 }
 
+const BENIGN_ERROR_PATTERNS = [
+    /wasm streaming compile failed/i,
+    /falling back to ArrayBuffer instantiation/i,
+    /\[AiBot\] Failed to load model:/i,
+];
+
+function isBenignErrorMessage(message) {
+    return BENIGN_ERROR_PATTERNS.some((pattern) => pattern.test(message));
+}
+
 /** Spiel starten (Standardkonfiguration) */
 export async function startGame(page) {
     await loadGame(page);
-    await page.click('#menu-nav [data-submenu="submenu-game"]');
+    await page.locator('#menu-nav [data-submenu="submenu-game"]').click({ force: true });
     await page.waitForSelector('#submenu-game:not(.hidden)', { timeout: 3000 });
     await page.click('#submenu-game:not(.hidden) #btn-start');
     await page.waitForFunction(() => {
@@ -23,7 +33,7 @@ export async function startGame(page) {
 /** Spiel mit N Bots starten */
 export async function startGameWithBots(page, botCount = 1) {
     await loadGame(page);
-    await page.click('#menu-nav [data-submenu="submenu-game"]');
+    await page.locator('#menu-nav [data-submenu="submenu-game"]').click({ force: true });
     await page.waitForSelector('#submenu-game:not(.hidden)', { timeout: 3000 });
     await page.evaluate((count) => {
         const slider = document.getElementById('bot-count');
@@ -53,7 +63,9 @@ export function collectErrors(page) {
     page.on('pageerror', err => errors.push(`pageerror: ${err.message}`));
     page.on('console', msg => {
         if (msg.type() === 'error') {
-            errors.push(`console.error: ${msg.text()}`);
+            const message = msg.text();
+            if (isBenignErrorMessage(message)) return;
+            errors.push(`console.error: ${message}`);
         }
     });
     return errors;

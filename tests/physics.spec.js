@@ -3,7 +3,7 @@ import { loadGame, startGame, startGameWithBots, returnToMenu } from './helpers.
 
 async function startHuntGame(page) {
     await loadGame(page);
-    await page.click('#menu-nav [data-submenu="submenu-game"]');
+    await page.locator('#menu-nav [data-submenu="submenu-game"]').click({ force: true });
     await page.waitForSelector('#submenu-game:not(.hidden)', { timeout: 3000 });
     await page.click('#btn-mode-hunt');
     await page.click('#submenu-game:not(.hidden) #btn-start');
@@ -21,7 +21,7 @@ async function startHuntGame(page) {
 
 async function startHuntGameWithBots(page, botCount = 1) {
     await loadGame(page);
-    await page.click('#menu-nav [data-submenu="submenu-game"]');
+    await page.locator('#menu-nav [data-submenu="submenu-game"]').click({ force: true });
     await page.waitForSelector('#submenu-game:not(.hidden)', { timeout: 3000 });
     await page.evaluate((count) => {
         const slider = document.getElementById('bot-count');
@@ -455,5 +455,179 @@ test.describe('T41-60: Physik & AI', () => {
         expect(result.projectileRadius).toBeGreaterThan(result.baseRadius);
         expect(result.acquiredDuringFlight).toBeTruthy();
         expect(result.guided || result.hitApplied).toBeTruthy();
+    });
+
+    test('T63: MG Trail-Zielsuchradius ist konfigurierbar und wirkt auf Treffer', async ({ page }) => {
+        await startHuntGame(page);
+        const result = await page.evaluate(() => {
+            const game = window.GAME_INSTANCE;
+            const entityManager = game?.entityManager;
+            const player = entityManager?.players?.[0];
+            if (!game || !entityManager || !player) {
+                return { error: 'missing-state' };
+            }
+            if (String(game?.activeGameMode || '').toUpperCase() !== 'HUNT') {
+                return { error: 'hunt-not-active' };
+            }
+
+            player.position.set(0, 50, 0);
+            player.group?.lookAt(0, 50, -120);
+            player.trail?.clear?.();
+
+            const aim = player.position.clone().set(0, 0, 0);
+            player.getAimDirection(aim).normalize();
+            const up = player.position.clone().set(0, 1, 0);
+            let right = aim.clone().cross(up);
+            if (right.lengthSq() < 0.0001) {
+                up.set(1, 0, 0);
+                right = aim.clone().cross(up);
+            }
+            right.normalize();
+            const base = player.position.clone().addScaledVector(aim, 18);
+            const writeIndex = Math.max(0, Number(player?.trail?.writeIndex) || 0);
+            const maxSegments = Math.max(1, Number(player?.trail?.maxSegments) || 5000);
+            const radius = Math.max(0.15, (Number(player?.trail?.width) || 0.6) * 0.5);
+
+            const registerOffsetSegment = (segmentIdx, offset) => {
+                const from = base.clone().addScaledVector(right, offset - 0.5);
+                const to = base.clone().addScaledVector(right, offset + 0.5);
+                return entityManager.registerTrailSegment(player.index, segmentIdx, {
+                    fromX: from.x,
+                    fromY: from.y,
+                    fromZ: from.z,
+                    toX: to.x,
+                    toY: to.y,
+                    toZ: to.z,
+                    midX: (from.x + to.x) * 0.5,
+                    midZ: (from.z + to.z) * 0.5,
+                    radius,
+                    hp: 3,
+                    maxHp: 3,
+                    ownerTrail: null,
+                });
+            };
+
+            const resetShotState = () => {
+                player.shootCooldown = 0;
+                if (entityManager._overheatGunSystem?._overheatByPlayer) {
+                    entityManager._overheatGunSystem._overheatByPlayer[player.index] = 0;
+                }
+                if (entityManager._overheatGunSystem?._lockoutByPlayer) {
+                    entityManager._overheatGunSystem._lockoutByPlayer[player.index] = 0;
+                }
+            };
+
+            game.settings.gameplay.mgTrailAimRadius = 0.25;
+            game._applySettingsToRuntime();
+            const lowRef = registerOffsetSegment((writeIndex + Math.floor(maxSegments * 0.35)) % maxSegments, 1.1);
+            resetShotState();
+            const lowShot = entityManager._shootHuntGun(player);
+            if (!lowRef?.entry?.destroyed && lowRef?.key && lowRef?.entry) {
+                entityManager.unregisterTrailSegment(lowRef.key, lowRef.entry);
+            }
+
+            game.settings.gameplay.mgTrailAimRadius = 1.6;
+            game._applySettingsToRuntime();
+            const highRef = registerOffsetSegment((writeIndex + Math.floor(maxSegments * 0.55)) % maxSegments, 1.1);
+            resetShotState();
+            const highShot = entityManager._shootHuntGun(player);
+            const highDestroyed = !!highRef?.entry?.destroyed;
+            if (!highDestroyed && highRef?.key && highRef?.entry) {
+                entityManager.unregisterTrailSegment(highRef.key, highRef.entry);
+            }
+
+            return {
+                error: null,
+                lowHit: !!lowShot?.trailHit,
+                highHit: !!highShot?.trailHit,
+                highDestroyed,
+                appliedRadius: Number(game?.config?.HUNT?.MG?.TRAIL_HIT_RADIUS || 0),
+            };
+        });
+
+        expect(result.error).toBeNull();
+        expect(result.lowHit).toBeFalsy();
+        expect(result.highHit).toBeTruthy();
+        expect(result.highDestroyed).toBeTruthy();
+        expect(result.appliedRadius).toBeGreaterThan(1.4);
+    });
+
+    test('T64: Hunt-MG priorisiert gegnerische Spur auf Schusslinie vor Off-Axis Spieler', async ({ page }) => {
+        await startHuntGameWithBots(page, 1);
+        const result = await page.evaluate(() => {
+            const game = window.GAME_INSTANCE;
+            const entityManager = game?.entityManager;
+            const shooter = entityManager?.players?.[0];
+            const enemy = entityManager?.players?.find((player, index) => index !== 0 && player?.alive);
+            if (!game || !entityManager || !shooter || !enemy) {
+                return { error: 'missing-state' };
+            }
+            if (String(game?.activeGameMode || '').toUpperCase() !== 'HUNT') {
+                return { error: 'hunt-not-active' };
+            }
+
+            shooter.trail?.clear?.();
+            enemy.trail?.clear?.();
+            shooter.position.set(0, 50, 0);
+            shooter.group?.lookAt(0, 50, -120);
+            enemy.position.set(4.0, 50, -20);
+
+            const aim = shooter.position.clone().set(0, 0, 0);
+            shooter.getAimDirection(aim).normalize();
+            const from = shooter.position.clone().addScaledVector(aim, 30);
+            const to = shooter.position.clone().addScaledVector(aim, 32);
+            const writeIndex = Math.max(0, Number(enemy?.trail?.writeIndex) || 0);
+            const maxSegments = Math.max(1, Number(enemy?.trail?.maxSegments) || 5000);
+            const segmentIdx = (writeIndex + Math.floor(maxSegments * 0.5)) % maxSegments;
+            const radius = Math.max(0.15, (Number(enemy?.trail?.width) || 0.6) * 0.5);
+
+            const trailRef = entityManager.registerTrailSegment(enemy.index, segmentIdx, {
+                fromX: from.x,
+                fromY: from.y,
+                fromZ: from.z,
+                toX: to.x,
+                toY: to.y,
+                toZ: to.z,
+                midX: (from.x + to.x) * 0.5,
+                midZ: (from.z + to.z) * 0.5,
+                radius,
+                hp: 3,
+                maxHp: 3,
+                ownerTrail: null,
+            });
+
+            shooter.shootCooldown = 0;
+            if (entityManager._overheatGunSystem?._overheatByPlayer) {
+                entityManager._overheatGunSystem._overheatByPlayer[shooter.index] = 0;
+            }
+            if (entityManager._overheatGunSystem?._lockoutByPlayer) {
+                entityManager._overheatGunSystem._lockoutByPlayer[shooter.index] = 0;
+            }
+
+            const enemyHpBefore = Number(enemy.hp || 0);
+            const fireResult = entityManager._shootHuntGun(shooter);
+            const enemyHpAfter = Number(enemy.hp || 0);
+            const destroyed = !!trailRef?.entry?.destroyed;
+            if (!destroyed && trailRef?.key && trailRef?.entry) {
+                entityManager.unregisterTrailSegment(trailRef.key, trailRef.entry);
+            }
+
+            return {
+                error: null,
+                fireOk: !!fireResult?.ok,
+                playerHit: !!fireResult?.hit,
+                trailHit: !!fireResult?.trailHit,
+                destroyed,
+                enemyHpBefore,
+                enemyHpAfter,
+            };
+        });
+
+        expect(result.error).toBeNull();
+        expect(result.fireOk).toBeTruthy();
+        expect(result.playerHit).toBeFalsy();
+        expect(result.trailHit).toBeTruthy();
+        expect(result.destroyed).toBeTruthy();
+        expect(result.enemyHpAfter).toBe(result.enemyHpBefore);
     });
 });

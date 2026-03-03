@@ -178,30 +178,47 @@ export class OverheatGunSystem {
     _resolveHit(player, mg) {
         const players = this.entityManager?.players || [];
         const maxRange = Math.max(10, Number(mg.RANGE || 95));
-        const minDot = clamp(Number(mg.AIM_DOT_MIN || 0.965), 0.7, 0.999);
         player.getAimDirection(this._tmpAim).normalize();
+        this._tmpMuzzle.copy(player.position).addScaledVector(this._tmpAim, 2.1);
 
         let bestTarget = null;
         let bestDistance = Infinity;
+        let bestPoint = null;
         for (const target of players) {
             if (!target || !target.alive || target === player) continue;
 
-            this._tmpToTarget.subVectors(target.position, player.position);
-            const distance = this._tmpToTarget.length();
-            if (distance <= 0.1 || distance > maxRange) continue;
+            const hitboxRadius = Math.max(
+                0.2,
+                Number(target.hitboxRadius) || Number(CONFIG?.PLAYER?.HITBOX_RADIUS) || 0.8
+            );
+            const hitboxRadiusSq = hitboxRadius * hitboxRadius;
 
-            this._tmpToTarget.divideScalar(distance);
-            const dot = this._tmpAim.dot(this._tmpToTarget);
-            if (dot < minDot) continue;
+            this._tmpToTarget.subVectors(target.position, this._tmpMuzzle);
+            const forwardDistance = this._tmpAim.dot(this._tmpToTarget);
+            if (forwardDistance < -hitboxRadius || forwardDistance > maxRange + hitboxRadius) continue;
 
-            if (distance < bestDistance) {
-                bestDistance = distance;
+            const toTargetLenSq = this._tmpToTarget.lengthSq();
+            const closestDistanceSq = Math.max(0, toTargetLenSq - forwardDistance * forwardDistance);
+            if (closestDistanceSq > hitboxRadiusSq) continue;
+
+            const intersectionOffset = Math.sqrt(Math.max(0, hitboxRadiusSq - closestDistanceSq));
+            const entryDistance = Math.max(0, forwardDistance - intersectionOffset);
+            if (entryDistance > maxRange) continue;
+
+            if (entryDistance < bestDistance) {
+                bestDistance = entryDistance;
                 bestTarget = target;
+                this._tmpHit.copy(this._tmpMuzzle).addScaledVector(this._tmpAim, entryDistance);
+                bestPoint = {
+                    x: this._tmpHit.x,
+                    y: this._tmpHit.y,
+                    z: this._tmpHit.z,
+                };
             }
         }
 
         const trailHit = this._resolveTrailHit(player, mg, Math.min(maxRange, bestDistance));
-        if (trailHit && trailHit.distance < bestDistance) {
+        if (trailHit && trailHit.distance <= bestDistance) {
             return {
                 target: null,
                 distance: trailHit.distance,
@@ -215,7 +232,7 @@ export class OverheatGunSystem {
                 target: bestTarget,
                 distance: bestDistance,
                 trail: null,
-                point: {
+                point: bestPoint || {
                     x: bestTarget.position.x,
                     y: bestTarget.position.y,
                     z: bestTarget.position.z,

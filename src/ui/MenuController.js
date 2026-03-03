@@ -285,6 +285,13 @@ export class MenuController {
             this._queueInputSettingsChanged([SETTINGS_CHANGE_KEYS.GAMEPLAY_LOCK_ON_ANGLE]);
         });
 
+        if (ui.mgTrailAimSlider) {
+            ui.mgTrailAimSlider.addEventListener('input', () => {
+                settings.gameplay.mgTrailAimRadius = clamp(parseFloat(ui.mgTrailAimSlider.value), 0.2, 3.0);
+                this._queueInputSettingsChanged([SETTINGS_CHANGE_KEYS.GAMEPLAY_MG_TRAIL_AIM_RADIUS]);
+            });
+        }
+
         ui.keybindP1.addEventListener('click', (e) => {
             const btn = e.target.closest('button.keybind-btn');
             if (!btn) return;

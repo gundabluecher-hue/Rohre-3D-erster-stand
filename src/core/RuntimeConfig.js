@@ -129,6 +129,16 @@ export function createRuntimeConfigSnapshot(settings, { baseConfig = CONFIG } = 
             lockOnAngle: clamp(Math.round(toNumber(gameplaySource.lockOnAngle, homingDefaults.LOCK_ON_ANGLE)), 5, 45),
         },
         controls: cloneControls(source.controls, controlsDefaults),
+        huntCombat: {
+            mgTrailAimRadius: clamp(
+                toNumber(
+                    gameplaySource.mgTrailAimRadius,
+                    baseConfig?.HUNT?.MG?.TRAIL_HIT_RADIUS ?? CONFIG?.HUNT?.MG?.TRAIL_HIT_RADIUS ?? 0.78
+                ),
+                0.2,
+                3.0
+            ),
+        },
         hunt: {
             enabled: huntModeActive,
             respawnEnabled: huntModeActive ? !!huntSource.respawnEnabled : false,
@@ -169,6 +179,12 @@ export function applyRuntimeConfigCompatibility(runtimeConfig, targetConfig = CO
     if (targetConfig.HUNT) {
         targetConfig.HUNT.ACTIVE_MODE = runtimeConfig?.session?.activeGameMode || GAME_MODE_TYPES.CLASSIC;
         targetConfig.HUNT.RESPAWN_ENABLED = !!runtimeConfig?.hunt?.respawnEnabled;
+        if (targetConfig.HUNT.MG && runtimeConfig?.huntCombat) {
+            targetConfig.HUNT.MG = {
+                ...targetConfig.HUNT.MG,
+                TRAIL_HIT_RADIUS: runtimeConfig.huntCombat.mgTrailAimRadius
+            };
+        }
     }
 
     return targetConfig;

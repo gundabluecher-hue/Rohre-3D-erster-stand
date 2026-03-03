@@ -23,6 +23,7 @@ export const SETTINGS_CHANGE_KEYS = Object.freeze({
     GAMEPLAY_ITEM_AMOUNT: 'gameplay.itemAmount',
     GAMEPLAY_FIRE_RATE: 'gameplay.fireRate',
     GAMEPLAY_LOCK_ON_ANGLE: 'gameplay.lockOnAngle',
+    GAMEPLAY_MG_TRAIL_AIM_RADIUS: 'gameplay.mgTrailAimRadius',
     GAMEPLAY_PLANAR_MODE: 'gameplay.planarMode',
     GAMEPLAY_PORTAL_COUNT: 'gameplay.portalCount',
     GAMEPLAY_PLANAR_LEVEL_COUNT: 'gameplay.planarLevelCount',

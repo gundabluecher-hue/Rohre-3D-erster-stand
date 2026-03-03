@@ -85,6 +85,13 @@ export class UIManager {
                 this.updateContext();
             });
         });
+
+        const backButtons = Array.from(document.querySelectorAll('[data-back]'));
+        backButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.showMainNav();
+            });
+        });
     }
 
     showMainNav() {
@@ -224,7 +231,12 @@ export class UIManager {
         ui.fireRateSlider.value = gp.fireRate;
         ui.fireRateLabel.textContent = gp.fireRate.toFixed(2) + 's';
         ui.lockOnSlider.value = gp.lockOnAngle;
-        ui.lockOnLabel.textContent = gp.lockOnAngle + '°';
+        const mgTrailAimRadius = Number.isFinite(Number(gp.mgTrailAimRadius))
+            ? Number(gp.mgTrailAimRadius)
+            : Math.max(0.2, Number(CONFIG?.HUNT?.MG?.TRAIL_HIT_RADIUS) || 0.78);
+        if (ui.mgTrailAimSlider) ui.mgTrailAimSlider.value = mgTrailAimRadius;
+        if (ui.mgTrailAimLabel) ui.mgTrailAimLabel.textContent = mgTrailAimRadius.toFixed(2);
+        ui.lockOnLabel.textContent = gp.lockOnAngle + '\u00B0';
 
         const planarToggle = document.getElementById('planar-mode-toggle');
         if (planarToggle) planarToggle.checked = !!gp.planarMode;
@@ -241,7 +253,7 @@ export class UIManager {
         const section = this._getMenuSectionLabel(this.game._activeSubmenu);
         const activeProfile = this._resolveActiveProfileName();
         const dirtyState = this.game.settingsDirty ? 'ungespeicherte Aenderungen' : 'alles gespeichert';
-        this.ui.menuContext.textContent = `${section} · Profil: ${activeProfile} · ${dirtyState}`;
+        this.ui.menuContext.textContent = `${section} | Profil: ${activeProfile} | ${dirtyState}`;
     }
 
     _resolveActiveProfileName() {

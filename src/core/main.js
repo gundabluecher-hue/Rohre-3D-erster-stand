@@ -163,6 +163,8 @@ export class Game {
             fireRateLabel: document.getElementById('fire-rate-label'),
             lockOnSlider: document.getElementById('lockon-slider'),
             lockOnLabel: document.getElementById('lockon-label'),
+            mgTrailAimSlider: document.getElementById('mg-trail-aim-slider'),
+            mgTrailAimLabel: document.getElementById('mg-trail-aim-label'),
             crosshairP1: document.getElementById('crosshair-p1'),
             crosshairP2: document.getElementById('crosshair-p2'),
 

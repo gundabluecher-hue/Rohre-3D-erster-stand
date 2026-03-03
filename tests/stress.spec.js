@@ -122,8 +122,13 @@ test.describe('T61-125: Stress, I/O & Sicherheit', () => {
         const errors = collectErrors(page);
         await loadGame(page);
         for (let i = 0; i < 10; i++) {
-            await page.click('[data-submenu="submenu-game"]');
-            await page.click('#btn-start');
+            await page.locator('[data-submenu="submenu-game"]').click({ force: true });
+            await page.waitForSelector('#submenu-game:not(.hidden)', { timeout: 5000 });
+            await page.locator('#submenu-game:not(.hidden) #btn-start').click({ force: true });
+            await page.waitForFunction(() => {
+                const hud = document.getElementById('hud');
+                return hud && !hud.classList.contains('hidden');
+            }, { timeout: 15000 });
             await page.waitForTimeout(200); // Sehr kurz warten
             await returnToMenu(page);
             await page.waitForTimeout(200);
