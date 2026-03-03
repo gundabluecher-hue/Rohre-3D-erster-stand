@@ -844,4 +844,159 @@ test.describe('T41-60: Physik & AI', () => {
         expect(result.itemSlotCount).toBe(20);
         expect(result.itemSlotsValid).toBeTruthy();
     });
+
+    test('T71: Runtime-Context-Signatur uebergibt Kontext inkl. Observation an Policies', async ({ page }) => {
+        await startGameWithBots(page, 1);
+        const result = await page.evaluate(() => {
+            const game = window.GAME_INSTANCE;
+            const entityManager = game?.entityManager;
+            const bot = entityManager?.players?.find((player) => player?.isBot);
+            if (!entityManager || !bot) {
+                return { error: 'missing-bot' };
+            }
+
+            const policy = entityManager.botByPlayer.get(bot);
+            if (!policy) {
+                return { error: 'missing-policy' };
+            }
+
+            const originalUpdate = policy.update;
+            const originalFlag = policy.usesRuntimeContext;
+            let observed = null;
+            try {
+                policy.usesRuntimeContext = true;
+                policy.update = function runtimeContextUpdate(dt, player, context) {
+                    observed = {
+                        argCount: arguments.length,
+                        hasArena: !!context?.arena,
+                        hasPlayers: Array.isArray(context?.players),
+                        hasProjectiles: Array.isArray(context?.projectiles),
+                        hasRules: !!context?.rules,
+                        hasObservation: Number(context?.observation?.length) === 40,
+                        modeType: typeof context?.mode,
+                    };
+                    return { yawLeft: true };
+                };
+                const action = entityManager._playerInputSystem.resolvePlayerInput(bot, 1 / 60, null);
+                return { error: null, observed, actionYawLeft: !!action?.yawLeft };
+            } finally {
+                policy.update = originalUpdate;
+                policy.usesRuntimeContext = originalFlag;
+            }
+        });
+
+        expect(result.error).toBeNull();
+        expect(result.observed.argCount).toBe(3);
+        expect(result.observed.hasArena).toBeTruthy();
+        expect(result.observed.hasPlayers).toBeTruthy();
+        expect(result.observed.hasProjectiles).toBeTruthy();
+        expect(result.observed.hasRules).toBeTruthy();
+        expect(result.observed.hasObservation).toBeTruthy();
+        expect(result.observed.modeType).toBe('string');
+        expect(result.actionYawLeft).toBeTruthy();
+    });
+
+    test('T72: Legacy-Policy-Signatur bleibt kompatibel', async ({ page }) => {
+        await startGameWithBots(page, 1);
+        const result = await page.evaluate(() => {
+            const game = window.GAME_INSTANCE;
+            const entityManager = game?.entityManager;
+            const bot = entityManager?.players?.find((player) => player?.isBot);
+            if (!entityManager || !bot) {
+                return { error: 'missing-bot' };
+            }
+
+            const policy = entityManager.botByPlayer.get(bot);
+            if (!policy) {
+                return { error: 'missing-policy' };
+            }
+
+            const originalUpdate = policy.update;
+            const originalFlag = policy.usesRuntimeContext;
+            let observed = null;
+            try {
+                policy.usesRuntimeContext = false;
+                policy.update = function legacyUpdate(dt, player, arena, allPlayers, projectiles) {
+                    observed = {
+                        argCount: arguments.length,
+                        hasArena: !!arena?.checkCollision,
+                        playersLength: Array.isArray(allPlayers) ? allPlayers.length : -1,
+                        hasProjectileArray: Array.isArray(projectiles),
+                    };
+                    return { yawRight: true };
+                };
+                const action = entityManager._playerInputSystem.resolvePlayerInput(bot, 1 / 60, null);
+                return { error: null, observed, actionYawRight: !!action?.yawRight };
+            } finally {
+                policy.update = originalUpdate;
+                policy.usesRuntimeContext = originalFlag;
+            }
+        });
+
+        expect(result.error).toBeNull();
+        expect(result.observed.argCount).toBe(5);
+        expect(result.observed.hasArena).toBeTruthy();
+        expect(result.observed.playersLength).toBeGreaterThan(0);
+        expect(result.observed.hasProjectileArray).toBeTruthy();
+        expect(result.actionYawRight).toBeTruthy();
+    });
+
+    test('T73: BotPolicyRegistry registriert modulare Bridge-Policy-Typen', async ({ page }) => {
+        await loadGame(page);
+        const result = await page.evaluate(async () => {
+            const { BotPolicyRegistry } = await import('/src/entities/ai/BotPolicyRegistry.js');
+            const { BOT_POLICY_TYPES } = await import('/src/entities/ai/BotPolicyTypes.js');
+
+            const registry = new BotPolicyRegistry();
+            const classicBridge = registry.create(BOT_POLICY_TYPES.CLASSIC_BRIDGE);
+            const huntBridge = registry.create(BOT_POLICY_TYPES.HUNT_BRIDGE);
+
+            return {
+                classicType: classicBridge?.type,
+                huntType: huntBridge?.type,
+                classicUsesRuntimeContext: classicBridge?.usesRuntimeContext === true,
+                huntUsesRuntimeContext: huntBridge?.usesRuntimeContext === true,
+                classicHasUpdate: typeof classicBridge?.update === 'function',
+                huntHasUpdate: typeof huntBridge?.update === 'function',
+            };
+        });
+
+        expect(result.classicType).toBe('classic-bridge');
+        expect(result.huntType).toBe('hunt-bridge');
+        expect(result.classicUsesRuntimeContext).toBeTruthy();
+        expect(result.huntUsesRuntimeContext).toBeTruthy();
+        expect(result.classicHasUpdate).toBeTruthy();
+        expect(result.huntHasUpdate).toBeTruthy();
+    });
+
+    test('T74: BotPolicyRegistry faellt bei Fehlkonfiguration kontrolliert auf rule-based zurueck', async ({ page }) => {
+        await loadGame(page);
+        const result = await page.evaluate(async () => {
+            const { BotPolicyRegistry } = await import('/src/entities/ai/BotPolicyRegistry.js');
+            const { BOT_POLICY_TYPES } = await import('/src/entities/ai/BotPolicyTypes.js');
+
+            const registry = new BotPolicyRegistry();
+            registry.register('broken-bridge', () => {
+                throw new Error('simulated-registry-factory-error');
+            });
+
+            const unknown = registry.create('unknown-policy-type');
+            const broken = registry.create('broken-bridge');
+            const disabledBridge = registry.create(BOT_POLICY_TYPES.CLASSIC_BRIDGE, { bridgeEnabled: false });
+
+            return {
+                unknownType: unknown?.type,
+                brokenType: broken?.type,
+                disabledBridgeType: disabledBridge?.type,
+                unknownHasUpdate: typeof unknown?.update === 'function',
+                brokenHasUpdate: typeof broken?.update === 'function',
+            };
+        });
+
+        expect(result.unknownType).toBe('rule-based');
+        expect(result.brokenType).toBe('rule-based');
+        expect(result.disabledBridgeType).toBe('rule-based');
+        expect(result.unknownHasUpdate).toBeTruthy();
+        expect(result.brokenHasUpdate).toBeTruthy();
+    });
 });

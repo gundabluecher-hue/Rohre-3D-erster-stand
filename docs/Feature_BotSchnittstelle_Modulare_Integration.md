@@ -66,7 +66,7 @@ Datei-Ownership:
 - [x] 15.2A Observation-Extraktion aus Runtime entkoppeln (Agent A)
 - [x] 15.2B 20-Slot-Item-Encoding + Mode-ID Features (Agent B)
 - [x] 15.3A Runtime-Context-Wiring in Entity/Input-System (Agent A)
-- [ ] 15.3B Registry auf modulare Bridge-Policies erweitern (Agent B)
+- [x] 15.3B Registry auf modulare Bridge-Policies erweitern (Agent B)
 - [ ] 15.4A Classic-Bridge-Policy integrieren (Agent A)
 - [ ] 15.4B Hunt-Bridge-Policy integrieren (Agent B)
 - [ ] 15.5 Integration: RuntimeConfig/Settings/Session-Auswahl
