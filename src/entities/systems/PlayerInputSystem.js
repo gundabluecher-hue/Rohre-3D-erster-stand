@@ -3,7 +3,8 @@
 // ============================================
 
 import { sanitizeBotAction } from '../ai/actions/BotActionContract.js';
-import { buildObservation, createObservationContext } from '../ai/observation/ObservationSystem.js';
+import { createBotRuntimeContext } from '../ai/BotRuntimeContextFactory.js';
+import { buildObservation } from '../ai/observation/ObservationSystem.js';
 
 // Reused input object to reduce GC
 const SHARED_EMPTY_INPUT = {
@@ -71,29 +72,18 @@ export class PlayerInputSystem {
         console.warn(`[ObservationSystem] Fallback observation for bot index ${playerIndex}: ${reason}${errorMessage}`);
     }
 
-    _resolveObservationMode(entityManager) {
-        const mode = entityManager?.activeGameMode || entityManager?.runtimeConfig?.session?.activeGameMode;
-        if (typeof mode === 'string' && mode.trim()) {
-            return mode;
+    _resolveRuntimeContext(player, dt, entityManager) {
+        if (typeof entityManager?.createBotRuntimeContext === 'function') {
+            return entityManager.createBotRuntimeContext(player, dt);
         }
-        const huntEnabled = !!entityManager?.huntEnabled;
-        return huntEnabled ? 'hunt' : 'classic';
+        return createBotRuntimeContext(entityManager, player, dt);
     }
 
-    _buildObservationContext(entityManager) {
-        return createObservationContext({
-            arena: entityManager?.arena,
-            players: entityManager?.players,
-            projectiles: entityManager?.projectiles,
-            mode: this._resolveObservationMode(entityManager),
-            planarMode: !!entityManager?.arena?.planarMode,
-        });
-    }
-
-    _buildBotObservation(player, policy, context) {
+    _buildBotObservation(player, policy, runtimeContext) {
+        const observationContext = runtimeContext?.observationContext || runtimeContext;
         if (typeof policy?.getObservation === 'function') {
             try {
-                const customObservation = policy.getObservation(player, context);
+                const customObservation = policy.getObservation(player, runtimeContext);
                 if (
                     customObservation
                     && typeof customObservation.length === 'number'
@@ -106,7 +96,32 @@ export class PlayerInputSystem {
                 this._warnInvalidBotObservation(player, 'policy.getObservation threw', error);
             }
         }
-        return buildObservation(player, context);
+        return buildObservation(player, observationContext);
+    }
+
+    _invokeBotPolicyUpdate(policy, dt, player, runtimeContext) {
+        const update = policy?.update;
+        if (typeof update !== 'function') {
+            return getEmptyInput();
+        }
+
+        const preferRuntimeContext = policy?.usesRuntimeContext === true || update.length <= 3;
+        if (preferRuntimeContext) {
+            try {
+                return update.call(policy, dt, player, runtimeContext);
+            } catch (error) {
+                this._warnInvalidBotAction(player, 'runtime-context update threw, fallback to legacy signature', error);
+            }
+        }
+
+        return update.call(
+            policy,
+            dt,
+            player,
+            runtimeContext?.arena,
+            runtimeContext?.players,
+            runtimeContext?.projectiles
+        );
     }
 
     getLastBotObservation(playerIndex) {
@@ -120,8 +135,9 @@ export class PlayerInputSystem {
         if (player.isBot) {
             const botAI = entityManager.botByPlayer.get(player);
             if (botAI) {
-                const observationContext = this._buildObservationContext(entityManager);
-                const observation = this._buildBotObservation(player, botAI, observationContext);
+                const runtimeContext = this._resolveRuntimeContext(player, dt, entityManager);
+                const observation = this._buildBotObservation(player, botAI, runtimeContext);
+                runtimeContext.observation = observation;
                 this._lastBotObservationByIndex.set(player.index, observation);
 
                 const sanitizeOptions = {
@@ -129,7 +145,7 @@ export class PlayerInputSystem {
                     onInvalid: (reason) => this._warnInvalidBotAction(player, reason),
                 };
                 try {
-                    const output = botAI.update(dt, player, entityManager.arena, entityManager.players, entityManager.projectiles);
+                    const output = this._invokeBotPolicyUpdate(botAI, dt, player, runtimeContext);
                     input = sanitizeBotAction(output, sanitizeOptions, input);
                 } catch (error) {
                     this._warnInvalidBotAction(player, 'policy update threw', error);

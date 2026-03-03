@@ -7,6 +7,7 @@ import { CONFIG } from '../core/Config.js';
 import { Player } from './Player.js';
 import { BotPolicyRegistry } from './ai/BotPolicyRegistry.js';
 import { BOT_POLICY_TYPES, DEFAULT_BOT_POLICY_TYPE } from './ai/BotPolicyTypes.js';
+import { createBotRuntimeContext } from './ai/BotRuntimeContextFactory.js';
 import { getVehicleIds, isValidVehicleId } from './vehicle-registry.js';
 import { ProjectileSystem } from './systems/ProjectileSystem.js';
 import { PlayerInputSystem } from './systems/PlayerInputSystem.js';
@@ -135,6 +136,9 @@ export class EntityManager {
         this._bindTrailSpatialIndexCompatibility();
         this.botPolicyRegistry = new BotPolicyRegistry();
         this.botPolicyType = DEFAULT_BOT_POLICY_TYPE;
+        this.activeGameMode = CONFIG?.HUNT?.ACTIVE_MODE || 'classic';
+        this.huntEnabled = isHuntHealthActive();
+        this.runtimeConfig = null;
     }
 
     _bindTrailSpatialIndexCompatibility() {
@@ -192,6 +196,14 @@ export class EntityManager {
     setup(numHumans, numBots, options = {}) {
         console.log(`[EntityManager] Setup: Humans=${numHumans}, Bots=${numBots}`);
         this.clear();
+
+        this.runtimeConfig = options.runtimeConfig || null;
+        this.activeGameMode = options.activeGameMode
+            || this.runtimeConfig?.session?.activeGameMode
+            || this.activeGameMode
+            || 'classic';
+        const activeModeLower = String(this.activeGameMode || '').toLowerCase();
+        this.huntEnabled = activeModeLower === 'hunt' || isHuntHealthActive();
 
         const humanConfigs = Array.isArray(options.humanConfigs) ? options.humanConfigs : [];
         const modelScale = typeof options.modelScale === 'number' ? options.modelScale : (CONFIG.PLAYER.MODEL_SCALE || 1);
@@ -264,6 +276,10 @@ export class EntityManager {
                 bot.ai.setDifficulty(this.botDifficulty);
             }
         }
+    }
+
+    createBotRuntimeContext(player, dt) {
+        return createBotRuntimeContext(this, player, dt);
     }
 
     spawnAll() {
