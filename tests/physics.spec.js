@@ -781,4 +781,67 @@ test.describe('T41-60: Physik & AI', () => {
         expect(result.hasUniqueSemanticsIndices).toBeTruthy();
         expect(result.hasExpectedSemanticsLength).toBeTruthy();
     });
+
+    test('T70: Observation-System extrahiert normalisierte Runtime-Features', async ({ page }) => {
+        await startGameWithBots(page, 1);
+        const result = await page.evaluate(async () => {
+            const schema = await import('/src/entities/ai/observation/ObservationSchemaV1.js');
+            const observation = await import('/src/entities/ai/observation/ObservationSystem.js');
+
+            const game = window.GAME_INSTANCE;
+            const entityManager = game?.entityManager;
+            const bot = entityManager?.players?.find((player) => player?.isBot);
+            if (!entityManager || !bot) {
+                return { error: 'missing-bot' };
+            }
+
+            const context = observation.createObservationContext({
+                arena: entityManager.arena,
+                players: entityManager.players,
+                projectiles: entityManager.projectiles,
+                mode: game?.activeGameMode || 'classic',
+                planarMode: !!game?.config?.GAMEPLAY?.PLANAR_MODE,
+            });
+            const vector = observation.buildObservation(bot, context);
+            const itemSlots = vector.slice(schema.ITEM_SLOT_00, schema.ITEM_SLOT_19 + 1);
+            const ratioIndices = [
+                schema.SPEED_RATIO,
+                schema.HEALTH_RATIO,
+                schema.SHIELD_RATIO,
+                schema.WALL_DISTANCE_FRONT,
+                schema.WALL_DISTANCE_LEFT,
+                schema.WALL_DISTANCE_RIGHT,
+                schema.WALL_DISTANCE_UP,
+                schema.WALL_DISTANCE_DOWN,
+                schema.TARGET_DISTANCE_RATIO,
+                schema.PRESSURE_LEVEL,
+                schema.LOCAL_OPENNESS_RATIO,
+                schema.INVENTORY_COUNT_RATIO,
+            ];
+            const ratiosInRange = ratioIndices.every((index) => {
+                const value = Number(vector[index]);
+                return Number.isFinite(value) && value >= 0 && value <= 1;
+            });
+            const signedAlignment = Number(vector[schema.TARGET_ALIGNMENT]);
+            const selectedSlot = Number(vector[schema.SELECTED_ITEM_SLOT]);
+
+            return {
+                error: null,
+                length: vector.length,
+                ratiosInRange,
+                signedAlignmentInRange: Number.isFinite(signedAlignment) && signedAlignment >= -1 && signedAlignment <= 1,
+                selectedSlotInRange: selectedSlot >= -1 && selectedSlot <= 19,
+                itemSlotCount: itemSlots.length,
+                itemSlotsValid: itemSlots.every((value) => value === 0 || value === 1),
+            };
+        });
+
+        expect(result.error).toBeNull();
+        expect(result.length).toBe(40);
+        expect(result.ratiosInRange).toBeTruthy();
+        expect(result.signedAlignmentInRange).toBeTruthy();
+        expect(result.selectedSlotInRange).toBeTruthy();
+        expect(result.itemSlotCount).toBe(20);
+        expect(result.itemSlotsValid).toBeTruthy();
+    });
 });

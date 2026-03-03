@@ -3,6 +3,7 @@
 // ============================================
 
 import { sanitizeBotAction } from '../ai/actions/BotActionContract.js';
+import { buildObservation, createObservationContext } from '../ai/observation/ObservationSystem.js';
 
 // Reused input object to reduce GC
 const SHARED_EMPTY_INPUT = {
@@ -45,6 +46,9 @@ export class PlayerInputSystem {
         this.entityManager = entityManager;
         this._botActionWarningCooldownMs = 2000;
         this._botActionWarnings = new Map();
+        this._botObservationWarningCooldownMs = 3000;
+        this._botObservationWarnings = new Map();
+        this._lastBotObservationByIndex = new Map();
     }
 
     _warnInvalidBotAction(player, reason, error = null) {
@@ -57,6 +61,58 @@ export class PlayerInputSystem {
         console.warn(`[BotActionContract] Sanitized invalid action for bot index ${playerIndex}: ${reason}${errorMessage}`);
     }
 
+    _warnInvalidBotObservation(player, reason, error = null) {
+        const playerIndex = Number.isInteger(player?.index) ? player.index : -1;
+        const now = Date.now();
+        const lastWarning = this._botObservationWarnings.get(playerIndex) || 0;
+        if (now - lastWarning < this._botObservationWarningCooldownMs) return;
+        this._botObservationWarnings.set(playerIndex, now);
+        const errorMessage = error ? ` (${error.message || String(error)})` : '';
+        console.warn(`[ObservationSystem] Fallback observation for bot index ${playerIndex}: ${reason}${errorMessage}`);
+    }
+
+    _resolveObservationMode(entityManager) {
+        const mode = entityManager?.activeGameMode || entityManager?.runtimeConfig?.session?.activeGameMode;
+        if (typeof mode === 'string' && mode.trim()) {
+            return mode;
+        }
+        const huntEnabled = !!entityManager?.huntEnabled;
+        return huntEnabled ? 'hunt' : 'classic';
+    }
+
+    _buildObservationContext(entityManager) {
+        return createObservationContext({
+            arena: entityManager?.arena,
+            players: entityManager?.players,
+            projectiles: entityManager?.projectiles,
+            mode: this._resolveObservationMode(entityManager),
+            planarMode: !!entityManager?.arena?.planarMode,
+        });
+    }
+
+    _buildBotObservation(player, policy, context) {
+        if (typeof policy?.getObservation === 'function') {
+            try {
+                const customObservation = policy.getObservation(player, context);
+                if (
+                    customObservation
+                    && typeof customObservation.length === 'number'
+                    && customObservation.length > 0
+                ) {
+                    return customObservation;
+                }
+                this._warnInvalidBotObservation(player, 'policy.getObservation returned empty payload');
+            } catch (error) {
+                this._warnInvalidBotObservation(player, 'policy.getObservation threw', error);
+            }
+        }
+        return buildObservation(player, context);
+    }
+
+    getLastBotObservation(playerIndex) {
+        return this._lastBotObservationByIndex.get(playerIndex) || null;
+    }
+
     resolvePlayerInput(player, dt, inputManager) {
         const entityManager = this.entityManager;
         let input = getEmptyInput();
@@ -64,6 +120,10 @@ export class PlayerInputSystem {
         if (player.isBot) {
             const botAI = entityManager.botByPlayer.get(player);
             if (botAI) {
+                const observationContext = this._buildObservationContext(entityManager);
+                const observation = this._buildBotObservation(player, botAI, observationContext);
+                this._lastBotObservationByIndex.set(player.index, observation);
+
                 const sanitizeOptions = {
                     inventoryLength: Array.isArray(player.inventory) ? player.inventory.length : 0,
                     onInvalid: (reason) => this._warnInvalidBotAction(player, reason),
