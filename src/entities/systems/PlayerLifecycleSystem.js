@@ -140,7 +140,7 @@ export class PlayerLifecycleSystem {
 
             if (!arenaCollision) {
                 // Seitliche Fluegel-Punkte
-                entityManager._tmpVec.set(0, 1, 0).applyQuaternion(player.group.quaternion); // Up
+                entityManager._tmpVec.set(0, 1, 0).applyQuaternion(player.quaternion); // Up
                 entityManager._tmpDir.crossVectors(entityManager._tmpVec, player.getDirection(entityManager._tmpVec2)).normalize(); // Right
 
                 // Rechts
@@ -254,3 +254,4 @@ export class PlayerLifecycleSystem {
         }
     }
 }
+

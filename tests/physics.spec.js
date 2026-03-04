@@ -402,7 +402,7 @@ test.describe('T41-60: Physik & AI', () => {
 
             player.position.set(0, 50, 0);
             target.position.set(30, 50, -36);
-            player.group?.lookAt(0, 50, -120);
+            player.setLookAtWorld?.(0, 50, -120);
 
             const targetHpBefore = Number(target.hp || 0);
             const shot = entityManager._shootItemProjectile(player, 0);
@@ -471,7 +471,7 @@ test.describe('T41-60: Physik & AI', () => {
             }
 
             player.position.set(0, 50, 0);
-            player.group?.lookAt(0, 50, -120);
+            player.setLookAtWorld?.(0, 50, -120);
             player.trail?.clear?.();
 
             const aim = player.position.clone().set(0, 0, 0);
@@ -569,7 +569,7 @@ test.describe('T41-60: Physik & AI', () => {
             shooter.trail?.clear?.();
             enemy.trail?.clear?.();
             shooter.position.set(0, 50, 0);
-            shooter.group?.lookAt(0, 50, -120);
+            shooter.setLookAtWorld?.(0, 50, -120);
             enemy.position.set(4.0, 50, -20);
 
             const aim = shooter.position.clone().set(0, 0, 0);
@@ -648,7 +648,7 @@ test.describe('T41-60: Physik & AI', () => {
             shooter.trail?.clear?.();
             enemy.trail?.clear?.();
             shooter.position.set(0, 50, 0);
-            shooter.group?.lookAt(0, 50, -120);
+            shooter.setLookAtWorld?.(0, 50, -120);
             enemy.position.set(16, 50, -24);
 
             const aim = shooter.position.clone().set(0, 0, 0);
@@ -752,7 +752,7 @@ test.describe('T41-60: Physik & AI', () => {
             enemy.trail?.clear?.();
 
             player.position.set(0, 50, 6);
-            player.group?.lookAt(0, 50, -120);
+            player.setLookAtWorld?.(0, 50, -120);
             player.spawnProtectionTimer = 0;
             player.hp = Math.max(100, Number(player.maxHp) || 100);
             player.lastDamageTimestamp = -Infinity;
@@ -836,7 +836,7 @@ test.describe('T41-60: Physik & AI', () => {
             player.trail?.forceGap?.(3.0);
 
             player.position.set(1.45, 50, 6);
-            player.group?.lookAt(1.45, 50, -120);
+            player.setLookAtWorld?.(1.45, 50, -120);
             player.spawnProtectionTimer = 0;
             player.hp = Math.max(100, Number(player.maxHp) || 100);
             player.lastDamageTimestamp = -Infinity;
@@ -925,7 +925,7 @@ test.describe('T41-60: Physik & AI', () => {
             shooter.trail?.clear?.();
             enemy.trail?.clear?.();
             shooter.position.set(0, 50, 0);
-            shooter.group?.lookAt(0, 50, -120);
+            shooter.setLookAtWorld?.(0, 50, -120);
             enemy.position.set(20, 50, -20);
 
             enemy.trail._addSegment(0, 50, -18, 0, 50, -16);
@@ -987,7 +987,7 @@ test.describe('T41-60: Physik & AI', () => {
             shooter.trail?.clear?.();
             enemy.trail?.clear?.();
             shooter.position.set(0, 50, 0);
-            shooter.group?.lookAt(0, 50, -120);
+            shooter.setLookAtWorld?.(0, 50, -120);
             enemy.position.set(22, 50, -20);
 
             enemy.trail._addSegment(0, 50, -18, 0, 50, -16);
@@ -1533,7 +1533,7 @@ test.describe('T41-60: Physik & AI', () => {
             bot.hp = Math.max(1, bot.maxHp || 1);
             bot.inventory = [];
             bot.position.set(0, 50, 0);
-            bot.group?.lookAt(0, 50, -100);
+            bot.setLookAtWorld?.(0, 50, -100);
             enemy.position.set(0, 50, -18);
 
             const context = entityManager.createBotRuntimeContext(bot, 1 / 60);
@@ -1579,7 +1579,7 @@ test.describe('T41-60: Physik & AI', () => {
             bot.inventory = ['ROCKET_WEAK', 'ROCKET_STRONG'];
             bot.selectedItemIndex = 0;
             bot.position.set(0, 50, 0);
-            bot.group?.lookAt(0, 50, -100);
+            bot.setLookAtWorld?.(0, 50, -100);
             enemy.position.set(2, 50, -14);
 
             const context = entityManager.createBotRuntimeContext(bot, 1 / 60);

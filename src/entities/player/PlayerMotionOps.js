@@ -1,40 +1,84 @@
 import { CONFIG } from '../../core/Config.js';
 
-export function updatePlayerMotion(player, dt, input, steeringLocked = false) {
-    const turnSpeed = CONFIG.PLAYER.TURN_SPEED * dt;
-    const rollSpeed = CONFIG.PLAYER.ROLL_SPEED * dt;
+const MIN_HITBOX_RADIUS = 0.2;
+const HITBOX_HEIGHT_FACTOR = 0.7;
 
-    let pitchInput = 0;
-    let yawInput = 0;
-    let rollInput = 0;
+function applyFallbackHitbox(player, fallbackRadius) {
+    player.hitboxBox.set(
+        player._tmpVec.set(-fallbackRadius, -fallbackRadius * HITBOX_HEIGHT_FACTOR, -fallbackRadius),
+        player._tmpDir.set(fallbackRadius, fallbackRadius * HITBOX_HEIGHT_FACTOR, fallbackRadius)
+    );
+}
 
-    if (input) {
-        pitchInput = (input.pitchUp ? 1 : 0) - (input.pitchDown ? 1 : 0);
-        yawInput = (input.yawLeft ? 1 : 0) - (input.yawRight ? 1 : 0);
-        rollInput = (input.rollLeft ? 1 : 0) - (input.rollRight ? 1 : 0);
+function updateHitboxDerivedState(player) {
+    if (!player?.hitboxBox || !player?.hitboxSize || !player?.hitboxCenter) return;
+    player.hitboxBox.getSize(player.hitboxSize);
+    player.hitboxBox.getCenter(player.hitboxCenter);
+}
 
-        if (player.invertPitchBase) {
-            pitchInput *= -1;
-        }
-        if (player.invertControls) {
-            pitchInput *= -1;
-            yawInput *= -1;
-        }
+function hasValidHitbox(box) {
+    if (!box || box.isEmpty()) return false;
+    const min = box.min;
+    const max = box.max;
+    return Number.isFinite(min.x)
+        && Number.isFinite(min.y)
+        && Number.isFinite(min.z)
+        && Number.isFinite(max.x)
+        && Number.isFinite(max.y)
+        && Number.isFinite(max.z);
+}
 
-        if (CONFIG.GAMEPLAY.PLANAR_MODE) {
-            pitchInput = 0;
-        }
+export function initializePlayerHitbox(player, radius) {
+    if (!player?.hitboxBox) return;
+    const fallbackRadius = Math.max(MIN_HITBOX_RADIUS, Number(radius) || Number(CONFIG.PLAYER.HITBOX_RADIUS) || 0.8);
+    applyFallbackHitbox(player, fallbackRadius);
+    updateHitboxDerivedState(player);
+}
 
-        if (!steeringLocked && input.boost && player.boostCooldown <= 0 && !player.isBoosting) {
-            player.isBoosting = true;
-            player.boostTimer = CONFIG.PLAYER.BOOST_DURATION;
+export function syncPlayerHitboxFromVehicleMesh(player, mesh = null) {
+    if (!player?.hitboxBox) return null;
+
+    const targetMesh = mesh || player.vehicleMesh;
+    const fallbackRadius = Math.max(MIN_HITBOX_RADIUS, Number(player.hitboxRadius) || Number(CONFIG.PLAYER.HITBOX_RADIUS) || 0.8);
+
+    if (!targetMesh) {
+        applyFallbackHitbox(player, fallbackRadius);
+        updateHitboxDerivedState(player);
+        return player.hitboxBox;
+    }
+
+    if (targetMesh.localBox) {
+        player.hitboxBox.copy(targetMesh.localBox);
+    } else {
+        targetMesh.updateMatrixWorld?.(true);
+        if (player._tmpMat && targetMesh.matrixWorld) {
+            const inverse = player._tmpMat.copy(targetMesh.matrixWorld).invert();
+            player.hitboxBox.setFromObject(targetMesh).applyMatrix4(inverse);
+        } else {
+            player.hitboxBox.setFromObject(targetMesh);
         }
     }
 
-    if (steeringLocked) {
-        pitchInput = 0;
-        yawInput = 0;
-        rollInput = 0;
+    if (!hasValidHitbox(player.hitboxBox)) {
+        applyFallbackHitbox(player, fallbackRadius);
+    }
+
+    updateHitboxDerivedState(player);
+    return player.hitboxBox;
+}
+
+export function updatePlayerMotion(player, dt, controlState = null) {
+    const turnSpeed = CONFIG.PLAYER.TURN_SPEED * dt;
+    const rollSpeed = CONFIG.PLAYER.ROLL_SPEED * dt;
+
+    const pitchInput = Number(controlState?.pitchInput) || 0;
+    const yawInput = Number(controlState?.yawInput) || 0;
+    const rollInput = Number(controlState?.rollInput) || 0;
+    const wantsBoost = !!controlState?.boost;
+
+    if (wantsBoost && player.boostCooldown <= 0 && !player.isBoosting) {
+        player.isBoosting = true;
+        player.boostTimer = CONFIG.PLAYER.BOOST_DURATION;
     }
 
     player._tmpEuler.set(
@@ -102,13 +146,45 @@ export function updatePlayerMotion(player, dt, input, steeringLocked = false) {
         player.position.y += player.velocity.y * dt;
     }
     player.position.z += player.velocity.z * dt;
+}
 
-    player.trail.update(dt, player.position, player._tmpVec);
+export function setPlayerLookAtWorld(player, x, y, z) {
+    if (!player?.position || !player?.quaternion) return false;
 
-    if (player.vehicleMesh && typeof player.vehicleMesh.tick === 'function') {
-        player.vehicleMesh.tick(dt);
+    const tx = Number(x);
+    const ty = Number(y);
+    const tz = Number(z);
+    if (!Number.isFinite(tx) || !Number.isFinite(ty) || !Number.isFinite(tz)) {
+        return false;
     }
 
-    player._updateModel();
-    player.group.updateMatrixWorld(true);
+    player._tmpVec.set(tx, ty, tz).sub(player.position);
+    if (player._tmpVec.lengthSq() <= 0.000001) {
+        return false;
+    }
+
+    player._tmpVec.normalize();
+    player.quaternion.setFromUnitVectors(player._tmpDir.set(0, 0, -1), player._tmpVec);
+    return true;
+}
+
+export function isSphereInPlayerOBB(player, worldCenter, radius) {
+    if (!player?.alive || !player?.hitboxBox || !worldCenter) return false;
+
+    if (player.group?.matrixWorld) {
+        player._tmpWorldToLocal.copy(player.group.matrixWorld).invert();
+    } else {
+        if (!player._tmpHitboxScale) return false;
+        const scaleValue = Number(player.modelScale) || 1;
+        player._tmpWorldToLocal.compose(
+            player.position,
+            player.quaternion,
+            player._tmpHitboxScale.set(scaleValue, scaleValue, scaleValue)
+        ).invert();
+    }
+
+    player._tmpLocalSphere.center.copy(worldCenter).applyMatrix4(player._tmpWorldToLocal);
+    player._tmpLocalSphere.radius = radius;
+
+    return player.hitboxBox.intersectsSphere(player._tmpLocalSphere);
 }
