@@ -157,10 +157,10 @@ Exit-Kriterien:
 
 ## Phase 21.6 - Abschluss, Stabilisierung, Doku-Freeze
 
-- [ ] 21.6.1 Gesamtlauf-Verifikation auf geaenderten Bereichen durchfuehren.
-- [ ] 21.6.2 Offene TODOs/Compat-Shims entscheiden: entfernen oder explizit als Schulden markieren.
-- [ ] 21.6.3 Ergebnisbericht und Delta-Liste fuer die komplette 21.x-Serie schreiben.
-- [ ] 21.6.4 Dokumentations-Freshness abschliessen.
+- [x] 21.6.1 Gesamtlauf-Verifikation auf geaenderten Bereichen durchfuehren.
+- [x] 21.6.2 Offene TODOs/Compat-Shims entscheiden: entfernen oder explizit als Schulden markieren.
+- [x] 21.6.3 Ergebnisbericht und Delta-Liste fuer die komplette 21.x-Serie schreiben.
+- [x] 21.6.4 Dokumentations-Freshness abschliessen.
 
 Verifikation:
 

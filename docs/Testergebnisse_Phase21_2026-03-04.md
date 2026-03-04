@@ -109,3 +109,35 @@ Split-Ergebnis:
 - `src/ui/menu/MenuProfileBindings.js` kapselt Profilaktionen.
 - `src/ui/menu/MenuControlBindings.js` kapselt Keybind/Controls-Listener.
 - `src/ui/MenuController.js` bleibt Queue-/Event-Emitter-Fassade ohne monolithische Listener-Registrierung.
+
+## 21.6 Abschluss, Stabilisierung und Delta-Liste
+
+Abschluss-Verifikation:
+
+- `npm run test:core`
+  - Ergebnis: PASS (`20 passed`)
+- `npm run test:physics`
+  - Durchlauf A: `46 passed`, `1 failed` (Playwright Browserstart-Abbruch in T41)
+  - Durchlauf B (direkte Wiederholung): PASS (`47 passed`)
+- `npm run test:stress`
+  - Ergebnis: PASS (`13 passed`)
+- `npm run smoke:roundstate`
+  - Ergebnis: PASS (`ok: true`)
+- `npm run smoke:selftrail`
+  - Ergebnis: PASS (`failures: []`)
+- `npm run build`
+  - Ergebnis: PASS
+
+TODO/Compat-Shims:
+
+- Beibehalten: Kompatibilitaets-Fassade in `src/hunt/OverheatGunSystem.js` (`_overheatByPlayer`, `_lockoutByPlayer`, `_overheatSnapshot`, `_tracers`) fuer bestehende Call-Sites/Tests.
+- Keine offenen `TODO`/`FIXME`-Marker im geaenderten 21.x-Umfang.
+
+Delta-Liste 21.x (gesamt):
+
+- Neu: `src/hunt/mg/*` fuer MG-State/Hit/Tracer-Split.
+- Neu: `src/entities/systems/projectile/*` fuer Projectile-State/Simulation/Hit-Resolver-Split.
+- Neu: `src/core/GameBootstrap.js`, `src/core/GameRuntimeFacade.js`, `src/core/GameDebugApi.js`.
+- Neu: `src/entities/ai/BotSensorsFacade.js`.
+- Neu: `src/ui/menu/MenuGameplayBindings.js`, `src/ui/menu/MenuProfileBindings.js`, `src/ui/menu/MenuControlBindings.js`.
+- Delegations-Fassaden in `src/hunt/OverheatGunSystem.js`, `src/entities/systems/ProjectileSystem.js`, `src/core/main.js`, `src/entities/Bot.js`, `src/ui/MenuController.js` stabilisiert.

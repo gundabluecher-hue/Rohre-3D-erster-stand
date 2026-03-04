@@ -66,7 +66,7 @@ Neue Findings aus dem Analysebericht fliessen hier ein.
 - [ ] V16 Event-Playlist/Fun-Modes
   - Rotierende Spezialregeln als zeitlich limitierte Modi fuer Abwechslung und Retention.
   - Zielpfade: `src/core/Config.js`, `src/core/main.js`, `src/ui/MenuController.js`.
-- [/] V18 Single-Agent-Durchlauf fuer weitere Modularisierung (ohne Stop)
+- [x] V18 Single-Agent-Durchlauf fuer weitere Modularisierung (ohne Stop)
   - Fokus: `OverheatGunSystem`, `ProjectileSystem`, `main.js`, `Bot.js`, `MenuController` in sequenziellen Phasen fuer einen Agenten.
   - Referenzplan: `docs/Feature_Modularisierung_SingleAgent_Durchlauf.md`.
 
@@ -84,4 +84,4 @@ Neue Findings aus dem Analysebericht fliessen hier ein.
 - [x] 21.3 main.js Split (Bootstrap, RuntimeFacade, DebugApi)
 - [x] 21.4 Bot-Fassade vereinfachen (Proxy-Abbau + SensorsFacade)
 - [x] 21.5 MenuController Listener-Split (Gameplay/Profile/Controls)
-- [ ] 21.6 Abschluss, Stabilisierung, Doku-Freeze (`docs:sync`, `docs:check`)
+- [x] 21.6 Abschluss, Stabilisierung, Doku-Freeze (`docs:sync`, `docs:check`)
