@@ -7,8 +7,8 @@ function getLabel(player) {
 }
 
 export class RespawnSystem {
-    constructor(entityManager) {
-        this.entityManager = entityManager;
+    constructor(runtimeContext) {
+        this.runtime = runtimeContext || null;
         this.pendingByPlayer = new Map();
     }
 
@@ -61,24 +61,23 @@ export class RespawnSystem {
             pending.remaining -= safeDt;
             if (pending.remaining > 0) continue;
 
-            const planarSpawnLevel = CONFIG.GAMEPLAY.PLANAR_MODE && this.entityManager?._getPlanarSpawnLevel
-                ? this.entityManager._getPlanarSpawnLevel()
+            const planarSpawnLevel = CONFIG.GAMEPLAY.PLANAR_MODE && this.runtime?.spawn?.getPlanarSpawnLevel
+                ? this.runtime.spawn.getPlanarSpawnLevel()
                 : null;
-            const spawnPos = this.entityManager._findSpawnPosition(12, 12, planarSpawnLevel);
-            const spawnDir = this.entityManager._findSafeSpawnDirection(spawnPos, player.hitboxRadius);
+            const spawnPos = this.runtime.spawn.findSpawnPosition(12, 12, planarSpawnLevel);
+            const spawnDir = this.runtime.spawn.findSafeSpawnDirection(spawnPos, player.hitboxRadius);
             player.spawn(spawnPos, spawnDir);
 
             const invulnerability = Math.max(0, Number(CONFIG?.HUNT?.RESPAWN?.INVULNERABILITY_SECONDS || 1));
             player.spawnProtectionTimer = Math.max(player.spawnProtectionTimer || 0, invulnerability);
             player.shootCooldown = 0;
 
-            if (this.entityManager?.recorder) {
-                this.entityManager.recorder.markPlayerSpawn(player);
-                this.entityManager.recorder.logEvent('RESPAWN', player.index, `delay=${Math.max(0, Number(CONFIG?.HUNT?.RESPAWN?.DELAY_SECONDS || 3)).toFixed(2)}`);
+            const recorder = this.runtime?.services?.recorder;
+            if (recorder) {
+                recorder.markPlayerSpawn(player);
+                recorder.logEvent('RESPAWN', player.index, `delay=${Math.max(0, Number(CONFIG?.HUNT?.RESPAWN?.DELAY_SECONDS || 3)).toFixed(2)}`);
             }
-            if (this.entityManager?.onHuntFeedEvent) {
-                this.entityManager.onHuntFeedEvent(`${getLabel(player)} respawned`);
-            }
+            this.runtime?.events?.emitHuntFeed(`${getLabel(player)} respawned`);
 
             this.pendingByPlayer.delete(playerIndex);
         }

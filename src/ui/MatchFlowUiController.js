@@ -48,7 +48,7 @@ export class MatchFlowUiController {
             if (game.ui.p2Hud) {
                 game.ui.p2Hud.classList.toggle('hidden', !uiState.p2HudVisible);
             } else {
-                game._syncP2HudVisibility();
+                game.runtimeFacade.syncP2HudVisibility();
             }
         }
     }
@@ -142,7 +142,7 @@ export class MatchFlowUiController {
             settings: game.settings,
             runtimeConfig: game.runtimeConfig,
             requestedMapKey: game.mapKey,
-            currentSession: game._getCurrentMatchSessionRefs(),
+            currentSession: game.matchSessionRuntimeBridge.getCurrentMatchSessionRefs(),
             onPlayerFeedback: (player, message) => {
                 game._showPlayerFeedback(player, message);
             },
@@ -155,7 +155,7 @@ export class MatchFlowUiController {
                 this.onRoundEnd(winner);
             },
         });
-        game._applyInitializedMatchSession(initializedMatch);
+        game.matchSessionRuntimeBridge.applyInitializedMatchSession(initializedMatch);
         if (game.entityManager) {
             game.entityManager.onHuntFeedEvent = (entry) => {
                 if (!game.huntState) return;
@@ -169,7 +169,7 @@ export class MatchFlowUiController {
                 this._handleHuntDamageEvent(event);
             };
         }
-        game._applyMatchFeedbackPlan(initializedMatch.feedbackPlan);
+        this._applyMatchFeedbackPlan(initializedMatch.feedbackPlan);
 
         this.startRound();
     }
@@ -272,11 +272,23 @@ export class MatchFlowUiController {
             game.huntState.damageIndicator = null;
             game.huntState.overheatByPlayer = {};
         }
-        disposeMatchSessionSystems(game.renderer, game._getCurrentMatchSessionRefs());
-        game._clearMatchSessionRefs();
+        disposeMatchSessionSystems(game.renderer, game.matchSessionRuntimeBridge.getCurrentMatchSessionRefs());
+        game.matchSessionRuntimeBridge.clearMatchSessionRefs();
         this.applyMatchUiState(deriveReturnToMenuUiState());
         game._showMainNav();
         this.resetCrosshairUi();
         game.uiManager.syncAll();
+    }
+
+    _applyMatchFeedbackPlan(feedbackPlan) {
+        if (!feedbackPlan) return;
+        for (const entry of feedbackPlan.consoleEntries || []) {
+            const level = entry?.level === 'warn' ? 'warn' : 'log';
+            const args = Array.isArray(entry?.args) ? entry.args : [entry];
+            console[level](...args);
+        }
+        for (const toast of feedbackPlan.toasts || []) {
+            this.game._showStatusToast(toast.message, toast.durationMs, toast.tone);
+        }
     }
 }

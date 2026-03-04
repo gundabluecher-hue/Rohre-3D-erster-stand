@@ -38,7 +38,7 @@ export class PlayingStateSystem {
         const game = this.game;
 
         if (game.input.wasPressed('Escape')) {
-            game._returnToMenu();
+            game.matchFlowUiController.returnToMenu();
             return;
         }
 

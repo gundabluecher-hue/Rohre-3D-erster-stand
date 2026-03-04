@@ -3,16 +3,20 @@
 // ============================================
 //
 // Contract:
-// - Inputs: owner (EntityManager-like runtime with players/cache/systems)
+// - Inputs: runtime context with explicit combat callbacks and temp vectors
 // - Outputs: command results for inventory use, gun fire, lock-on target
-// - Side effects: mutates player inventory/selection and owner lock-on cache
-// - Hotpath guardrail: reuse owner temp vectors and avoid per-call allocations
+// - Side effects: mutates player inventory/selection and lock-on cache
+// - Hotpath guardrail: reuse runtime temp vectors and avoid per-call allocations
 
+import * as THREE from 'three';
 import { CONFIG } from '../../core/Config.js';
 
 export class HuntCombatSystem {
-    constructor(owner) {
-        this.owner = owner || null;
+    constructor(runtimeContext) {
+        this.runtime = runtimeContext || null;
+        this._fallbackDirection = new THREE.Vector3();
+        this._fallbackDelta = new THREE.Vector3();
+        this._fallbackLockOnCache = new Map();
     }
 
     takeInventoryItem(player, preferredIndex = -1) {
@@ -37,40 +41,44 @@ export class HuntCombatSystem {
     }
 
     shootItemProjectile(player, preferredIndex = -1) {
-        return this.owner?._projectileSystem?.shootItemProjectile(player, preferredIndex)
+        return this.runtime?.combat?.shootItemProjectile?.(player, preferredIndex)
             || { ok: false, reason: 'ProjectileSystem fehlt' };
     }
 
     shootHuntGun(player) {
-        return this.owner?._overheatGunSystem?.tryFire(player)
+        return this.runtime?.combat?.shootHuntGun?.(player)
             || { ok: false, reason: 'OverheatGunSystem fehlt' };
     }
 
     checkLockOn(player) {
-        const owner = this.owner;
-        if (!owner || !player) return null;
-        if (owner._lockOnCache.has(player.index)) return owner._lockOnCache.get(player.index);
+        const runtime = this.runtime;
+        if (!runtime || !player) return null;
 
-        player.getDirection(owner._tmpDir).normalize();
+        const lockOnCache = runtime.cache?.lockOn || this._fallbackLockOnCache;
+        if (lockOnCache.has(player.index)) return lockOnCache.get(player.index);
+
+        const tmpDir = runtime.tempVectors?.direction || this._fallbackDirection;
+        const tmpVec = runtime.tempVectors?.primary || this._fallbackDelta;
+        player.getDirection(tmpDir).normalize();
         const maxAngle = (CONFIG.HOMING.LOCK_ON_ANGLE * Math.PI) / 180;
         const maxRangeSq = CONFIG.HOMING.MAX_LOCK_RANGE * CONFIG.HOMING.MAX_LOCK_RANGE;
         let bestTarget = null;
         let bestDistSq = Infinity;
 
-        for (let i = 0; i < owner.players.length; i++) {
-            const other = owner.players[i];
+        for (let i = 0; i < runtime.players.length; i++) {
+            const other = runtime.players[i];
             if (other === player || !other?.alive) continue;
-            owner._tmpVec.subVectors(other.position, player.position);
-            const distSq = owner._tmpVec.lengthSq();
+            tmpVec.subVectors(other.position, player.position);
+            const distSq = tmpVec.lengthSq();
             if (distSq > maxRangeSq || distSq < 1) continue;
-            const angle = owner._tmpDir.angleTo(owner._tmpVec.normalize());
+            const angle = tmpDir.angleTo(tmpVec.normalize());
             if (angle <= maxAngle && distSq < bestDistSq) {
                 bestTarget = other;
                 bestDistSq = distSq;
             }
         }
 
-        owner._lockOnCache.set(player.index, bestTarget);
+        lockOnCache.set(player.index, bestTarget);
         return bestTarget;
     }
 }

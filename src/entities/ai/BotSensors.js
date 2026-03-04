@@ -8,8 +8,11 @@ import { composeProbeDirection, scanProbeRay, scoreProbe } from './BotProbeOps.j
 import { estimateExitSafety, evaluatePortalIntent } from './BotPortalOps.js';
 import { senseProjectiles, senseHeight, senseBotSpacing, evaluatePursuit } from './BotThreatOps.js';
 import { BotSensorsFacade } from './BotSensorsFacade.js';
-
-const WORLD_UP = new THREE.Vector3(0, 1, 0);
+import {
+    buildPerceptionBasis,
+    computeTargetSteeringSignals,
+    PERCEPTION_THRESHOLDS,
+} from './perception/EnvironmentSamplingOps.js';
 
 const MAP_BEHAVIOR = {
     standard: { caution: 0.0, portalBias: 0.0, aggressionBias: 0.0 },
@@ -174,13 +177,7 @@ export class BotSensors {
     }
 
     _buildBasis(forward) {
-        this._tmpRight.crossVectors(WORLD_UP, forward);
-        if (this._tmpRight.lengthSq() < 0.000001) {
-            this._tmpRight.set(1, 0, 0);
-        } else {
-            this._tmpRight.normalize();
-        }
-        this._tmpUp.crossVectors(forward, this._tmpRight).normalize();
+        buildPerceptionBasis(forward, this._tmpRight, this._tmpUp);
     }
 
     _computeDynamicLookAhead(player) {
@@ -282,14 +279,19 @@ export class BotSensors {
         player.getDirection(this._tmpForward).normalize();
         this._buildBasis(this._tmpForward);
         this._tmpVec.subVectors(target.position, player.position);
-        if (this._tmpVec.lengthSq() <= 0.000001) return;
-
-        this._tmpVec.normalize();
-        const yawSignal = this._tmpRight.dot(this._tmpVec);
-        const pitchSignal = this._tmpUp.dot(this._tmpVec);
-        this.sense.targetAimDot = this._tmpForward.dot(this._tmpVec);
-        this.sense.targetYaw = Math.abs(yawSignal) > 0.04 ? (yawSignal > 0 ? 1 : -1) : 0;
-        this.sense.targetPitch = Math.abs(pitchSignal) > 0.06 ? (pitchSignal > 0 ? 1 : -1) : 0;
+        const steering = computeTargetSteeringSignals(
+            this._tmpForward,
+            this._tmpRight,
+            this._tmpUp,
+            this._tmpVec,
+            {
+                yawDeadzone: PERCEPTION_THRESHOLDS.targetYawDeadzone,
+                pitchDeadzone: PERCEPTION_THRESHOLDS.targetPitchDeadzone,
+            }
+        );
+        this.sense.targetAimDot = steering.aimDot;
+        this.sense.targetYaw = steering.yaw;
+        this.sense.targetPitch = steering.pitch;
     }
 
     update(bot, player, arena, allPlayers, projectiles) {

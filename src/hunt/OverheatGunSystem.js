@@ -9,12 +9,42 @@ function getMgConfig() {
     return CONFIG?.HUNT?.MG || {};
 }
 
+function createLegacyRuntimeContext(entityManager) {
+    if (!entityManager) return null;
+    return {
+        players: entityManager.players || [],
+        services: {
+            particles: entityManager.particles || null,
+            audio: entityManager.audio || null,
+            recorder: entityManager.recorder || null,
+        },
+        trails: {
+            spatialIndex: entityManager._trailSpatialIndex || null,
+        },
+        getTrailSpatialIndex: () => entityManager.getTrailSpatialIndex?.() || entityManager._trailSpatialIndex || null,
+        lifecycle: {
+            killPlayer: (player, cause = 'UNKNOWN', options = {}) => entityManager._killPlayer?.(player, cause, options),
+        },
+        events: {
+            emitHuntDamageEvent: (event) => entityManager._emitHuntDamageEvent?.(event),
+            emitHuntFeed: (message) => {
+                if (typeof entityManager.onHuntFeedEvent === 'function') {
+                    entityManager.onHuntFeedEvent(message);
+                }
+            },
+        },
+    };
+}
+
 export class OverheatGunSystem {
-    constructor(entityManager) {
+    constructor(entityManager, runtimeContext = null) {
         this.entityManager = entityManager;
+        this.runtimeContext = runtimeContext
+            || entityManager?.getRuntimeContext?.()
+            || createLegacyRuntimeContext(entityManager);
 
         this._state = new MGOverheatState();
-        this._hitResolver = new MGHitResolver(entityManager);
+        this._hitResolver = new MGHitResolver(this.runtimeContext);
         this._tracerFx = new MGTracerFx(entityManager);
 
         // Compatibility facade for existing call sites and tests.

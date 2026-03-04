@@ -10,6 +10,7 @@
 
 import * as THREE from 'three';
 import { CONFIG } from '../../core/Config.js';
+import { computeProjectileThreatFlag } from './perception/EnvironmentSamplingOps.js';
 
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
 
@@ -20,6 +21,12 @@ export function senseProjectiles(bot, player, projectiles) {
 
     const awareness = bot.profile.projectileAwareness || 0;
     if (awareness <= 0 || !projectiles || projectiles.length === 0) return;
+    const threatDetected = computeProjectileThreatFlag(player, projectiles, 25, {
+        approachDot: 0.4,
+        toTarget: bot._tmpVec,
+        direction: bot._tmpVec2,
+    });
+    if (!threatDetected) return;
 
     player.getDirection(bot._tmpForward).normalize();
     bot._buildBasis(bot._tmpForward);

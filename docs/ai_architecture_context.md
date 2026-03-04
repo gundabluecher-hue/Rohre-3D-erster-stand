@@ -17,7 +17,7 @@ Stand: 2026-03-04
 - `RuntimeDiagnosticsSystem.js`: Runtime-Monitoring/FPS/Quality-Delegation aus `main.js`
 - `Config.js`: zentrale Spielkonfiguration
 - `GameLoop.js`: Update-/Render-Takt
-- `Renderer.js`: Scene/Kamera/Render-Layer
+- `Renderer.js`: Render-Fassade mit Subsystemen (`renderer/CameraRigSystem.js`, `RenderViewportSystem.js`, `SceneRootManager.js`, `RenderQualityController.js`)
 - `InputManager.js`, `Audio.js`, `three-disposal.js`
 
 ### 2.2 State (`src/state`)
@@ -25,15 +25,18 @@ Stand: 2026-03-04
 - `MatchSessionFactory.js`: Match-Initialisierung und Session-Assembly
 - `RoundStateController.js` + `RoundStateControllerOps.js`: Tick-/Transition-Entscheidungen
 - `RoundStateOps.js`: Pure Round/Match-End-Ableitung
-- `RoundEndCoordinator.js`, `RoundRecorder.js`
+- `RoundEndCoordinator.js`, `RoundRecorder.js` (Store-Fassade auf `recorder/RoundEventStore.js`, `RoundMetricsStore.js`, `RoundSnapshotStore.js`)
+- `validation/BotValidationService.js`, `validation/BotValidationMatrix.js`: entkoppelte Baseline-/Validation-Pfade fuer Debug-Workflows
 
 ### 2.3 Entities (`src/entities`)
 
 - `Arena.js`: Bounds/Kollisionen, Fast-Collision-Pfade
-- `EntityManager.js`: Pipeline-Orchestrierung fuer Input, Lifecycle, Projectile/Trail-Kollisionen
+- `EntityManager.js`: Runtime-Orchestrierung auf Basis von `runtime/EntityRuntimeAssembler.js`
 - `systems/ProjectileSystem.js`, `systems/TrailSpatialIndex.js`: modulare Projectile-/Trail-Hotpaths
+- `systems/trails/TrailSegmentRegistry.js`, `TrailCollisionQuery.js`, `TrailCollisionDebugTelemetry.js`: Trail-Registry/Query/Debug intern getrennt
 - `systems/PlayerInputSystem.js`: Human/Bot-Input-Aufloesung
 - `systems/PlayerLifecycleSystem.js`: Spieler-Tick, Arena-/Trail-/Portal-/Powerup-Lifecycle
+- `arena/PortalGateSystem.js`: Orchestrator-Fassade auf `arena/portal/PortalLayoutBuilder.js`, `PortalRuntimeSystem.js`, `SpecialGateRuntime.js`
 - `ai/BotPolicyTypes.js`, `ai/BotPolicyRegistry.js`: Policy-Vertrag und Registry-Fabrik
 - `ai/RuleBasedBotPolicy.js`: Default-Policy-Adapter auf `Bot.js`
 - `hunt/HuntBotPolicy.js`: Hunt-spezifische Bot-Policy (MG/Rocket/HP-Verhalten)

@@ -12,11 +12,11 @@ export class RoundStateTickSystem {
     _executeRoundStateTickAction(action) {
         const game = this.game;
         if (action === 'RETURN_TO_MENU') {
-            game._returnToMenu();
+            game.matchFlowUiController.returnToMenu();
             return true;
         }
         if (action === 'START_ROUND') {
-            game._startRound();
+            game.matchFlowUiController.startRound();
             return true;
         }
         if (action === 'RESTART_MATCH') {
@@ -54,7 +54,9 @@ export class RoundStateTickSystem {
 
     _applyRoundEndTickUi(roundEndTick) {
         if (!roundEndTick.countdownMessageSub) return;
-        this.game._applyMatchUiState(deriveRoundEndCountdownUiState(this.game.roundPause));
+        this.game.matchFlowUiController.applyMatchUiState(
+            deriveRoundEndCountdownUiState(this.game.roundPause)
+        );
     }
 
     _applyRoundEndTickMutableState(roundEndTick) {

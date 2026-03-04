@@ -64,7 +64,7 @@ export class Game {
 
         // Debug Recorder
         this.recorder = new RoundRecorder();
-        this._recorderFrameCaptureEnabled = this._resolveRecorderFrameCaptureEnabledDefault();
+        this._recorderFrameCaptureEnabled = this.debugApi.resolveRecorderFrameCaptureEnabledDefault();
         this.recorder.setFrameCaptureEnabled(this._recorderFrameCaptureEnabled);
 
         this._applySettingsToRuntime();
@@ -142,10 +142,6 @@ export class Game {
         }, 0);
     }
 
-    _formatBuildTime() {
-        return this.buildInfoController.formatBuildTime();
-    }
-
     _showMainNav() {
         if (this.uiManager) {
             this.uiManager.showMainNav();
@@ -154,10 +150,6 @@ export class Game {
 
     _renderBuildInfo() {
         this._buildInfoClipboardText = this.buildInfoController.renderBuildInfo();
-    }
-
-    _copyBuildInfoToClipboard() {
-        this.buildInfoController.copyBuildInfoToClipboard(this._buildInfoClipboardText);
     }
 
     _loadSettings() {
@@ -169,18 +161,6 @@ export class Game {
         if (persisted) {
             this._markSettingsDirty(false);
         }
-    }
-
-    _normalizeProfileName(rawName) {
-        return this.profileManager.normalizeProfileName(rawName);
-    }
-
-    _findProfileIndexByName(profileName) {
-        return this.profileManager.findProfileIndexByName(profileName);
-    }
-
-    _findProfileByName(profileName) {
-        return this.profileManager.findProfileByName(profileName);
     }
 
     _applySettingsToRuntime() {
@@ -205,10 +185,6 @@ export class Game {
 
     _updateSaveButtonState() {
         this.runtimeFacade.updateSaveButtonState();
-    }
-
-    _cloneDefaultControls() {
-        return this.settingsManager.cloneDefaultControls();
     }
 
     _syncProfileControls() {
@@ -330,42 +306,6 @@ export class Game {
         return true;
     }
 
-    _renderKeybindEditor() {
-        this.keybindEditorController.renderEditor();
-    }
-
-    _renderKeybindRows(playerKey, container, conflicts) {
-        this.keybindEditorController.renderKeybindRows(playerKey, container, conflicts);
-    }
-
-    _startKeyCapture(playerKey, actionKey) {
-        this.keybindEditorController.startKeyCapture(playerKey, actionKey);
-    }
-
-    _handleKeyCapture(event) {
-        this.keybindEditorController.handleKeyCapture(event);
-    }
-
-    _getControlValue(playerKey, actionKey) {
-        return this.keybindEditorController.getControlValue(playerKey, actionKey);
-    }
-
-    _setControlValue(playerKey, actionKey, value) {
-        this.keybindEditorController.setControlValue(playerKey, actionKey, value);
-    }
-
-    _collectKeyConflicts() {
-        return this.keybindEditorController.collectKeyConflicts();
-    }
-
-    _updateKeyConflictWarning(conflicts) {
-        this.keybindEditorController.updateKeyConflictWarning(conflicts);
-    }
-
-    _formatKeyCode(code) {
-        return this.keybindEditorController.formatKeyCode(code);
-    }
-
     _showStatusToast(message, durationMs = 1200, tone = 'info') {
         if (!this.uiManager || typeof this.uiManager.showToast !== 'function') return;
         this.uiManager.showToast(message, durationMs, tone);
@@ -389,80 +329,8 @@ export class Game {
         return messages[cause] || messages['UNKNOWN'];
     }
 
-    _syncP2HudVisibility() {
-        this.runtimeFacade.syncP2HudVisibility();
-    }
-
-    _applyMatchUiState(uiState) {
-        this.matchFlowUiController.applyMatchUiState(uiState);
-    }
-
-    _applyMatchStartUiState(uiState) {
-        this.matchFlowUiController.applyMatchStartUiState(uiState);
-    }
-
-    _applyInitializedMatchSession(initializedMatch) {
-        this.matchSessionRuntimeBridge.applyInitializedMatchSession(initializedMatch);
-    }
-
-    _getCurrentMatchSessionRefs() {
-        return this.matchSessionRuntimeBridge.getCurrentMatchSessionRefs();
-    }
-
-    _clearMatchSessionRefs() {
-        this.matchSessionRuntimeBridge.clearMatchSessionRefs();
-    }
-
-    _applyMatchFeedbackPlan(feedbackPlan) {
-        if (!feedbackPlan) return;
-        for (const entry of feedbackPlan.consoleEntries || []) {
-            const level = entry?.level === 'warn' ? 'warn' : 'log';
-            const args = Array.isArray(entry?.args) ? entry.args : [entry];
-            console[level](...args);
-        }
-        for (const toast of feedbackPlan.toasts || []) {
-            this._showStatusToast(toast.message, toast.durationMs, toast.tone);
-        }
-    }
-
-    _resetCrosshairElementUi(element) {
-        this.matchFlowUiController.resetCrosshairElementUi(element);
-    }
-
-    _resetCrosshairUi() {
-        this.matchFlowUiController.resetCrosshairUi();
-    }
-
     startMatch() {
         this.matchFlowUiController.startMatch();
-    }
-
-    _startRound() {
-        this.matchFlowUiController.startRound();
-    }
-
-    _onRoundEnd(winner) {
-        this.matchFlowUiController.onRoundEnd(winner);
-    }
-
-    _buildRoundEndCoordinatorRequest(winner) {
-        return this.matchFlowUiController.buildRoundEndCoordinatorRequest(winner);
-    }
-
-    _applyRoundEndCoordinatorPlan(roundEndPlan) {
-        this.matchFlowUiController.applyRoundEndCoordinatorPlan(roundEndPlan);
-    }
-
-    _applyRoundEndCoordinatorEffects(effectsPlan) {
-        this.matchFlowUiController.applyRoundEndCoordinatorEffects(effectsPlan);
-    }
-
-    _applyRoundEndCoordinatorUiState(uiState) {
-        this.matchFlowUiController.applyRoundEndCoordinatorUiState(uiState);
-    }
-
-    _applyRoundEndControllerTransitionState(roundEndTransition) {
-        this.matchFlowUiController.applyRoundEndControllerTransitionState(roundEndTransition);
     }
 
     _getPlanarAimAxis(playerIndex) {
@@ -489,14 +357,6 @@ export class Game {
         this.roundStateTickSystem.updateMatchEnd(dt);
     }
 
-    _resolveRecorderFrameCaptureEnabledDefault() {
-        return this.debugApi.resolveRecorderFrameCaptureEnabledDefault();
-    }
-
-    setRecorderFrameCaptureEnabled(enabled) {
-        this.debugApi.setRecorderFrameCaptureEnabled(enabled);
-    }
-
     update(dt) {
         this.runtimeDiagnosticsSystem.update(dt);
 
@@ -518,36 +378,15 @@ export class Game {
         }
     }
 
+    // Legacy compatibility hook retained for runtime/tests.
+    _returnToMenu() {
+        this.matchFlowUiController.returnToMenu();
+    }
+
     render() {
         this.renderer.render();
     }
 
-    _returnToMenu() {
-        this.matchFlowUiController.returnToMenu();
-    }
-    _showDebugLog(recorderDump) {
-        // Disabled
-    }
-
-    captureBotBaseline(label = 'BASELINE') {
-        return this.debugApi.captureBotBaseline(label);
-    }
-
-    printBotValidationReport(label = 'BASELINE') {
-        return this.debugApi.printBotValidationReport(label);
-    }
-
-    getBotValidationMatrix() {
-        return this.debugApi.getBotValidationMatrix();
-    }
-
-    printBotTestProtocol() {
-        return this.debugApi.printBotTestProtocol();
-    }
-
-    applyBotValidationScenario(idOrIndex = 0) {
-        return this.debugApi.applyBotValidationScenario(idOrIndex);
-    }
 }
 
 // Global Error Handling
@@ -563,8 +402,10 @@ window.addEventListener('DOMContentLoaded', () => {
     try {
         console.log('DOM ready, initializing Game...');
         const game = new Game();
-        // Global access for debugging
+        // Consolidated runtime/debug entrypoints.
         window.GAME_INSTANCE = game;
+        window.GAME_RUNTIME = game.runtimeFacade;
+        window.GAME_DEBUG = game.debugApi;
     } catch (err) {
         console.error('Fatal Game Init Error:', err);
         const overlay = document.createElement('div');

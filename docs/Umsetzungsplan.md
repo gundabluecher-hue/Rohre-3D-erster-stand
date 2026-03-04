@@ -69,6 +69,12 @@ Neue Findings aus dem Analysebericht fliessen hier ein.
 - [x] V18 Single-Agent-Durchlauf fuer weitere Modularisierung (ohne Stop)
   - Fokus: `OverheatGunSystem`, `ProjectileSystem`, `main.js`, `Bot.js`, `MenuController` in sequenziellen Phasen fuer einen Agenten.
   - Referenzplan: `docs/Feature_Modularisierung_SingleAgent_Durchlauf.md`.
+- [x] V19 Restentkopplung Runtime-Orchestrierung (EntityManager/Lifecycle)
+  - Fokus: Runtime-Contracts, Lifecycle-Phasen, Round-Outcome-Split und Abbau verbleibender Compat-Shims.
+  - Referenzplan: `docs/Feature_Modularisierung_V19_Restentkopplung.md`.
+- [x] V20 Single-Agent No-Stop Tiefenmodularisierung (Assembler/Recorder/Renderer/AI/Portal/Trail) (abgeschlossen 2026-03-04)
+  - Fokus: no-stop Durchlauf fuer nachgelagerte Tiefenentkopplung.
+  - Referenzplan: `docs/Feature_Modularisierung_V20_SingleAgent_NoStop.md`.
 
 ---
 
@@ -85,3 +91,50 @@ Neue Findings aus dem Analysebericht fliessen hier ein.
 - [x] 21.4 Bot-Fassade vereinfachen (Proxy-Abbau + SensorsFacade)
 - [x] 21.5 MenuController Listener-Split (Gameplay/Profile/Controls)
 - [x] 21.6 Abschluss, Stabilisierung, Doku-Freeze (`docs:sync`, `docs:check`)
+
+---
+
+## Single-Agent Block V19 (Stand: 2026-03-04)
+
+- Rollenmodell:
+  - Ein Agent setzt die Phasen `22.x` sequenziell um.
+  - Wechsel zur naechsten Phase nur nach bestandener Teil-Verifikation.
+
+- [x] 22.0 Baseline und Contract-Freeze
+- [x] 22.1 Entity Runtime Contract einziehen
+- [x] 22.2 PlayerLifecycle in Phasen trennen
+- [x] 22.3 Round/Setup Orchestrierung modularisieren
+- [x] 22.4 Compatibility-Shims abbauen
+- [x] 22.5 main.js API-Flaeche aufraeumen
+- [x] 22.6 Abschluss, Handover und Doku-Freeze (`docs:sync`, `docs:check`)
+
+---
+
+## V19 Follow-up Schulden (Stand: 2026-03-04)
+
+- [x] Entferne verbleibende `EntityManager`-Legacy-Aliase `gridSize`/`spatialGrid` in V20 `23.9` (abgeschlossen 2026-03-04).
+- [x] Entferne verbleibenden `Bot`-Legacy-Shim `_sensePhase` in V20 `23.7` (abgeschlossen 2026-03-04).
+
+## V20 Follow-up Schulden (Stand: 2026-03-04)
+
+- Keine neuen offenen Restschulden aus dem no-stop Durchlauf `23.0` bis `23.10` identifiziert.
+
+---
+
+## Single-Agent Block V20 (Stand: 2026-03-04)
+
+- Rollenmodell:
+  - Ein Agent setzt die Phasen `23.x` strikt sequenziell ohne Stop um.
+  - Wechsel zur naechsten Phase nur nach bestandener Teil-Verifikation.
+
+- [x] 23.0 Baseline und Carry-Over-Freeze (abgeschlossen 2026-03-04)
+- [x] 23.1 main.js API-Aufraeumen (V19 Carry-Over Teil 1) (abgeschlossen 2026-03-04)
+- [x] 23.2 V19-Abschluss und Gate-Freeze (V19 Carry-Over Teil 2) (abgeschlossen 2026-03-04)
+- [x] 23.3 Entity Runtime Assembler (abgeschlossen 2026-03-04)
+- [x] 23.4 RoundRecorder in Stores splitten (abgeschlossen 2026-03-04)
+- [x] 23.5 Validation-Service von Recorder entkoppeln (abgeschlossen 2026-03-04)
+- [x] 23.6 Renderer in Subsysteme splitten (abgeschlossen 2026-03-04)
+- [x] 23.7 AI-Wahrnehmung vereinheitlichen (abgeschlossen 2026-03-04)
+- [x] 23.8 Portal/Gate Runtime modularisieren (abgeschlossen 2026-03-04)
+- [x] 23.9 TrailSpatialIndex intern splitten (abgeschlossen 2026-03-04)
+- [x] 23.10 Abschluss, Handover und Doku-Freeze (`docs:sync`, `docs:check`) (abgeschlossen 2026-03-04)

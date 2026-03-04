@@ -338,10 +338,15 @@ async function main() {
                     derivedSkipRecent = null;
                 }
 
-                em._trailCollisionDebugEnabled = true;
-                em._trailCollisionDebugMaxLogs = Math.max(600, em._trailCollisionDebugMaxLogs || 0);
-                em._trailCollisionDebugLogCount = 0;
-                em._trailCollisionDebugSkipRecentSeen = 0;
+                const trailSpatialIndex = typeof em?.getTrailSpatialIndex === 'function'
+                    ? em.getTrailSpatialIndex()
+                    : em?._trailSpatialIndex;
+                if (trailSpatialIndex) {
+                    trailSpatialIndex._trailCollisionDebugEnabled = true;
+                    trailSpatialIndex._trailCollisionDebugMaxLogs = Math.max(600, trailSpatialIndex._trailCollisionDebugMaxLogs || 0);
+                    trailSpatialIndex._trailCollisionDebugLogCount = 0;
+                    trailSpatialIndex._trailCollisionDebugSkipRecentSeen = 0;
+                }
                 window.__trailDebugCapture.length = 0;
 
                 const naturalSkipLog = await waitForValue(
@@ -355,10 +360,12 @@ async function main() {
                 }
                 await sleep(30);
 
-                em._trailCollisionDebugLogCount = 0;
-                em._trailCollisionDebugSkipRecentSeen = 0;
+                if (trailSpatialIndex) {
+                    trailSpatialIndex._trailCollisionDebugLogCount = 0;
+                    trailSpatialIndex._trailCollisionDebugSkipRecentSeen = 0;
+                }
                 window.__trailDebugCapture.length = 0;
-                em.spatialGrid.clear();
+                trailSpatialIndex?.spatialGrid?.clear?.();
 
                 const trail = player.trail;
                 const maxSegments = Math.max(64, Number(trail?.maxSegments) || 64);

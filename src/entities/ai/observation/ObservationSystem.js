@@ -40,6 +40,13 @@ import {
 } from './ObservationNormalizeOps.js';
 import { encodeItemSlots, ITEM_SLOT_COUNT } from './ItemSlotEncoder.js';
 import { encodeModeId } from './ModeFeatureEncoder.js';
+import {
+    buildPerceptionBasis,
+    computeProjectileThreatFlag,
+    findNearestEnemySample,
+    PERCEPTION_THRESHOLDS,
+    sampleWallDistance,
+} from '../perception/EnvironmentSamplingOps.js';
 
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
 const TMP_FORWARD = new THREE.Vector3();
@@ -78,89 +85,30 @@ function getObservationTarget(target) {
 
 function buildBasisFromPlayer(player) {
     player.getDirection(TMP_FORWARD).normalize();
-    TMP_RIGHT.crossVectors(WORLD_UP, TMP_FORWARD);
-    if (TMP_RIGHT.lengthSq() <= 0.000001) {
-        TMP_RIGHT.set(1, 0, 0);
-    } else {
-        TMP_RIGHT.normalize();
-    }
-    TMP_UP.crossVectors(TMP_FORWARD, TMP_RIGHT).normalize();
+    buildPerceptionBasis(TMP_FORWARD, TMP_RIGHT, TMP_UP, WORLD_UP);
 }
 
 function sampleWallDistanceRatio(arena, origin, direction, radius, maxDistance, steps = 20) {
-    if (!arena || typeof arena.checkCollision !== 'function') {
-        return 1;
-    }
-
-    const safeSteps = Math.max(4, Math.trunc(steps));
     const safeMaxDistance = Math.max(1, Number(maxDistance) || 1);
-    const stepDistance = safeMaxDistance / safeSteps;
-
-    for (let i = 1; i <= safeSteps; i++) {
-        TMP_PROBE.copy(origin).addScaledVector(direction, stepDistance * i);
-        if (arena.checkCollision(TMP_PROBE, radius)) {
-            return normalizeDistanceRatio(stepDistance * (i - 1), safeMaxDistance, 0);
-        }
-    }
-
-    return 1;
+    const distance = sampleWallDistance(arena, origin, direction, radius, safeMaxDistance, steps, TMP_PROBE);
+    return normalizeDistanceRatio(distance, safeMaxDistance, 0);
 }
 
 function findNearestEnemy(player, players) {
-    let nearest = null;
-    let nearestDistSq = Infinity;
-
-    for (let i = 0; i < players.length; i++) {
-        const other = players[i];
-        if (!other || other === player || !other.alive) continue;
-        TMP_TO_TARGET.subVectors(other.position, player.position);
-        const distSq = TMP_TO_TARGET.lengthSq();
-        if (distSq < nearestDistSq) {
-            nearest = other;
-            nearestDistSq = distSq;
-        }
-    }
-
-    if (!nearest) {
-        return { nearest: null, distance: Infinity, alignment: 0 };
-    }
-
-    TMP_TO_TARGET.subVectors(nearest.position, player.position).normalize();
-    const alignment = TMP_FORWARD.dot(TMP_TO_TARGET);
+    const sample = findNearestEnemySample(player, players, TMP_FORWARD, TMP_TO_TARGET);
     return {
-        nearest,
-        distance: Math.sqrt(nearestDistSq),
-        alignment,
+        nearest: sample.nearest,
+        distance: Number.isFinite(sample.distanceSq) ? Math.sqrt(sample.distanceSq) : Infinity,
+        alignment: sample.alignment,
     };
 }
 
 function computeProjectileThreat(player, projectiles, threatRange) {
-    if (!Array.isArray(projectiles) || projectiles.length === 0) {
-        return 0;
-    }
-
-    const maxDistSq = Math.max(1, threatRange * threatRange);
-    for (let i = 0; i < projectiles.length; i++) {
-        const projectile = projectiles[i];
-        if (!projectile || !projectile.position || !projectile.velocity) continue;
-        if (projectile.owner === player) continue;
-
-        TMP_TO_TARGET.subVectors(player.position, projectile.position);
-        const distSq = TMP_TO_TARGET.lengthSq();
-        if (distSq > maxDistSq || distSq <= 0.000001) continue;
-
-        TMP_DIRECTION.copy(projectile.velocity);
-        if (TMP_DIRECTION.lengthSq() <= 0.000001) continue;
-        TMP_DIRECTION.normalize();
-        TMP_TO_TARGET.normalize();
-
-        const approachingDot = TMP_DIRECTION.dot(TMP_TO_TARGET);
-        if (approachingDot > 0.25) {
-            return 1;
-        }
-    }
-
-    return 0;
+    return computeProjectileThreatFlag(player, projectiles, threatRange, {
+        approachDot: PERCEPTION_THRESHOLDS.projectileApproachDot,
+        toTarget: TMP_TO_TARGET,
+        direction: TMP_DIRECTION,
+    });
 }
 
 export function createObservationContext(input = {}) {
@@ -252,7 +200,7 @@ export function buildObservation(player, context = {}, target = null) {
     observation[WALL_DISTANCE_DOWN] = wallDown;
     observation[TARGET_DISTANCE_RATIO] = targetDistanceRatio;
     observation[TARGET_ALIGNMENT] = normalizeSigned(nearestEnemy.alignment, -1, 1, 0);
-    observation[TARGET_IN_FRONT] = toBinaryFlag(nearestEnemy.alignment > 0.52);
+    observation[TARGET_IN_FRONT] = toBinaryFlag(nearestEnemy.alignment > PERCEPTION_THRESHOLDS.targetInFrontDot);
     observation[PRESSURE_LEVEL] = pressure;
     observation[PROJECTILE_THREAT] = projectileThreat;
     observation[LOCAL_OPENNESS_RATIO] = openness;

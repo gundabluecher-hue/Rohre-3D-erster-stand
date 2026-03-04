@@ -10,8 +10,8 @@ function clamp(value, min, max) {
 }
 
 export class MGHitResolver {
-    constructor(entityManager) {
-        this.entityManager = entityManager;
+    constructor(runtimeContext) {
+        this.runtime = runtimeContext || null;
         this._tmpAim = new THREE.Vector3();
         this._tmpToTarget = new THREE.Vector3();
         this._tmpHit = new THREE.Vector3();
@@ -20,7 +20,7 @@ export class MGHitResolver {
     }
 
     resolveHit(player, mg, outMuzzle = null, outAim = null) {
-        const players = this.entityManager?.players || [];
+        const players = this.runtime?.players || [];
         const maxRange = Math.max(10, Number(mg.RANGE || 95));
         this.resolveAimDirection(player, this._tmpAim);
         this._tmpMuzzle.copy(player.position).addScaledVector(this._tmpAim, 2.1);
@@ -103,7 +103,7 @@ export class MGHitResolver {
     }
 
     _resolveTrailHit(player, mg, maxRange) {
-        const trailSpatialIndex = this.entityManager?.getTrailSpatialIndex?.() || this.entityManager?._trailSpatialIndex;
+        const trailSpatialIndex = this.runtime?.getTrailSpatialIndex?.() || this.runtime?.trails?.spatialIndex;
         if (!trailSpatialIndex?.checkProjectileTrailCollision) return null;
 
         const selfSkipRecent = Math.max(0, Math.floor(Number(mg.TRAIL_SELF_SKIP_RECENT) || MG_TRAIL_SELF_SKIP_RECENT));
@@ -181,7 +181,7 @@ export class MGHitResolver {
     }
 
     applyTrailHit(attacker, trailHit, mg) {
-        const trailSpatialIndex = this.entityManager?.getTrailSpatialIndex?.() || this.entityManager?._trailSpatialIndex;
+        const trailSpatialIndex = this.runtime?.getTrailSpatialIndex?.() || this.runtime?.trails?.spatialIndex;
         if (!trailSpatialIndex?.damageTrailSegment || !trailHit?.entry) return;
 
         const entry = trailHit.entry;
@@ -201,13 +201,13 @@ export class MGHitResolver {
             entry.destroyed = true;
         }
 
-        if (this.entityManager?.particles && trailHit.point) {
+        if (this.runtime?.services?.particles && trailHit.point) {
             this._tmpHit.set(trailHit.point.x, trailHit.point.y, trailHit.point.z);
             const color = destroyed ? 0x66ddff : 0x3388ff;
-            this.entityManager.particles.spawnHit(this._tmpHit, color);
+            this.runtime.services.particles.spawnHit(this._tmpHit, color);
         }
-        if (this.entityManager?.audio && !attacker?.isBot) {
-            this.entityManager.audio.play('HIT');
+        if (this.runtime?.services?.audio && !attacker?.isBot) {
+            this.runtime.services.audio.play('HIT');
         }
     }
 
@@ -219,17 +219,15 @@ export class MGHitResolver {
         const damage = baseDamage * (1 - (1 - minFalloff) * distRatio);
 
         const damageResult = target.takeDamage(damage);
-        if (this.entityManager?._emitHuntDamageEvent) {
-            this.entityManager._emitHuntDamageEvent({
-                target,
-                sourcePlayer: attacker,
-                cause: 'MG_BULLET',
-                damageResult,
-            });
-        }
+        this.runtime?.events?.emitHuntDamageEvent({
+            target,
+            sourcePlayer: attacker,
+            cause: 'MG_BULLET',
+            damageResult,
+        });
         this._emitTracerImpact(target);
         if (damageResult.isDead) {
-            this.entityManager._killPlayer(target, 'PROJECTILE', { killer: attacker });
+            this.runtime?.lifecycle?.killPlayer?.(target, 'PROJECTILE', { killer: attacker });
             this._pushKillFeed(attacker, target, 'ELIMINATED');
             return;
         }
@@ -238,19 +236,17 @@ export class MGHitResolver {
     }
 
     _emitTracerImpact(target) {
-        if (this.entityManager?.particles) {
-            this.entityManager.particles.spawnHit(target.position, 0xffaa33);
+        if (this.runtime?.services?.particles) {
+            this.runtime.services.particles.spawnHit(target.position, 0xffaa33);
         }
-        if (this.entityManager?.audio) {
-            this.entityManager.audio.play('HIT');
+        if (this.runtime?.services?.audio) {
+            this.runtime.services.audio.play('HIT');
         }
     }
 
     _pushKillFeed(attacker, target, suffix) {
-        const feed = this.entityManager?.onHuntFeedEvent;
-        if (typeof feed !== 'function') return;
         const attackerLabel = attacker.isBot ? `Bot ${attacker.index + 1}` : `P${attacker.index + 1}`;
         const targetLabel = target.isBot ? `Bot ${target.index + 1}` : `P${target.index + 1}`;
-        feed(`${attackerLabel} -> ${targetLabel}: ${suffix}`);
+        this.runtime?.events?.emitHuntFeed(`${attackerLabel} -> ${targetLabel}: ${suffix}`);
     }
 }

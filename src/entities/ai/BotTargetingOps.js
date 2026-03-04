@@ -2,6 +2,8 @@
 // BotTargetingOps.js - targeting and pressure operations for BotAI
 // ============================================
 
+import { PERCEPTION_THRESHOLDS } from './perception/EnvironmentSamplingOps.js';
+
 export function selectTarget(bot, player, allPlayers) {
     let bestTarget = null;
     let bestScore = -Infinity;
@@ -37,7 +39,7 @@ export function selectTarget(bot, player, allPlayers) {
 
     if (bestTarget) {
         bot._tmpVec.subVectors(bestTarget.position, player.position).normalize();
-        bot.sense.targetInFront = bot._tmpVec.dot(bot._tmpForward) > 0.52;
+        bot.sense.targetInFront = bot._tmpVec.dot(bot._tmpForward) > PERCEPTION_THRESHOLDS.targetInFrontDot;
     } else {
         bot.sense.targetInFront = false;
     }

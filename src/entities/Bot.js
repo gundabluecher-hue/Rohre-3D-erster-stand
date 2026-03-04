@@ -118,23 +118,6 @@ export class BotAI {
         this._probeRayLeft = this.sensors._probeRayLeft;
         this._probeRayRight = this.sensors._probeRayRight;
 
-        Object.defineProperty(this, '_sensePhase', {
-            configurable: true,
-            enumerable: true,
-            get: () => this.sensors._sensePhase,
-            set: (phase) => { this.sensors.setSensePhase(phase); },
-        });
-        Object.defineProperty(this, '_sensePhaseCounter', {
-            configurable: true,
-            enumerable: true,
-            get: () => this.sensors._sensePhaseCounter,
-            set: (value) => {
-                this.sensors._sensePhaseCounter = Number.isFinite(value)
-                    ? Math.max(0, Math.floor(value))
-                    : 0;
-            },
-        });
-
         this._setDifficulty(options.difficulty || CONFIG.BOT.ACTIVE_DIFFICULTY || CONFIG.BOT.DEFAULT_DIFFICULTY || 'NORMAL');
         this._checkStuckTimer = this.profile.stuckCheckInterval;
     }

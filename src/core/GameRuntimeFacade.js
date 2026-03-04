@@ -54,7 +54,7 @@ export class GameRuntimeFacade {
                 game.startMatch();
                 return;
             case MENU_CONTROLLER_EVENT_TYPES.START_KEY_CAPTURE:
-                game._startKeyCapture(event.player, event.action);
+                game.keybindEditorController.startKeyCapture(event.player, event.action);
                 return;
             case MENU_CONTROLLER_EVENT_TYPES.SAVE_PROFILE:
                 game._saveProfile(event.name);
@@ -66,7 +66,7 @@ export class GameRuntimeFacade {
                 game._deleteProfile(event.name);
                 return;
             case MENU_CONTROLLER_EVENT_TYPES.RESET_KEYS:
-                game.settings.controls = game._cloneDefaultControls();
+                game.settings.controls = game.settingsManager.cloneDefaultControls();
                 this.onSettingsChanged();
                 game._showStatusToast('✅ Standard-Tasten wiederhergestellt');
                 return;
@@ -94,7 +94,7 @@ export class GameRuntimeFacade {
             }
             game.uiManager.updateContext();
         }
-        game._renderKeybindEditor();
+        game.keybindEditorController.renderEditor();
         game._syncProfileControls();
         this.updateSaveButtonState();
     }
