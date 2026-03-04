@@ -30,16 +30,14 @@ import { RuntimeDiagnosticsSystem } from './RuntimeDiagnosticsSystem.js';
 import { KeybindEditorController } from '../ui/KeybindEditorController.js';
 import { HuntHUD } from '../hunt/HuntHUD.js';
 import { ScreenShake } from '../hunt/ScreenShake.js';
+import { PlanarAimAssistSystem } from './PlanarAimAssistSystem.js';
+import { MatchSessionRuntimeBridge } from './MatchSessionRuntimeBridge.js';
+import { BuildInfoController } from './BuildInfoController.js';
 
 /* global __APP_VERSION__, __BUILD_TIME__, __BUILD_ID__ */
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
 const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : new Date().toISOString();
 const BUILD_ID = typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'dev';
-
-
-function clamp(val, min, max) {
-    return Math.min(Math.max(val, min), max);
-}
 
 function deepClone(obj) {
     return JSON.parse(JSON.stringify(obj));
@@ -90,6 +88,8 @@ export class Game {
         this.matchFlowUiController = new MatchFlowUiController(this);
         this.runtimeDiagnosticsSystem = new RuntimeDiagnosticsSystem(this);
         this.keybindEditorController = new KeybindEditorController(this);
+        this.planarAimAssistSystem = new PlanarAimAssistSystem(this);
+        this.matchSessionRuntimeBridge = new MatchSessionRuntimeBridge(this);
 
         // Debug Recorder
         this.recorder = new RoundRecorder();
@@ -192,6 +192,13 @@ export class Game {
         this._activeSubmenu = null;
         this._lastMenuTrigger = null;
         this._buildInfoClipboardText = '';
+        this.buildInfoController = new BuildInfoController({
+            ui: this.ui,
+            showStatusToast: (message, durationMs, tone) => this._showStatusToast(message, durationMs, tone),
+            appVersion: APP_VERSION,
+            buildId: BUILD_ID,
+            buildTime: BUILD_TIME,
+        });
 
         this.uiManager = new UIManager(this);
         this.uiManager.init();
@@ -200,6 +207,9 @@ export class Game {
         this._syncProfileControls();
         this._markSettingsDirty(false);
         this._renderBuildInfo();
+        if (this.ui?.mainMenu) {
+            this.ui.mainMenu.style.visibility = '';
+        }
 
         this.gameLoop.start();
 
@@ -259,23 +269,7 @@ export class Game {
     }
 
     _formatBuildTime() {
-        if (BUILD_TIME === 'dev') {
-            return {
-                short: 'dev',
-                iso: 'dev',
-                local: 'Development Build',
-            };
-        }
-        try {
-            const date = new Date(BUILD_TIME);
-            return {
-                short: date.toLocaleDateString(),
-                iso: date.toISOString(),
-                local: date.toLocaleString(),
-            };
-        } catch {
-            return { short: 'dev', iso: 'dev', local: 'Build-ID: ' + BUILD_ID };
-        }
+        return this.buildInfoController.formatBuildTime();
     }
 
     _showMainNav() {
@@ -285,47 +279,11 @@ export class Game {
     }
 
     _renderBuildInfo() {
-        const buildTime = this._formatBuildTime();
-        const shortInfo = `v${APP_VERSION} · Build ${BUILD_ID} · ${buildTime.short}`;
-        const detailInfo = [
-            `Version: v${APP_VERSION}`,
-            `Build-ID: ${BUILD_ID}`,
-            `Zeit (UTC): ${buildTime.iso}`,
-            `Zeit (lokal): ${buildTime.local}`,
-        ].join('\n');
-
-        if (this.ui.buildInfo) {
-            this.ui.buildInfo.textContent = shortInfo;
-        }
-        if (this.ui.buildInfoDetail) {
-            this.ui.buildInfoDetail.textContent = detailInfo;
-        }
-        this._buildInfoClipboardText = detailInfo;
+        this._buildInfoClipboardText = this.buildInfoController.renderBuildInfo();
     }
 
     _copyBuildInfoToClipboard() {
-        const payload = this._buildInfoClipboardText || `v${APP_VERSION} · Build ${BUILD_ID}`;
-        const fallbackCopy = () => {
-            const helper = document.createElement('textarea');
-            helper.value = payload;
-            helper.setAttribute('readonly', 'readonly');
-            helper.style.position = 'fixed';
-            helper.style.top = '-9999px';
-            document.body.appendChild(helper);
-            helper.select();
-            const copied = document.execCommand('copy');
-            document.body.removeChild(helper);
-            this._showStatusToast(copied ? 'Build-Info kopiert' : 'Kopieren nicht moeglich', 1400, copied ? 'success' : 'error');
-        };
-
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(payload)
-                .then(() => this._showStatusToast('Build-Info kopiert', 1400, 'success'))
-                .catch(() => fallbackCopy());
-            return;
-        }
-
-        fallbackCopy();
+        this.buildInfoController.copyBuildInfoToClipboard(this._buildInfoClipboardText);
     }
 
     _loadSettings() {
@@ -643,32 +601,15 @@ export class Game {
     }
 
     _applyInitializedMatchSession(initializedMatch) {
-        const matchSession = initializedMatch?.session;
-        if (!matchSession) return;
-
-        this.particles = matchSession.particles;
-        this.arena = matchSession.arena;
-        this.powerupManager = matchSession.powerupManager;
-        this.entityManager = matchSession.entityManager;
-        this.mapKey = matchSession.effectiveMapKey;
-        this.numHumans = matchSession.numHumans;
-        this.numBots = matchSession.numBots;
-        this.winsNeeded = matchSession.winsNeeded;
+        this.matchSessionRuntimeBridge.applyInitializedMatchSession(initializedMatch);
     }
 
     _getCurrentMatchSessionRefs() {
-        return {
-            entityManager: this.entityManager,
-            powerupManager: this.powerupManager,
-            particles: this.particles,
-        };
+        return this.matchSessionRuntimeBridge.getCurrentMatchSessionRefs();
     }
 
     _clearMatchSessionRefs() {
-        this.particles = null;
-        this.arena = null;
-        this.entityManager = null;
-        this.powerupManager = null;
+        this.matchSessionRuntimeBridge.clearMatchSessionRefs();
     }
 
     _applyMatchFeedbackPlan(feedbackPlan) {
@@ -724,57 +665,15 @@ export class Game {
     }
 
     _getPlanarAimAxis(playerIndex) {
-        const controls = this.settings.controls;
-        const p1 = controls.PLAYER_1;
-        const p2 = controls.PLAYER_2;
-
-        let up = false;
-        let down = false;
-
-        if (this.numHumans === 1 && playerIndex === 0) {
-            up = this.input.isDown(p1.UP) || this.input.isDown(p2.UP);
-            down = this.input.isDown(p1.DOWN) || this.input.isDown(p2.DOWN);
-        } else {
-            const map = playerIndex === 0 ? p1 : p2;
-            up = this.input.isDown(map.UP);
-            down = this.input.isDown(map.DOWN);
-        }
-
-        return (down ? 1 : 0) - (up ? 1 : 0);
+        return this.planarAimAssistSystem.getPlanarAimAxis(playerIndex);
     }
 
     _updatePlanarAimAssist(dt) {
-        if (!this.entityManager) return;
-
-        const gameplayConfig = this.runtimeConfig?.gameplay;
-        const inputSpeed = gameplayConfig?.planarAimInputSpeed || CONFIG.GAMEPLAY.PLANAR_AIM_INPUT_SPEED || 1.5;
-        const returnSpeed = gameplayConfig?.planarAimReturnSpeed || CONFIG.GAMEPLAY.PLANAR_AIM_RETURN_SPEED || 0.6;
-        const isPlanar = gameplayConfig?.planarMode ?? !!CONFIG.GAMEPLAY.PLANAR_MODE;
-
-        for (const player of this.entityManager.getHumanPlayers()) {
-            const axis = isPlanar ? this._getPlanarAimAxis(player.index) : 0;
-            let offset = player.planarAimOffset || 0;
-
-            if (axis !== 0) {
-                offset += axis * inputSpeed * dt;
-            } else {
-                const recover = 1 - Math.exp(-returnSpeed * dt);
-                offset += (0 - offset) * recover;
-            }
-
-            player.planarAimOffset = clamp(offset, -1, 1);
-        }
+        this.planarAimAssistSystem.updatePlanarAimAssist(dt);
     }
 
     _applyPlayingTimeScaleFromEffects() {
-        this.gameLoop.setTimeScale(1.0);
-        for (const p of this.entityManager.players) {
-            for (const effect of p.activeEffects) {
-                if (effect.type === 'SLOW_TIME') {
-                    this.gameLoop.setTimeScale(CONFIG.POWERUP.TYPES.SLOW_TIME.timeScale);
-                }
-            }
-        }
+        this.planarAimAssistSystem.applyPlayingTimeScaleFromEffects();
     }
 
     _updatePlayingState(dt) {

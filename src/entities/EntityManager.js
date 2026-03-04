@@ -13,6 +13,9 @@ import { ProjectileSystem } from './systems/ProjectileSystem.js';
 import { PlayerInputSystem } from './systems/PlayerInputSystem.js';
 import { PlayerLifecycleSystem } from './systems/PlayerLifecycleSystem.js';
 import { TrailSpatialIndex } from './systems/TrailSpatialIndex.js';
+import { SpawnPlacementSystem } from './systems/SpawnPlacementSystem.js';
+import { CollisionResponseSystem } from './systems/CollisionResponseSystem.js';
+import { HuntCombatSystem } from './systems/HuntCombatSystem.js';
 import { OverheatGunSystem } from '../hunt/OverheatGunSystem.js';
 import { RespawnSystem } from '../hunt/RespawnSystem.js';
 import { HuntScoring } from '../hunt/HuntScoring.js';
@@ -150,6 +153,11 @@ export class EntityManager {
             gridSize: 10,
         });
         this._bindTrailSpatialIndexCompatibility();
+        this._spawnPlacementSystem = new SpawnPlacementSystem(this, {
+            isBotPositionSafe: (player, position) => this._collisionResponseSystem.isBotPositionSafe(player, position),
+        });
+        this._collisionResponseSystem = new CollisionResponseSystem(this, this._spawnPlacementSystem);
+        this._huntCombatSystem = new HuntCombatSystem(this);
         this.botPolicyRegistry = new BotPolicyRegistry();
         this.botPolicyType = DEFAULT_BOT_POLICY_TYPE;
         this.activeGameMode = CONFIG?.HUNT?.ACTIVE_MODE || 'classic';
@@ -353,64 +361,15 @@ export class EntityManager {
     }
 
     _findSpawnPosition(minDistance = 12, margin = 12, planarLevel = null) {
-        const usePlanarLevel = Number.isFinite(planarLevel) && !!this.arena?.getRandomPositionOnLevel;
-        const randomSpawn = () => usePlanarLevel
-            ? this.arena.getRandomPositionOnLevel(planarLevel, margin)
-            : this.arena.getRandomPosition(margin);
-
-        for (let attempts = 0; attempts < 100; attempts++) {
-            const pos = randomSpawn();
-            let tooClose = false;
-
-            for (const other of this.players) {
-                if (!other.alive) continue;
-                if (other.position.distanceToSquared(pos) < minDistance * minDistance) {
-                    tooClose = true;
-                    break;
-                }
-            }
-
-            if (!tooClose) {
-                return pos;
-            }
-        }
-
-        return randomSpawn();
+        return this._spawnPlacementSystem.findSpawnPosition(minDistance, margin, planarLevel);
     }
 
     _findSafeSpawnDirection(position, radius = 0.8) {
-        const sampleCount = 20;
-        let bestDirection = new THREE.Vector3(0, 0, -1);
-        let bestDistance = -1;
-
-        for (let i = 0; i < sampleCount; i++) {
-            const angle = (Math.PI * 2 * i) / sampleCount;
-            this._tmpDir.set(Math.sin(angle), 0, -Math.cos(angle));
-            const freeDistance = this._traceFreeDistance(position, this._tmpDir, 36, 2.2, radius);
-            if (freeDistance > bestDistance) {
-                bestDistance = freeDistance;
-                bestDirection.copy(this._tmpDir);
-            }
-        }
-
-        return bestDirection;
+        return this._spawnPlacementSystem.findSafeSpawnDirection(position, radius);
     }
 
     _traceFreeDistance(origin, direction, maxDistance, stepDistance, radius = 0.8) {
-        const step = Math.max(0.5, stepDistance);
-        let traveled = 0;
-        while (traveled < maxDistance) {
-            traveled += step;
-            this._tmpVec.set(
-                origin.x + direction.x * traveled,
-                origin.y + direction.y * traveled,
-                origin.z + direction.z * traveled
-            );
-            if (this.arena.checkCollision(this._tmpVec, radius)) {
-                return traveled - step;
-            }
-        }
-        return maxDistance;
+        return this._spawnPlacementSystem.traceFreeDistance(origin, direction, maxDistance, stepDistance, radius);
     }
 
     update(dt, inputManager) {
@@ -466,28 +425,19 @@ export class EntityManager {
     }
 
     _takeInventoryItem(player, preferredIndex = -1) {
-        if (!player.inventory || player.inventory.length === 0) return { ok: false, reason: 'Kein Item verfuegbar', type: null };
-        const index = Number.isInteger(preferredIndex) && preferredIndex >= 0
-            ? Math.min(preferredIndex, player.inventory.length - 1)
-            : Math.min(player.selectedItemIndex || 0, player.inventory.length - 1);
-        const type = player.inventory.splice(index, 1)[0];
-        if (player.inventory.length === 0 || player.selectedItemIndex >= player.inventory.length) player.selectedItemIndex = 0;
-        return { ok: true, type };
+        return this._huntCombatSystem.takeInventoryItem(player, preferredIndex);
     }
 
     _useInventoryItem(player, preferredIndex = -1) {
-        const itemResult = this._takeInventoryItem(player, preferredIndex);
-        if (!itemResult.ok) return { ok: false, reason: itemResult.reason };
-        player.applyPowerup(itemResult.type);
-        return { ok: true, type: itemResult.type };
+        return this._huntCombatSystem.useInventoryItem(player, preferredIndex);
     }
 
     _shootItemProjectile(player, preferredIndex = -1) {
-        return this._projectileSystem.shootItemProjectile(player, preferredIndex);
+        return this._huntCombatSystem.shootItemProjectile(player, preferredIndex);
     }
 
     _shootHuntGun(player) {
-        return this._overheatGunSystem.tryFire(player);
+        return this._huntCombatSystem.shootHuntGun(player);
     }
 
     getHuntOverheatSnapshot() {
@@ -503,21 +453,7 @@ export class EntityManager {
     }
 
     _checkLockOn(player) {
-        if (this._lockOnCache.has(player.index)) return this._lockOnCache.get(player.index);
-        player.getDirection(this._tmpDir).normalize();
-        const maxAngle = (CONFIG.HOMING.LOCK_ON_ANGLE * Math.PI) / 180;
-        const maxRangeSq = CONFIG.HOMING.MAX_LOCK_RANGE * CONFIG.HOMING.MAX_LOCK_RANGE;
-        let bestTarget = null; let bestDistSq = Infinity;
-        for (const other of this.players) {
-            if (other === player || !other.alive) continue;
-            this._tmpVec.subVectors(other.position, player.position);
-            const distSq = this._tmpVec.lengthSq();
-            if (distSq > maxRangeSq || distSq < 1) continue;
-            const angle = this._tmpDir.angleTo(this._tmpVec.normalize());
-            if (angle <= maxAngle && distSq < bestDistSq) { bestTarget = other; bestDistSq = distSq; }
-        }
-        this._lockOnCache.set(player.index, bestTarget);
-        return bestTarget;
+        return this._huntCombatSystem.checkLockOn(player);
     }
 
     getLockOnTarget(playerIndex) {
@@ -557,105 +493,23 @@ export class EntityManager {
     }
 
     _isBotPositionSafe(player, position) {
-        if (this.arena.checkCollision(position, player.hitboxRadius)) return false;
-        const hit = this.checkGlobalCollision(position, player.hitboxRadius, player.index, 20);
-        return !hit;
+        return this._collisionResponseSystem.isBotPositionSafe(player, position);
     }
 
     _clampBotPosition(vec) {
-        const b = this.arena.bounds;
-        vec.x = Math.max(b.minX + 2, Math.min(b.maxX - 2, vec.x));
-        vec.y = Math.max(b.minY + 2, Math.min(b.maxY - 2, vec.y));
-        vec.z = Math.max(b.minZ + 2, Math.min(b.maxZ - 2, vec.z));
+        this._collisionResponseSystem.clampBotPosition(vec);
     }
 
     _findSafeBouncePosition(player, baseDirection, normal = null, options = {}) {
-        const pos = player.position;
-        const distances = Array.isArray(options.distances) && options.distances.length > 0
-            ? options.distances
-            : [1.5, 3.0, 5.0, 0.5];
-        for (const dist of distances) {
-            this._tmpVec2.copy(pos).addScaledVector(baseDirection, dist);
-            if (this._isBotPositionSafe(player, this._tmpVec2)) {
-                pos.copy(this._tmpVec2);
-                return;
-            }
-        }
-        if (normal) {
-            const normalPush = Number.isFinite(options.normalPush) ? options.normalPush : 2.0;
-            pos.addScaledVector(normal, normalPush);
-            if (this._isBotPositionSafe(player, pos)) return;
-        }
-        const b = this.arena.bounds;
-        pos.set((b.minX + b.maxX) * 0.5, (b.minY + b.maxY) * 0.5, (b.minZ + b.maxZ) * 0.5);
+        this._spawnPlacementSystem.findSafeBouncePosition(player, baseDirection, normal, options);
     }
 
     _bounceBot(player, normalOverride = null, source = 'WALL', options = {}) {
-        const pos = player.position;
-        let normal = normalOverride;
-        if (!normal) {
-            const b = this.arena.bounds;
-            const dLeft = pos.x - b.minX; const dRight = b.maxX - pos.x;
-            const dDown = pos.y - b.minY; const dUp = b.maxY - pos.y;
-            const dBack = pos.z - b.minZ; const dFront = b.maxZ - pos.z;
-            let minDist = dLeft; this._tmpVec2.set(1, 0, 0);
-            if (dRight < minDist) { minDist = dRight; this._tmpVec2.set(-1, 0, 0); }
-            if (dDown < minDist) { minDist = dDown; this._tmpVec2.set(0, 1, 0); }
-            if (dUp < minDist) { minDist = dUp; this._tmpVec2.set(0, -1, 0); }
-            if (dFront < minDist) { minDist = dFront; this._tmpVec2.set(0, 0, 1); }
-            if (dBack < minDist) { minDist = dBack; this._tmpVec2.set(0, 0, -1); }
-            normal = this._tmpVec2;
-        }
-        player.getDirection(this._tmpDir).normalize();
-        const dot = this._tmpDir.dot(normal);
-        this._tmpDir.x -= 2 * dot * normal.x; this._tmpDir.y -= 2 * dot * normal.y; this._tmpDir.z -= 2 * dot * normal.z;
-        this._tmpDir.normalize();
-        const normalBias = Number.isFinite(options.normalBias) ? options.normalBias : 0.25;
-        this._tmpDir.addScaledVector(normal, normalBias);
-        const randomScale = Number.isFinite(options.randomScale)
-            ? options.randomScale
-            : (source === 'TRAIL' ? 0.35 : 0.24);
-        this._tmpDir.x += (Math.random() - 0.5) * randomScale;
-        this._tmpDir.y += (Math.random() - 0.5) * randomScale;
-        this._tmpDir.z += (Math.random() - 0.5) * randomScale;
-        if (CONFIG.GAMEPLAY.PLANAR_MODE) this._tmpDir.y = 0;
-        this._tmpDir.normalize();
-        const preRotateShove = Number.isFinite(options.preRotateShove) ? options.preRotateShove : 1;
-        this._tmpDir.addScaledVector(this._tmpDir, preRotateShove);
-        this._tmpVec.copy(this._tmpDir).normalize();
-        player.quaternion.setFromUnitVectors(this._tmpVec2.set(0, 0, -1), this._tmpVec);
-        this._findSafeBouncePosition(player, this._tmpDir, normal, options);
-        if (Number.isFinite(options.extraPush) && options.extraPush > 0) {
-            this._tmpVec2.copy(player.position).addScaledVector(this._tmpDir, options.extraPush);
-            if (this._isBotPositionSafe(player, this._tmpVec2)) {
-                player.position.copy(this._tmpVec2);
-            }
-        }
-        player.trail.forceGap(Number.isFinite(options.trailGap) ? options.trailGap : 0.3);
-        if (Number.isFinite(options.spawnProtection) && options.spawnProtection > 0) {
-            player.spawnProtectionTimer = Math.max(player.spawnProtectionTimer || 0, options.spawnProtection);
-        }
-        const botAI = this.botByPlayer.get(player);
-        if (botAI?.onBounce) botAI.onBounce(source, normal);
-        if (this.recorder) this.recorder.logEvent(source === 'TRAIL' ? 'BOUNCE_TRAIL' : 'BOUNCE_WALL', player.index);
+        this._collisionResponseSystem.bounceBot(player, normalOverride, source, options);
     }
 
     _bouncePlayerOnFoam(player, normalOverride = null) {
-        this._bounceBot(player, normalOverride, 'FOAM', {
-            normalBias: 0.0,
-            randomScale: 0.0,
-            preRotateShove: 2.4,
-            distances: [4.0, 7.0, 10.0, 2.0],
-            normalPush: 4.8,
-            extraPush: 3.2,
-            trailGap: 0.45,
-            spawnProtection: 0.16,
-        });
-        if (typeof player?.lockSteering === 'function') {
-            player.lockSteering(0.28);
-        } else if (player) {
-            player.steeringLockTimer = Math.max(player.steeringLockTimer || 0, 0.28);
-        }
+        this._collisionResponseSystem.bouncePlayerOnFoam(player, normalOverride);
     }
 
     updateCameras(dt) {

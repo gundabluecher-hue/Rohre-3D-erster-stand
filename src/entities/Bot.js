@@ -9,6 +9,9 @@ import { runDecision } from './ai/BotDecisionOps.js';
 import { runAction } from './ai/BotActionOps.js';
 import { estimateEnemyPressure, estimatePointRisk, selectTarget } from './ai/BotTargetingOps.js';
 import { enterRecovery, updateRecovery, updateStuckState } from './ai/BotRecoveryOps.js';
+import { composeProbeDirection, scanProbeRay, scoreProbe } from './ai/BotProbeOps.js';
+import { estimateExitSafety, evaluatePortalIntent } from './ai/BotPortalOps.js';
+import { senseProjectiles, senseHeight, senseBotSpacing, evaluatePursuit } from './ai/BotThreatOps.js';
 
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
 
@@ -20,17 +23,8 @@ const MAP_BEHAVIOR = {
     pyramid: { caution: 0.08, portalBias: 0.12, aggressionBias: 0.03 },
 };
 
-// Statische Richtungen fÃ¼r Portalsensorik (Vermeidet Array-Allokation pro Aufruf)
-const PORTAL_EXIT_CHECK_DIRS = [
-    { x: 1, y: 0, z: 0 },
-    { x: -1, y: 0, z: 0 },
-    { x: 0, y: 0, z: 1 },
-    { x: 0, y: 0, z: -1 },
-];
-
 const BOT_COLLISION_CACHE_POS_SCALE = 32;
 const BOT_COLLISION_CACHE_RADIUS_SCALE = 64;
-const BOT_PROBE_LATERAL_SCAN_CLEAR_RATIO = 0.92;
 
 // Phase 3: Kontextsensitive Item-Regeln (emergencyScale + combatSelf)
 const ITEM_RULES = {
@@ -352,13 +346,7 @@ export class BotAI {
     }
 
     _composeProbeDirection(forward, right, up, probe) {
-        const yawFactor = probe.yaw * this.profile.probeSpread;
-        const pitchFactor = probe.pitch * this.profile.probeSpread;
-
-        probe.dir.copy(forward);
-        if (yawFactor !== 0) probe.dir.addScaledVector(right, yawFactor);
-        if (!CONFIG.GAMEPLAY.PLANAR_MODE && pitchFactor !== 0) probe.dir.addScaledVector(up, pitchFactor);
-        probe.dir.normalize();
+        composeProbeDirection(this, forward, right, up, probe);
     }
 
     _buildCollisionMemoKey(position, radius, excludePlayerIndex, skipRecent) {
@@ -397,396 +385,46 @@ export class BotAI {
     }
 
     _scanProbeRay(player, arena, allPlayers, direction, lookAhead, step, out) {
-        out.wallDist = lookAhead;
-        out.trailDist = lookAhead;
-        out.immediateDanger = false;
-
-        const radius = player.hitboxRadius * 1.6;
-        const skipRecent = 20;
-        const stepX = direction.x * step;
-        const stepY = direction.y * step;
-        const stepZ = direction.z * step;
-
-        this._tmpVec.set(
-            player.position.x + stepX,
-            player.position.y + stepY,
-            player.position.z + stepZ
-        );
-
-        for (let d = step; d <= lookAhead; d += step) {
-            if (arena.checkCollisionFast(this._tmpVec, radius)) {
-                out.wallDist = d;
-                if (d <= step * 1.5) out.immediateDanger = true;
-                break;
-            }
-
-            if (this._checkTrailHit(this._tmpVec, player, allPlayers, radius, skipRecent)) {
-                out.trailDist = d;
-                if (d <= step * 1.5) out.immediateDanger = true;
-                break;
-            }
-
-            this._tmpVec.x += stepX;
-            this._tmpVec.y += stepY;
-            this._tmpVec.z += stepZ;
-        }
+        scanProbeRay(this, player, arena, allPlayers, direction, lookAhead, step, out);
     }
 
     _scoreProbe(player, arena, allPlayers, probe, lookAhead) {
-        const step = this.profile.probeStep;
-
-        // Phase 1: Adaptive LookAhead pro Probe-Typ
-        let probeLookAhead = lookAhead;
-        const absYaw = Math.abs(probe.yaw);
-        if (absYaw > 2.5) {
-            probeLookAhead = lookAhead * 0.4;  // backward
-        } else if (absYaw > 1.2) {
-            probeLookAhead = lookAhead * 0.7;  // wide sides
-        }
-
-        this._scanProbeRay(player, arena, allPlayers, probe.dir, probeLookAhead, step, this._probeRayCenter);
-
-        const lateralStrength = CONFIG.GAMEPLAY.PLANAR_MODE ? 0.2 : 0.24;
-        const lateralLookAhead = probeLookAhead * 0.9;
-        const centerClearance = Math.min(this._probeRayCenter.wallDist, this._probeRayCenter.trailDist);
-        const shouldScanLaterals = this._probeRayCenter.immediateDanger
-            || centerClearance < probeLookAhead * BOT_PROBE_LATERAL_SCAN_CLEAR_RATIO;
-
-        if (shouldScanLaterals) {
-            this._tmpVec2.copy(probe.dir).addScaledVector(this._tmpRight, lateralStrength).normalize();
-            this._scanProbeRay(player, arena, allPlayers, this._tmpVec2, lateralLookAhead, step, this._probeRayLeft);
-
-            this._tmpVec3.copy(probe.dir).addScaledVector(this._tmpRight, -lateralStrength).normalize();
-            this._scanProbeRay(player, arena, allPlayers, this._tmpVec3, lateralLookAhead, step, this._probeRayRight);
-        } else {
-            this._probeRayLeft.wallDist = this._probeRayCenter.wallDist;
-            this._probeRayLeft.trailDist = this._probeRayCenter.trailDist;
-            this._probeRayLeft.immediateDanger = this._probeRayCenter.immediateDanger;
-            this._probeRayRight.wallDist = this._probeRayCenter.wallDist;
-            this._probeRayRight.trailDist = this._probeRayCenter.trailDist;
-            this._probeRayRight.immediateDanger = this._probeRayCenter.immediateDanger;
-        }
-
-        const wallDist = Math.min(this._probeRayCenter.wallDist, this._probeRayLeft.wallDist, this._probeRayRight.wallDist);
-        const trailDist = Math.min(this._probeRayCenter.trailDist, this._probeRayLeft.trailDist, this._probeRayRight.trailDist);
-        const immediateDanger = this._probeRayCenter.immediateDanger
-            || this._probeRayLeft.immediateDanger
-            || this._probeRayRight.immediateDanger;
-
-        // Phase 1: Speed-basiertes Risiko
-        const speedRatio = player.baseSpeed > 0 ? player.speed / player.baseSpeed : 1;
-        const speedFactor = Math.max(0, speedRatio - 1) * 0.3;
-
-        const wallRisk = 1 - Math.min(1, wallDist / probeLookAhead);
-        const trailRisk = 1 - Math.min(1, trailDist / probeLookAhead);
-        let risk = wallRisk * (1.1 + this.sense.mapCaution + speedFactor)
-            + trailRisk * (1.45 + this.sense.mapCaution * 0.5 + speedFactor * 0.7);
-
-        let lateralBlocks = 0;
-        if (this._probeRayLeft.wallDist < lateralLookAhead * 0.5 || this._probeRayLeft.trailDist < lateralLookAhead * 0.5) lateralBlocks++;
-        if (this._probeRayRight.wallDist < lateralLookAhead * 0.5 || this._probeRayRight.trailDist < lateralLookAhead * 0.5) lateralBlocks++;
-
-        risk += probe.weight;
-        risk += lateralBlocks * 0.28;
-        if (immediateDanger) risk += 2.2;
-
-        // Easy bots make more mistakes, hard bots remain clean.
-        if (this.profile.errorRate > 0 && Math.random() < this.profile.errorRate) {
-            risk += (Math.random() - 0.2) * 0.65;
-        }
-
-        probe.wallDist = wallDist;
-        probe.trailDist = trailDist;
-        probe.clearance = Math.min(wallDist, trailDist);
-        probe.immediateDanger = immediateDanger;
-        probe.risk = risk;
+        scoreProbe(this, player, arena, allPlayers, probe, lookAhead);
     }
 
     // ================================================================
     // Phase 7: Portal-Exit-Safety â€” prÃ¼fe 4 Richtungen am Exit
     // ================================================================
     _estimateExitSafety(exit, arena, player, allPlayers) {
-        const probeDistance = 5;
-        let blockedCount = 0;
-        for (let i = 0; i < PORTAL_EXIT_CHECK_DIRS.length; i++) {
-            const dir = PORTAL_EXIT_CHECK_DIRS[i];
-            this._tmpVec3.set(
-                exit.x + dir.x * probeDistance,
-                exit.y + dir.y * probeDistance,
-                exit.z + dir.z * probeDistance
-            );
-            if (arena.checkCollisionFast(this._tmpVec3, player.hitboxRadius * 2.0)
-                || this._checkTrailHit(this._tmpVec3, player, allPlayers)) {
-                blockedCount++;
-            }
-        }
-        return blockedCount / PORTAL_EXIT_CHECK_DIRS.length;
+        return estimateExitSafety(this, exit, arena, player, allPlayers);
     }
 
     // ================================================================
     // ================================================================
     _senseProjectiles(player, projectiles) {
-        this.sense.projectileThreat = false;
-        this.sense.projectileEvadeYaw = 0;
-        this.sense.projectileEvadePitch = 0;
-
-        const awareness = this.profile.projectileAwareness || 0;
-        if (awareness <= 0 || !projectiles || projectiles.length === 0) return;
-
-        player.getDirection(this._tmpForward).normalize();
-        this._buildBasis(this._tmpForward);
-
-        let nearestTime = Infinity;
-        let evadeYaw = 0;
-        let evadePitch = 0;
-
-        for (let i = 0; i < projectiles.length; i++) {
-            const proj = projectiles[i];
-            if (proj.owner === player) continue;  // eigene Geschosse ignorieren
-
-            this._tmpVec.subVectors(proj.position, player.position);
-            const dist = this._tmpVec.length();
-            if (dist > 25 || dist < 0.5) continue;
-
-            // PrÃ¼fen ob Projektil auf Bot zufliegt
-            this._tmpVec.normalize();
-            this._tmpVec2.copy(proj.velocity).normalize();
-            const towardBot = -this._tmpVec2.dot(this._tmpVec); // Positiv = fliegt auf uns zu
-            if (towardBot < 0.4) continue;
-
-            // Einschlagzeit schÃ¤tzen
-            const speed = proj.velocity.length();
-            const timeToImpact = speed > 1 ? dist / speed : 999;
-            if (timeToImpact > 0.8) continue;
-
-            // Zufallscheck basierend auf Awareness
-            if (Math.random() > awareness) continue;
-
-            if (timeToImpact < nearestTime) {
-                nearestTime = timeToImpact;
-
-                // Ausweichrichtung = Kreuzprodukt(Flugrichtung, WORLD_UP)
-                this._tmpVec3.crossVectors(this._tmpVec2, WORLD_UP).normalize();
-                // Welche Seite des Bots? â†’ auf die entgegengesetzte Seite ausweichen
-                const side = this._tmpRight.dot(this._tmpVec3);
-                evadeYaw = side > 0 ? -1 : 1;
-
-                if (!CONFIG.GAMEPLAY.PLANAR_MODE) {
-                    // Vertikale Komponente: wenn Projektil von oben â†’ runter, etc.
-                    const verticalApproach = this._tmpVec.y;
-                    evadePitch = verticalApproach > 0.2 ? -1 : (verticalApproach < -0.2 ? 1 : 0);
-                }
-            }
-        }
-
-        if (nearestTime < Infinity) {
-            this.sense.projectileThreat = true;
-            this.sense.projectileEvadeYaw = evadeYaw;
-            this.sense.projectileEvadePitch = evadePitch;
-        }
+        senseProjectiles(this, player, projectiles);
     }
 
     // ================================================================
     // ================================================================
     _senseHeight(player, arena) {
-        this.sense.heightBias = 0;
-        if (CONFIG.GAMEPLAY.PLANAR_MODE) return;
-
-        const bias = this.profile.heightBias || 0;
-        if (bias <= 0) return;
-
-        const b = arena.bounds;
-        const midY = (b.minY + b.maxY) * 0.5;
-        const offset = player.position.y - midY;
-        const range = (b.maxY - b.minY) * 0.5;
-
-        if (range <= 0) return;
-
-        // Normalisiert: -1 (ganz unten) bis +1 (ganz oben)
-        const normalizedOffset = offset / range;
-
-        // Gegensteuerung: wenn oben â†’ Pitch-Down-Bias, wenn unten â†’ Pitch-Up
-        this.sense.heightBias = -normalizedOffset * bias;
+        senseHeight(this, player, arena);
     }
 
     // ================================================================
     // ================================================================
     _senseBotSpacing(player, allPlayers) {
-        this.sense.botRepulsionYaw = 0;
-        this.sense.botRepulsionPitch = 0;
-
-        const weight = this.profile.spacingWeight || 0;
-        if (weight <= 0) return;
-
-        const minDist = 12;
-        player.getDirection(this._tmpForward).normalize();
-        this._buildBasis(this._tmpForward);
-
-        let repulseX = 0;
-        let repulseY = 0;
-
-        for (let i = 0; i < allPlayers.length; i++) {
-            const other = allPlayers[i];
-            if (!other || other === player || !other.alive || !other.isBot) continue;
-
-            this._tmpVec.subVectors(player.position, other.position);
-            const dist = this._tmpVec.length();
-            if (dist >= minDist || dist < 0.1) continue;
-
-            // AbstoÃŸungsstÃ¤rke
-            const strength = weight * (1 - dist / minDist);
-            this._tmpVec.normalize();
-
-            // In Yaw/Pitch-Raum projizieren
-            repulseX += this._tmpRight.dot(this._tmpVec) * strength;
-            repulseY += this._tmpUp.dot(this._tmpVec) * strength;
-        }
-
-        if (Math.abs(repulseX) > 0.05) {
-            this.sense.botRepulsionYaw = repulseX > 0 ? 1 : -1;
-        }
-        if (!CONFIG.GAMEPLAY.PLANAR_MODE && Math.abs(repulseY) > 0.05) {
-            this.sense.botRepulsionPitch = repulseY > 0 ? 1 : -1;
-        }
+        senseBotSpacing(this, player, allPlayers);
     }
 
     // ================================================================
     // ================================================================
     _evaluatePursuit(player) {
-        this.sense.pursuitActive = false;
-        this.sense.pursuitYaw = 0;
-        this.sense.pursuitPitch = 0;
-        this.sense.pursuitAimDot = 0;
-
-        if (!this.profile.pursuitEnabled) return;
-        if (this.sense.immediateDanger || this.sense.forwardRisk > 0.3) return;
-
-        const target = this.state.targetPlayer;
-        if (!target || !target.alive) return;
-
-        const pursuitRadius = this.profile.pursuitRadius || 35;
-        if (this.sense.targetDistanceSq > pursuitRadius * pursuitRadius) return;
-        if (!this.sense.targetInFront) return;
-
-        // Richtung zum Ziel berechnen
-        player.getDirection(this._tmpForward).normalize();
-        this._buildBasis(this._tmpForward);
-
-        this._tmpVec.subVectors(target.position, player.position).normalize();
-
-        const aimDot = this._tmpVec.dot(this._tmpForward);
-        const yawSignal = this._tmpRight.dot(this._tmpVec);
-        const pitchSignal = this._tmpUp.dot(this._tmpVec);
-
-        this.sense.pursuitActive = true;
-        this.sense.pursuitAimDot = aimDot;
-        this.sense.pursuitYaw = Math.abs(yawSignal) > 0.05 ? (yawSignal > 0 ? 1 : -1) : 0;
-        if (!CONFIG.GAMEPLAY.PLANAR_MODE) {
-            this.sense.pursuitPitch = Math.abs(pitchSignal) > 0.08 ? (pitchSignal > 0 ? 1 : -1) : 0;
-        }
+        evaluatePursuit(this, player);
     }
 
     _evaluatePortalIntent(player, arena, allPlayers) {
-        if (!arena.portalsEnabled || !arena.portals || arena.portals.length === 0) {
-            this.state.portalIntentActive = false;
-            this._portalTarget = null;
-            return;
-        }
-
-        if (this.profile.portalInterest <= 0) {
-            this.state.portalIntentActive = false;
-            this._portalTarget = null;
-            return;
-        }
-
-        const seekDistance = this.profile.portalSeekDistance;
-        const seekDistSq = seekDistance * seekDistance;
-
-        player.getDirection(this._tmpForward).normalize();
-
-        let bestScore = -Infinity;
-        let bestEntry = null;
-        let bestExit = null;
-        let bestEntryDistSq = Infinity;
-
-        for (let i = 0; i < arena.portals.length; i++) {
-            const portal = arena.portals[i];
-            const entryA = portal.posA;
-            const exitA = portal.posB;
-            const distSqA = player.position.distanceToSquared(entryA);
-            if (distSqA <= seekDistSq) {
-                this._tmpVec.subVectors(entryA, player.position).normalize();
-                const forwardDotA = this._tmpVec.dot(this._tmpForward);
-                if (forwardDotA >= this.profile.portalEntryDotMin) {
-                    const entryRiskA = estimatePointRisk(this, entryA, player, arena, allPlayers);
-                    // Phase 7: Exit-Safety statt einfacher Punkt-Risiko
-                    const exitSafetyA = this._estimateExitSafety(exitA, arena, player, allPlayers);
-                    const exitRiskA = exitSafetyA;
-                    // Wenn >= 75% der Exit-Richtungen blockiert sind â†’ Portal meiden
-                    if (exitSafetyA < 0.75) {
-                        const localReliefA = this.sense.forwardRisk - exitRiskA;
-                        const distancePenaltyA = distSqA / seekDistSq;
-                        const scoreA =
-                            localReliefA * (0.8 + this.profile.portalInterest) +
-                            this.sense.mapPortalBias * 0.5 -
-                            entryRiskA * 0.6 -
-                            distancePenaltyA * 0.4;
-                        if (scoreA > bestScore) {
-                            bestScore = scoreA;
-                            bestEntry = entryA;
-                            bestExit = exitA;
-                            bestEntryDistSq = distSqA;
-                        }
-                    }
-                }
-            }
-
-            const entryB = portal.posB;
-            const exitB = portal.posA;
-            const distSqB = player.position.distanceToSquared(entryB);
-            if (distSqB > seekDistSq) continue;
-
-            this._tmpVec.subVectors(entryB, player.position).normalize();
-            const forwardDotB = this._tmpVec.dot(this._tmpForward);
-            if (forwardDotB < this.profile.portalEntryDotMin) continue;
-
-            const entryRiskB = estimatePointRisk(this, entryB, player, arena, allPlayers);
-            // Phase 7: Exit-Safety statt einfacher Punkt-Risiko
-            const exitSafetyB = this._estimateExitSafety(exitB, arena, player, allPlayers);
-            const exitRiskB = exitSafetyB;
-            // Wenn >= 75% der Exit-Richtungen blockiert sind â†’ Portal meiden
-            if (exitSafetyB >= 0.75) continue;
-
-            const localReliefB = this.sense.forwardRisk - exitRiskB;
-            const distancePenaltyB = distSqB / seekDistSq;
-            const scoreB =
-                localReliefB * (0.8 + this.profile.portalInterest) +
-                this.sense.mapPortalBias * 0.5 -
-                entryRiskB * 0.6 -
-                distancePenaltyB * 0.4;
-
-            if (scoreB > bestScore) {
-                bestScore = scoreB;
-                bestEntry = entryB;
-                bestExit = exitB;
-                bestEntryDistSq = distSqB;
-            }
-        }
-
-        if (bestEntry && bestScore >= this.profile.portalIntentThreshold) {
-            this.state.portalIntentActive = true;
-            this.state.portalIntentTimer = this.profile.portalIntentDuration;
-            this.state.portalIntentScore = bestScore;
-            this.state.portalEntryDistanceSq = bestEntryDistSq;
-            this._portalEntry.copy(bestEntry);
-            this._portalExit.copy(bestExit);
-            this._portalTarget = this._portalEntry;
-            return;
-        }
-
-        this.state.portalIntentActive = false;
-        this.state.portalIntentScore = 0;
-        this._portalTarget = null;
+        evaluatePortalIntent(this, player, arena, allPlayers);
     }
 
     update(dt, player, arena, allPlayers, projectiles) {
