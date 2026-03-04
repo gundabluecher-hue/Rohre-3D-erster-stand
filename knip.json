@@ -1,0 +1,25 @@
+{
+    "entry": [
+        "index.html",
+        "src/core/main.js",
+        "tests/**/*.spec.js",
+        "scripts/**/*.mjs",
+        "scripts/**/*.js",
+        "editor/js/main.js",
+        "playwright.config.js",
+        "vite.config.js"
+    ],
+    "project": [
+        "src/**/*.js",
+        "editor/js/**/*.js",
+        "tests/**/*.js",
+        "scripts/**/*.mjs"
+    ],
+    "ignore": [
+        "tmp/**",
+        ".codex_tmp/**",
+        "backups/**",
+        "dist/**",
+        "playwright-report/**"
+    ]
+}
