@@ -63,3 +63,19 @@ Split-Ergebnis:
 - `src/entities/systems/projectile/ProjectileSimulationOps.js` kapselt Bewegung, Homing und Foam-Bounce-Simulation.
 - `src/entities/systems/projectile/ProjectileHitResolver.js` kapselt Trail-/Arena-/Player-Trefferlogik.
 - `src/entities/systems/ProjectileSystem.js` orchestriert nur noch Spawn, Pools/Facades und Lifecycle.
+
+## 21.3 Verifikation (main.js Entkopplung)
+
+- `npm run test:core`
+  - Ergebnis: PASS (`20 passed`)
+- `npm run test:stress`
+  - Ergebnis: PASS (`13 passed`)
+- `npm run build`
+  - Ergebnis: PASS
+
+Split-Ergebnis:
+
+- `src/core/GameBootstrap.js` kapselt Runtime-Bootstrap und DOM-UI-Referenzaufbau.
+- `src/core/GameRuntimeFacade.js` kapselt Settings-/Menu-Runtime-Orchestrierung.
+- `src/core/GameDebugApi.js` kapselt Recorder-/Validation-Debug-API.
+- `src/core/main.js` delegiert auf die neuen Fassaden bei stabiler `Game`-API.

@@ -104,10 +104,10 @@ Exit-Kriterien:
 
 ## Phase 21.3 - main.js weiter entkoppeln
 
-- [ ] 21.3.1 Bootstrap/DOM-Referenzaufbau nach `GameBootstrap.js` verschieben.
-- [ ] 21.3.2 Laufzeit-Orchestrierung in `GameRuntimeFacade.js` konsolidieren.
-- [ ] 21.3.3 Recorder-/Debug-API in `GameDebugApi.js` kapseln.
-- [ ] 21.3.4 `main.js` als schlanker Entry-Point mit Delegation erhalten.
+- [x] 21.3.1 Bootstrap/DOM-Referenzaufbau nach `GameBootstrap.js` verschieben.
+- [x] 21.3.2 Laufzeit-Orchestrierung in `GameRuntimeFacade.js` konsolidieren.
+- [x] 21.3.3 Recorder-/Debug-API in `GameDebugApi.js` kapseln.
+- [x] 21.3.4 `main.js` als schlanker Entry-Point mit Delegation erhalten.
 
 Verifikation:
 
