@@ -5,8 +5,12 @@ import {
     parseMapJSON,
     toArenaMapDefinition,
 } from './MapSchema.js';
+import {
+    resolveCustomMapSelection,
+    resolveFallbackMapKey,
+    resolveKnownMapSelection,
+} from './mapSchema/CustomMapSelectionResolver.js';
 
-const DEFAULT_FALLBACK_MAP_KEY = 'standard';
 const LEGACY_EDITOR_PLAYTEST_SCALE = 35;
 const LEGACY_EDITOR_LARGE_DIM_THRESHOLD = 500;
 
@@ -51,15 +55,6 @@ function getCustomMapConversionScale(mapDocument) {
         scale: runtimeScale,
         warning: null,
     };
-}
-
-function getFallbackMapKey() {
-    if (CONFIG.MAPS[DEFAULT_FALLBACK_MAP_KEY]) {
-        return DEFAULT_FALLBACK_MAP_KEY;
-    }
-
-    const mapKeys = Object.keys(CONFIG.MAPS || {});
-    return mapKeys.length > 0 ? mapKeys[0] : DEFAULT_FALLBACK_MAP_KEY;
 }
 
 export function loadCustomMapFromStorage(storageOverride) {
@@ -120,56 +115,28 @@ export function loadCustomMapFromStorage(storageOverride) {
 
 export function resolveArenaMapSelection(requestedMapKey, storageOverride) {
     const mapKey = String(requestedMapKey || '');
-    const fallbackMapKey = getFallbackMapKey();
+    const fallbackMapKey = resolveFallbackMapKey(CONFIG.MAPS);
 
     if (mapKey !== CUSTOM_MAP_KEY) {
-        const knownMap = CONFIG.MAPS[mapKey];
-        if (knownMap) {
-            return {
-                requestedMapKey: mapKey,
-                effectiveMapKey: mapKey,
-                mapDefinition: knownMap,
-                warnings: [],
-                isFallback: false,
-                isCustom: false,
-                error: null,
-            };
-        }
-
-        return {
+        return resolveKnownMapSelection({
             requestedMapKey: mapKey,
-            effectiveMapKey: fallbackMapKey,
-            mapDefinition: CONFIG.MAPS[fallbackMapKey],
-            warnings: [`Unknown map key "${mapKey}". Falling back to "${fallbackMapKey}".`],
-            isFallback: true,
-            isCustom: false,
-            error: `Unknown map key "${mapKey}".`,
-        };
+            maps: CONFIG.MAPS,
+            fallbackMapKey,
+        });
     }
 
     const customResult = loadCustomMapFromStorage(storageOverride);
-    if (customResult.ok) {
-        return {
-            requestedMapKey: mapKey,
-            effectiveMapKey: CUSTOM_MAP_KEY,
-            mapDefinition: customResult.mapDefinition,
-            mapDocument: customResult.mapDocument,
-            warnings: customResult.warnings,
-            isFallback: false,
-            isCustom: true,
-            error: null,
-        };
+
+    const selection = resolveCustomMapSelection({
+        requestedMapKey: mapKey,
+        maps: CONFIG.MAPS,
+        fallbackMapKey,
+        customResult,
+    });
+
+    if (selection.isFallback) {
+        console.warn(`[CustomMapLoader] Failed to load custom map, falling back to "${fallbackMapKey}". Error:`, selection.error);
     }
 
-    console.warn(`[CustomMapLoader] Failed to load custom map, falling back to "${fallbackMapKey}". Error:`, customResult.error);
-
-    return {
-        requestedMapKey: mapKey,
-        effectiveMapKey: fallbackMapKey,
-        mapDefinition: CONFIG.MAPS[fallbackMapKey],
-        warnings: customResult.warnings,
-        isFallback: true,
-        isCustom: false,
-        error: customResult.error,
-    };
+    return selection;
 }

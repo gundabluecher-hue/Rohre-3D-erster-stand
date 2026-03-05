@@ -11,10 +11,12 @@ import {
     normalizeBotPolicyStrategy,
 } from './RuntimeConfig.js';
 import { GAME_MODE_TYPES, resolveActiveGameMode } from '../hunt/HuntMode.js';
-
-function clamp(val, min, max) {
-    return Math.min(Math.max(val, min), max);
-}
+import {
+    clampSettingValue,
+    createControlBindingsSnapshot,
+    normalizeControlBindings,
+    SETTINGS_LIMITS,
+} from './config/SettingsRuntimeContract.js';
 
 function deepClone(obj) {
     return JSON.parse(JSON.stringify(obj));
@@ -79,7 +81,11 @@ export class SettingsManager {
                 itemAmount: 8,
                 fireRate: 0.45,
                 lockOnAngle: 15,
-                mgTrailAimRadius: clamp(parseFloat(CONFIG?.HUNT?.MG?.TRAIL_HIT_RADIUS ?? 0.78), 0.2, 3.0),
+                mgTrailAimRadius: clampSettingValue(
+                    parseFloat(CONFIG?.HUNT?.MG?.TRAIL_HIT_RADIUS ?? 0.78),
+                    SETTINGS_LIMITS.gameplay.mgTrailAimRadius,
+                    0.78
+                ),
                 planarMode: false,
                 portalCount: 0,
                 planarLevelCount: 5,
@@ -91,45 +97,7 @@ export class SettingsManager {
 
     cloneDefaultControls() {
         const base = deepClone(CONFIG.KEYS);
-        return {
-            PLAYER_1: { ...base.PLAYER_1 },
-            PLAYER_2: { ...base.PLAYER_2 },
-        };
-    }
-
-    normalizePlayerControls(source, fallback) {
-        const src = source || {};
-        const shoot = src.SHOOT || fallback.SHOOT;
-        let shootMg = src.SHOOT_MG || fallback.SHOOT_MG;
-        let drop = src.DROP || fallback.DROP;
-
-        if (shootMg === shoot) {
-            const fallbackShootMg = fallback.SHOOT_MG;
-            if (fallbackShootMg && fallbackShootMg !== shoot) {
-                shootMg = fallbackShootMg;
-            }
-        }
-        if (drop === shootMg) {
-            const fallbackDrop = fallback.DROP;
-            if (fallbackDrop && fallbackDrop !== shoot && fallbackDrop !== shootMg) {
-                drop = fallbackDrop;
-            }
-        }
-
-        return {
-            UP: src.UP || fallback.UP,
-            DOWN: src.DOWN || fallback.DOWN,
-            LEFT: src.LEFT || fallback.LEFT,
-            RIGHT: src.RIGHT || fallback.RIGHT,
-            ROLL_LEFT: src.ROLL_LEFT || fallback.ROLL_LEFT,
-            ROLL_RIGHT: src.ROLL_RIGHT || fallback.ROLL_RIGHT,
-            BOOST: src.BOOST || fallback.BOOST,
-            SHOOT: shoot,
-            SHOOT_MG: shootMg,
-            NEXT_ITEM: src.NEXT_ITEM || fallback.NEXT_ITEM,
-            DROP: drop,
-            CAMERA: src.CAMERA || fallback.CAMERA,
-        };
+        return createControlBindingsSnapshot(base, base);
     }
 
     sanitizeSettings(saved) {
@@ -144,12 +112,20 @@ export class SettingsManager {
         merged.mapKey = (requestedMapKey === CUSTOM_MAP_KEY || CONFIG.MAPS[requestedMapKey])
             ? requestedMapKey
             : defaults.mapKey;
-        merged.numBots = clamp(parseInt(src.numBots ?? defaults.numBots, 10), 0, 8);
+        merged.numBots = clampSettingValue(
+            src.numBots ?? defaults.numBots,
+            SETTINGS_LIMITS.session.numBots,
+            defaults.numBots
+        );
         merged.botDifficulty = ['EASY', 'NORMAL', 'HARD'].includes(src.botDifficulty)
             ? src.botDifficulty
             : defaults.botDifficulty;
         merged.botPolicyStrategy = normalizeBotPolicyStrategy(src.botPolicyStrategy, defaults.botPolicyStrategy);
-        merged.winsNeeded = clamp(parseInt(src.winsNeeded ?? defaults.winsNeeded, 10), 1, 15);
+        merged.winsNeeded = clampSettingValue(
+            src.winsNeeded ?? defaults.winsNeeded,
+            SETTINGS_LIMITS.session.winsNeeded,
+            defaults.winsNeeded
+        );
         merged.autoRoll = typeof src.autoRoll === 'boolean' ? src.autoRoll : defaults.autoRoll;
 
         merged.invertPitch.PLAYER_1 = !!src?.invertPitch?.PLAYER_1;
@@ -167,27 +143,27 @@ export class SettingsManager {
             merged.hunt.respawnEnabled = false;
         }
 
-        merged.gameplay.speed = clamp(parseFloat(src?.gameplay?.speed ?? defaults.gameplay.speed), 8, 40);
-        merged.gameplay.turnSensitivity = clamp(parseFloat(src?.gameplay?.turnSensitivity ?? defaults.gameplay.turnSensitivity), 0.8, 5);
-        merged.gameplay.planeScale = clamp(parseFloat(src?.gameplay?.planeScale ?? defaults.gameplay.planeScale), 0.6, 2.0);
-        merged.gameplay.trailWidth = clamp(parseFloat(src?.gameplay?.trailWidth ?? defaults.gameplay.trailWidth), 0.2, 2.5);
-        merged.gameplay.gapSize = clamp(parseFloat(src?.gameplay?.gapSize ?? defaults.gameplay.gapSize), 0.05, 1.5);
-        merged.gameplay.gapFrequency = clamp(parseFloat(src?.gameplay?.gapFrequency ?? defaults.gameplay.gapFrequency), 0, 0.25);
-        merged.gameplay.itemAmount = clamp(parseInt(src?.gameplay?.itemAmount ?? defaults.gameplay.itemAmount, 10), 1, 20);
-        merged.gameplay.fireRate = clamp(parseFloat(src?.gameplay?.fireRate ?? defaults.gameplay.fireRate), 0.1, 2.0);
-        merged.gameplay.lockOnAngle = clamp(parseInt(src?.gameplay?.lockOnAngle ?? defaults.gameplay.lockOnAngle, 10), 5, 45);
-        merged.gameplay.mgTrailAimRadius = clamp(
-            parseFloat(src?.gameplay?.mgTrailAimRadius ?? defaults.gameplay.mgTrailAimRadius),
-            0.2,
-            3.0
+        merged.gameplay.speed = clampSettingValue(src?.gameplay?.speed ?? defaults.gameplay.speed, SETTINGS_LIMITS.gameplay.speed, defaults.gameplay.speed);
+        merged.gameplay.turnSensitivity = clampSettingValue(src?.gameplay?.turnSensitivity ?? defaults.gameplay.turnSensitivity, SETTINGS_LIMITS.gameplay.turnSensitivity, defaults.gameplay.turnSensitivity);
+        merged.gameplay.planeScale = clampSettingValue(src?.gameplay?.planeScale ?? defaults.gameplay.planeScale, SETTINGS_LIMITS.gameplay.planeScale, defaults.gameplay.planeScale);
+        merged.gameplay.trailWidth = clampSettingValue(src?.gameplay?.trailWidth ?? defaults.gameplay.trailWidth, SETTINGS_LIMITS.gameplay.trailWidth, defaults.gameplay.trailWidth);
+        merged.gameplay.gapSize = clampSettingValue(src?.gameplay?.gapSize ?? defaults.gameplay.gapSize, SETTINGS_LIMITS.gameplay.gapSize, defaults.gameplay.gapSize);
+        merged.gameplay.gapFrequency = clampSettingValue(src?.gameplay?.gapFrequency ?? defaults.gameplay.gapFrequency, SETTINGS_LIMITS.gameplay.gapFrequency, defaults.gameplay.gapFrequency);
+        merged.gameplay.itemAmount = clampSettingValue(src?.gameplay?.itemAmount ?? defaults.gameplay.itemAmount, SETTINGS_LIMITS.gameplay.itemAmount, defaults.gameplay.itemAmount);
+        merged.gameplay.fireRate = clampSettingValue(src?.gameplay?.fireRate ?? defaults.gameplay.fireRate, SETTINGS_LIMITS.gameplay.fireRate, defaults.gameplay.fireRate);
+        merged.gameplay.lockOnAngle = clampSettingValue(src?.gameplay?.lockOnAngle ?? defaults.gameplay.lockOnAngle, SETTINGS_LIMITS.gameplay.lockOnAngle, defaults.gameplay.lockOnAngle);
+        merged.gameplay.mgTrailAimRadius = clampSettingValue(
+            src?.gameplay?.mgTrailAimRadius ?? defaults.gameplay.mgTrailAimRadius,
+            SETTINGS_LIMITS.gameplay.mgTrailAimRadius,
+            defaults.gameplay.mgTrailAimRadius
         );
         merged.gameplay.planarMode = !!(src?.gameplay?.planarMode ?? defaults.gameplay.planarMode);
-        merged.gameplay.portalCount = clamp(parseInt(src?.gameplay?.portalCount ?? defaults.gameplay.portalCount, 10), 0, 20);
-        merged.gameplay.planarLevelCount = clamp(parseInt(src?.gameplay?.planarLevelCount ?? defaults.gameplay.planarLevelCount, 10), 2, 10);
+        merged.gameplay.portalCount = clampSettingValue(src?.gameplay?.portalCount ?? defaults.gameplay.portalCount, SETTINGS_LIMITS.gameplay.portalCount, defaults.gameplay.portalCount);
+        merged.gameplay.planarLevelCount = clampSettingValue(src?.gameplay?.planarLevelCount ?? defaults.gameplay.planarLevelCount, SETTINGS_LIMITS.gameplay.planarLevelCount, defaults.gameplay.planarLevelCount);
         merged.gameplay.portalBeams = false;
 
-        merged.controls.PLAYER_1 = this.normalizePlayerControls(src?.controls?.PLAYER_1, defaults.controls.PLAYER_1);
-        merged.controls.PLAYER_2 = this.normalizePlayerControls(src?.controls?.PLAYER_2, defaults.controls.PLAYER_2);
+        merged.controls.PLAYER_1 = normalizeControlBindings(src?.controls?.PLAYER_1, defaults.controls.PLAYER_1, { guardCombatConflicts: true });
+        merged.controls.PLAYER_2 = normalizeControlBindings(src?.controls?.PLAYER_2, defaults.controls.PLAYER_2, { guardCombatConflicts: true });
 
         return merged;
     }

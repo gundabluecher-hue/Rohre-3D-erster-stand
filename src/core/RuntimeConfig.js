@@ -1,10 +1,11 @@
 import { CONFIG } from './Config.js';
 import { GAME_MODE_TYPES, isHuntMode, resolveActiveGameMode } from '../hunt/HuntMode.js';
 import { BOT_POLICY_TYPES } from '../entities/ai/BotPolicyTypes.js';
-
-function clamp(value, min, max) {
-    return Math.min(Math.max(value, min), max);
-}
+import {
+    clampSettingValue,
+    createControlBindingsSnapshot,
+    SETTINGS_LIMITS,
+} from './config/SettingsRuntimeContract.js';
 
 function toNumber(value, fallback) {
     const parsed = Number(value);
@@ -13,44 +14,6 @@ function toNumber(value, fallback) {
 
 function deepClone(value) {
     return JSON.parse(JSON.stringify(value));
-}
-
-function cloneControls(controls, fallbackControls) {
-    const defaults = fallbackControls || CONFIG.KEYS;
-    const src = controls && typeof controls === 'object' ? controls : {};
-    const p1 = src.PLAYER_1 || {};
-    const p2 = src.PLAYER_2 || {};
-
-    return {
-        PLAYER_1: {
-            UP: p1.UP || defaults.PLAYER_1.UP,
-            DOWN: p1.DOWN || defaults.PLAYER_1.DOWN,
-            LEFT: p1.LEFT || defaults.PLAYER_1.LEFT,
-            RIGHT: p1.RIGHT || defaults.PLAYER_1.RIGHT,
-            ROLL_LEFT: p1.ROLL_LEFT || defaults.PLAYER_1.ROLL_LEFT,
-            ROLL_RIGHT: p1.ROLL_RIGHT || defaults.PLAYER_1.ROLL_RIGHT,
-            BOOST: p1.BOOST || defaults.PLAYER_1.BOOST,
-            SHOOT: p1.SHOOT || defaults.PLAYER_1.SHOOT,
-            SHOOT_MG: p1.SHOOT_MG || defaults.PLAYER_1.SHOOT_MG,
-            NEXT_ITEM: p1.NEXT_ITEM || defaults.PLAYER_1.NEXT_ITEM,
-            DROP: p1.DROP || defaults.PLAYER_1.DROP,
-            CAMERA: p1.CAMERA || defaults.PLAYER_1.CAMERA,
-        },
-        PLAYER_2: {
-            UP: p2.UP || defaults.PLAYER_2.UP,
-            DOWN: p2.DOWN || defaults.PLAYER_2.DOWN,
-            LEFT: p2.LEFT || defaults.PLAYER_2.LEFT,
-            RIGHT: p2.RIGHT || defaults.PLAYER_2.RIGHT,
-            ROLL_LEFT: p2.ROLL_LEFT || defaults.PLAYER_2.ROLL_LEFT,
-            ROLL_RIGHT: p2.ROLL_RIGHT || defaults.PLAYER_2.ROLL_RIGHT,
-            BOOST: p2.BOOST || defaults.PLAYER_2.BOOST,
-            SHOOT: p2.SHOOT || defaults.PLAYER_2.SHOOT,
-            SHOOT_MG: p2.SHOOT_MG || defaults.PLAYER_2.SHOOT_MG,
-            NEXT_ITEM: p2.NEXT_ITEM || defaults.PLAYER_2.NEXT_ITEM,
-            DROP: p2.DROP || defaults.PLAYER_2.DROP,
-            CAMERA: p2.CAMERA || defaults.PLAYER_2.CAMERA,
-        },
-    };
 }
 
 function resolveBotDifficulty(requestedDifficulty, botConfig) {
@@ -119,16 +82,16 @@ export function createRuntimeConfigSnapshot(settings, { baseConfig = CONFIG } = 
         session: {
             mode,
             numHumans,
-            numBots: clamp(Math.round(toNumber(source.numBots, 0)), 0, 8),
-            winsNeeded: clamp(Math.round(toNumber(source.winsNeeded, 5)), 1, 15),
+            numBots: clampSettingValue(source.numBots, SETTINGS_LIMITS.session.numBots, 0),
+            winsNeeded: clampSettingValue(source.winsNeeded, SETTINGS_LIMITS.session.winsNeeded, 5),
             mapKey: String(source.mapKey || 'standard'),
             portalsEnabled: !!source.portalsEnabled,
             activeGameMode,
         },
         player: {
-            speed: clamp(toNumber(gameplaySource.speed, playerDefaults.SPEED), 8, 40),
-            turnSpeed: clamp(toNumber(gameplaySource.turnSensitivity, playerDefaults.TURN_SPEED), 0.8, 5),
-            modelScale: clamp(toNumber(gameplaySource.planeScale, playerDefaults.MODEL_SCALE), 0.6, 2.0),
+            speed: clampSettingValue(gameplaySource.speed, SETTINGS_LIMITS.gameplay.speed, playerDefaults.SPEED),
+            turnSpeed: clampSettingValue(gameplaySource.turnSensitivity, SETTINGS_LIMITS.gameplay.turnSensitivity, playerDefaults.TURN_SPEED),
+            modelScale: clampSettingValue(gameplaySource.planeScale, SETTINGS_LIMITS.gameplay.planeScale, playerDefaults.MODEL_SCALE),
             autoRoll: typeof source.autoRoll === 'boolean' ? source.autoRoll : !!playerDefaults.AUTO_ROLL,
             vehicles: {
                 PLAYER_1: source?.vehicles?.PLAYER_1 || playerDefaults.DEFAULT_VEHICLE_ID || 'ship5',
@@ -137,22 +100,22 @@ export function createRuntimeConfigSnapshot(settings, { baseConfig = CONFIG } = 
         },
         gameplay: {
             planarMode: !!gameplaySource.planarMode,
-            portalCount: clamp(Math.round(toNumber(gameplaySource.portalCount, gameplayDefaults.PORTAL_COUNT || 0)), 0, 20),
-            planarLevelCount: clamp(Math.round(toNumber(gameplaySource.planarLevelCount, gameplayDefaults.PLANAR_LEVEL_COUNT || 5)), 2, 10),
+            portalCount: clampSettingValue(gameplaySource.portalCount, SETTINGS_LIMITS.gameplay.portalCount, gameplayDefaults.PORTAL_COUNT || 0),
+            planarLevelCount: clampSettingValue(gameplaySource.planarLevelCount, SETTINGS_LIMITS.gameplay.planarLevelCount, gameplayDefaults.PLANAR_LEVEL_COUNT || 5),
             portalBeams: false,
             planarAimInputSpeed: toNumber(gameplayDefaults.PLANAR_AIM_INPUT_SPEED, 1.5),
             planarAimReturnSpeed: toNumber(gameplayDefaults.PLANAR_AIM_RETURN_SPEED, 0.6),
         },
         trail: {
-            width: clamp(toNumber(gameplaySource.trailWidth, trailDefaults.WIDTH), 0.2, 2.5),
-            gapDuration: clamp(toNumber(gameplaySource.gapSize, trailDefaults.GAP_DURATION), 0.05, 1.5),
-            gapChance: clamp(toNumber(gameplaySource.gapFrequency, trailDefaults.GAP_CHANCE), 0, 0.25),
+            width: clampSettingValue(gameplaySource.trailWidth, SETTINGS_LIMITS.gameplay.trailWidth, trailDefaults.WIDTH),
+            gapDuration: clampSettingValue(gameplaySource.gapSize, SETTINGS_LIMITS.gameplay.gapSize, trailDefaults.GAP_DURATION),
+            gapChance: clampSettingValue(gameplaySource.gapFrequency, SETTINGS_LIMITS.gameplay.gapFrequency, trailDefaults.GAP_CHANCE),
         },
         powerup: {
-            maxOnField: clamp(Math.round(toNumber(gameplaySource.itemAmount, powerupDefaults.MAX_ON_FIELD)), 1, 20),
+            maxOnField: clampSettingValue(gameplaySource.itemAmount, SETTINGS_LIMITS.gameplay.itemAmount, powerupDefaults.MAX_ON_FIELD),
         },
         projectile: {
-            cooldown: clamp(toNumber(gameplaySource.fireRate, projectileDefaults.COOLDOWN), 0.1, 2.0),
+            cooldown: clampSettingValue(gameplaySource.fireRate, SETTINGS_LIMITS.gameplay.fireRate, projectileDefaults.COOLDOWN),
         },
         bot: {
             activeDifficulty: botDifficulty,
@@ -162,24 +125,17 @@ export function createRuntimeConfigSnapshot(settings, { baseConfig = CONFIG } = 
             trainerBridgeUrl: typeof botBridgeSource.url === 'string' && botBridgeSource.url.trim()
                 ? botBridgeSource.url.trim()
                 : 'ws://127.0.0.1:8765',
-            trainerBridgeTimeoutMs: clamp(
-                Math.round(toNumber(botBridgeSource.timeoutMs, 80)),
-                20,
-                5000
-            ),
+            trainerBridgeTimeoutMs: clampSettingValue(botBridgeSource.timeoutMs, SETTINGS_LIMITS.botBridge.timeoutMs, 80),
         },
         homing: {
-            lockOnAngle: clamp(Math.round(toNumber(gameplaySource.lockOnAngle, homingDefaults.LOCK_ON_ANGLE)), 5, 45),
+            lockOnAngle: clampSettingValue(gameplaySource.lockOnAngle, SETTINGS_LIMITS.gameplay.lockOnAngle, homingDefaults.LOCK_ON_ANGLE),
         },
-        controls: cloneControls(source.controls, controlsDefaults),
+        controls: createControlBindingsSnapshot(source.controls, controlsDefaults, { guardCombatConflicts: true }),
         huntCombat: {
-            mgTrailAimRadius: clamp(
-                toNumber(
-                    gameplaySource.mgTrailAimRadius,
-                    baseConfig?.HUNT?.MG?.TRAIL_HIT_RADIUS ?? CONFIG?.HUNT?.MG?.TRAIL_HIT_RADIUS ?? 0.78
-                ),
-                0.2,
-                3.0
+            mgTrailAimRadius: clampSettingValue(
+                gameplaySource.mgTrailAimRadius,
+                SETTINGS_LIMITS.gameplay.mgTrailAimRadius,
+                baseConfig?.HUNT?.MG?.TRAIL_HIT_RADIUS ?? CONFIG?.HUNT?.MG?.TRAIL_HIT_RADIUS ?? 0.78
             ),
         },
         hunt: {
