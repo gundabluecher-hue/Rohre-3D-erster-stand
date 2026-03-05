@@ -16,7 +16,10 @@
     "benchmark:baseline": "node scripts/bot-benchmark-baseline.mjs",
     "test:core": "playwright test tests/core.spec.js",
     "test:gpu": "playwright test tests/gpu.spec.js",
-    "test:physics": "playwright test tests/physics.spec.js",
+    "test:physics": "playwright test tests/physics-core.spec.js tests/physics-hunt.spec.js tests/physics-policy.spec.js",
+    "test:physics:core": "playwright test tests/physics-core.spec.js",
+    "test:physics:hunt": "playwright test tests/physics-hunt.spec.js",
+    "test:physics:policy": "playwright test tests/physics-policy.spec.js",
     "test:stress": "playwright test tests/stress.spec.js"
   },
   "keywords": [
