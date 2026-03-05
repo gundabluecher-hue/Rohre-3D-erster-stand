@@ -14,11 +14,13 @@ export class Arena {
         this.bounds = { minX: 0, maxX: 0, minY: 0, maxY: 0, minZ: 0, maxZ: 0 };
 
         this.particles = null;
+        this._floorMesh = null;
         this._mergedWallMesh = null;
         this._mergedObstacleMesh = null;
         this._mergedFoamMesh = null;
         this._mergedObstacleEdges = null;
         this._mergedFoamEdges = null;
+        this._lastBuildSignature = null;
 
         this._builder = new ArenaBuilder(this);
         this._collision = new ArenaCollision(this);
@@ -26,9 +28,15 @@ export class Arena {
     }
 
     build(mapKey) {
-        const buildContext = this._builder.build(mapKey);
-        this._portalGateSystem.build(buildContext.map, buildContext.scale);
-        this._builder.addParticles(buildContext.sx, buildContext.sy, buildContext.sz);
+        const buildContext = this._builder.build(mapKey, {
+            previousBuildSignature: this._lastBuildSignature,
+        });
+
+        if (buildContext.rebuildPolicy !== 'reuse') {
+            this._portalGateSystem.build(buildContext.map, buildContext.scale);
+            this._builder.compileParticleStage(buildContext.sx, buildContext.sy, buildContext.sz);
+            this._lastBuildSignature = buildContext.buildSignature;
+        }
     }
 
     toggleBeams(enabled) {
