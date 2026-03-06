@@ -27,11 +27,17 @@ import {
 } from '../ui/menu/MenuPresetApplyOps.js';
 import { MenuPresetStore } from '../ui/menu/MenuPresetStore.js';
 import { getFixedMenuPresetCatalog } from '../ui/menu/MenuPresetCatalog.js';
+import { MENU_SESSION_TYPES } from '../ui/menu/MenuStateContracts.js';
+import { MenuDraftStore, normalizeSessionType } from '../ui/menu/MenuDraftStore.js';
+import { MenuTextOverrideStore } from '../ui/menu/MenuTextOverrideStore.js';
+import { MENU_TEXT_CATALOG } from '../ui/menu/MenuTextCatalog.js';
+import { MenuTelemetryStore } from '../ui/menu/MenuTelemetryStore.js';
 import {
     applyDeveloperThemeToDocument,
     setDeveloperActorId,
     setDeveloperFixedPresetLock,
     setDeveloperModeEnabled,
+    setDeveloperReleasePreviewEnabled,
     setDeveloperTheme,
     setDeveloperVisibilityMode,
 } from '../ui/menu/MenuDeveloperModeOps.js';
@@ -60,6 +66,17 @@ export const GLOBAL_KEY_BIND_ACTIONS = [
     { label: 'Cinematic Kamera (beide Spieler)', key: 'CINEMATIC_TOGGLE' },
 ];
 
+function normalizeTelemetrySnapshot(snapshot) {
+    const source = snapshot && typeof snapshot === 'object' ? snapshot : {};
+    return {
+        abortCount: Number.isFinite(Number(source.abortCount)) ? Number(source.abortCount) : 0,
+        backtrackCount: Number.isFinite(Number(source.backtrackCount)) ? Number(source.backtrackCount) : 0,
+        quickStartCount: Number.isFinite(Number(source.quickStartCount)) ? Number(source.quickStartCount) : 0,
+        startAttempts: Number.isFinite(Number(source.startAttempts)) ? Number(source.startAttempts) : 0,
+        lastEvents: Array.isArray(source.events) ? source.events.slice(-15) : [],
+    };
+}
+
 function normalizePresetId(rawValue) {
     const base = String(rawValue || '')
         .trim()
@@ -80,6 +97,9 @@ export class SettingsManager {
         this.menuPresetStore = new MenuPresetStore({
             fixedCatalog: getFixedMenuPresetCatalog(),
         });
+        this.menuDraftStore = new MenuDraftStore();
+        this.menuTextOverrideStore = new MenuTextOverrideStore();
+        this.menuTelemetryStore = new MenuTelemetryStore();
     }
 
     createDefaultSettings() {
@@ -143,8 +163,11 @@ export class SettingsManager {
         const src = saved && typeof saved === 'object' ? saved : {};
         const merged = deepClone(defaults);
         const huntFeatureEnabled = CONFIG.HUNT?.ENABLED !== false;
+        const migratedSessionType = normalizeSessionType(
+            src?.localSettings?.sessionType || (src.mode === '2p' ? MENU_SESSION_TYPES.SPLITSCREEN : MENU_SESSION_TYPES.SINGLE)
+        );
 
-        merged.mode = src.mode === '2p' ? '2p' : '1p';
+        merged.mode = migratedSessionType === MENU_SESSION_TYPES.SPLITSCREEN ? '2p' : '1p';
         merged.gameMode = resolveActiveGameMode(src.gameMode, huntFeatureEnabled);
         const requestedMapKey = String(src.mapKey || '');
         merged.mapKey = (requestedMapKey === CUSTOM_MAP_KEY || CONFIG.MAPS[requestedMapKey])
@@ -221,6 +244,14 @@ export class SettingsManager {
         }
 
         ensureMenuContractState(merged);
+        merged.localSettings.sessionType = migratedSessionType;
+        merged.localSettings.modePath = String(merged.localSettings.modePath || 'normal').toLowerCase();
+        if (merged.localSettings.modePath !== 'quick_action'
+            && merged.localSettings.modePath !== 'arcade'
+            && merged.localSettings.modePath !== 'fight'
+            && merged.localSettings.modePath !== 'normal') {
+            merged.localSettings.modePath = 'normal';
+        }
         applyMenuCompatibilityRuleSet(merged);
         return merged;
     }
@@ -235,6 +266,59 @@ export class SettingsManager {
 
     listMenuPresets() {
         return this.menuPresetStore.listPresets();
+    }
+
+    saveSessionDraft(settings, sessionType) {
+        ensureMenuContractState(settings);
+        const normalizedSessionType = normalizeSessionType(sessionType, settings?.localSettings?.sessionType || MENU_SESSION_TYPES.SINGLE);
+        const result = this.menuDraftStore.saveDraft(normalizedSessionType, settings);
+        if (result.success) {
+            if (!settings.localSettings.draftStateBySessionType || typeof settings.localSettings.draftStateBySessionType !== 'object') {
+                settings.localSettings.draftStateBySessionType = {};
+            }
+            settings.localSettings.draftStateBySessionType[normalizedSessionType] = {
+                updatedAt: new Date().toISOString(),
+                mapKey: String(settings.mapKey || ''),
+                vehicleP1: String(settings?.vehicles?.PLAYER_1 || ''),
+                vehicleP2: String(settings?.vehicles?.PLAYER_2 || ''),
+            };
+        }
+        return result;
+    }
+
+    applySessionDraft(settings, sessionType) {
+        ensureMenuContractState(settings);
+        return this.menuDraftStore.applyDraft(settings, sessionType);
+    }
+
+    switchSessionType(settings, nextSessionType) {
+        ensureMenuContractState(settings);
+        const currentSessionType = normalizeSessionType(settings?.localSettings?.sessionType, MENU_SESSION_TYPES.SINGLE);
+        const targetSessionType = normalizeSessionType(nextSessionType, currentSessionType);
+        if (targetSessionType === currentSessionType) {
+            return {
+                success: true,
+                changed: false,
+                targetSessionType,
+                loadedDraft: false,
+            };
+        }
+
+        this.saveSessionDraft(settings, currentSessionType);
+        const draftResult = this.applySessionDraft(settings, targetSessionType);
+        settings.localSettings.sessionType = targetSessionType;
+        settings.mode = targetSessionType === MENU_SESSION_TYPES.SPLITSCREEN ? '2p' : '1p';
+        if (!draftResult.success) {
+            settings.localSettings.modePath = 'normal';
+        }
+
+        return {
+            success: true,
+            changed: true,
+            targetSessionType,
+            loadedDraft: draftResult.success,
+            draftResult,
+        };
     }
 
     applyMenuCompatibilityRules(settings, options = {}) {
@@ -342,8 +426,56 @@ export class SettingsManager {
         return setDeveloperActorId(settings, actorId, accessContext);
     }
 
+    setDeveloperReleasePreview(settings, enabled, accessContext = null) {
+        return setDeveloperReleasePreviewEnabled(settings, enabled, accessContext);
+    }
+
     setDeveloperVisibility(settings, mode, accessContext = null) {
         return setDeveloperVisibilityMode(settings, mode, accessContext);
+    }
+
+    listMenuTextOverrides() {
+        return this.menuTextOverrideStore.listOverrides();
+    }
+
+    setMenuTextOverride(textId, textValue) {
+        const normalizedTextId = String(textId || '').trim();
+        if (!normalizedTextId || !Object.prototype.hasOwnProperty.call(MENU_TEXT_CATALOG, normalizedTextId)) {
+            return { success: false, reason: 'unknown_text_id' };
+        }
+        return this.menuTextOverrideStore.setOverride(textId, textValue);
+    }
+
+    clearMenuTextOverride(textId) {
+        const normalizedTextId = String(textId || '').trim();
+        if (!normalizedTextId || !Object.prototype.hasOwnProperty.call(MENU_TEXT_CATALOG, normalizedTextId)) {
+            return { success: false, reason: 'unknown_text_id' };
+        }
+        return this.menuTextOverrideStore.clearOverride(textId);
+    }
+
+    getMenuTelemetrySnapshot(settings = null) {
+        const snapshot = normalizeTelemetrySnapshot(this.menuTelemetryStore.getSnapshot());
+        if (settings && typeof settings === 'object') {
+            ensureMenuContractState(settings);
+            settings.localSettings.telemetryState = {
+                ...settings.localSettings.telemetryState,
+                ...snapshot,
+            };
+        }
+        return snapshot;
+    }
+
+    recordMenuTelemetry(settings, eventType, payload = null) {
+        const snapshot = normalizeTelemetrySnapshot(this.menuTelemetryStore.recordEvent(eventType, payload));
+        if (settings && typeof settings === 'object') {
+            ensureMenuContractState(settings);
+            settings.localSettings.telemetryState = {
+                ...settings.localSettings.telemetryState,
+                ...snapshot,
+            };
+        }
+        return snapshot;
     }
 
     createRuntimeConfig(settings) {

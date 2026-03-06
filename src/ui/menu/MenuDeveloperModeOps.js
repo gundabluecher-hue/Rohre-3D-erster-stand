@@ -98,6 +98,17 @@ export function setDeveloperActorId(settings, actorId, accessContext = null) {
     });
 }
 
+export function setDeveloperReleasePreviewEnabled(settings, enabled, accessContext = null) {
+    const accessState = ensureDeveloperAccess(settings, accessContext);
+    if (!accessState.accessResult.allowed) {
+        return createResult(false, accessState.accessResult.reason);
+    }
+    settings.localSettings.releasePreviewEnabled = !!enabled;
+    return createResult(true, 'updated', {
+        releasePreviewEnabled: settings.localSettings.releasePreviewEnabled,
+    });
+}
+
 export function setDeveloperVisibilityMode(settings, mode, accessContext = null) {
     ensureMenuContractState(settings);
     const sourceContext = accessContext && typeof accessContext === 'object'

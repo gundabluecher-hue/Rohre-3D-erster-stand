@@ -2,8 +2,11 @@
 import {
     collectErrors,
     loadGame,
+    openDeveloperSubmenu,
     openGameSubmenu,
+    openLevel4Drawer,
     openMultiplayerSubmenu,
+    selectSessionType,
     returnToMenu,
     startGame,
 } from './helpers.js';
@@ -52,8 +55,7 @@ test.describe('T61-125: Stress, I/O & Sicherheit', () => {
         await loadGame(page);
         const dialogs = [];
         page.on('dialog', d => { dialogs.push(d.message()); d.dismiss(); });
-        await page.click('[data-submenu="submenu-profiles"]');
-        await page.waitForSelector('#submenu-profiles:not(.hidden)', { timeout: 5000 });
+        await openLevel4Drawer(page);
         await page.fill('#profile-name', '<img src=x onerror=alert(1)>');
         const isDisabled = await page.isDisabled('#btn-profile-save');
         if (!isDisabled) {
@@ -223,7 +225,7 @@ test.describe('T61-125: Stress, I/O & Sicherheit', () => {
             game.settings.localSettings.developerModeVisibility = 'owner_only';
             game.settings.localSettings.actorId = 'player';
             game.uiManager.updateContext();
-            const navHidden = document.querySelector('[data-submenu="submenu-developer"]')?.classList.contains('hidden');
+            const opened = !!game.uiManager?.menuNavigationRuntime?.showPanel?.('submenu-developer', { trigger: 'stress_test' });
             const before = game.settings.localSettings.developerModeEnabled;
             game.runtimeFacade.handleMenuControllerEvent({
                 contractVersion: 'menu-controller.v1',
@@ -233,10 +235,58 @@ test.describe('T61-125: Stress, I/O & Sicherheit', () => {
             const after = game.settings.localSettings.developerModeEnabled;
             game.settings.localSettings.actorId = game.settings.localSettings.ownerId || 'owner';
             game.uiManager.updateContext();
-            return { navHidden, before, after };
+            return { opened, before, after };
         });
 
-        expect(result.navHidden).toBeTruthy();
+        expect(result.opened).toBeFalsy();
         expect(result.after).toBe(result.before);
+    });
+
+    test('T77: Quickstart-Burst mit Rueckspruengen bleibt fehlerfrei', async ({ page }) => {
+        test.setTimeout(120000);
+        const errors = collectErrors(page);
+        await loadGame(page);
+        await selectSessionType(page, 'single');
+
+        for (let i = 0; i < 6; i += 1) {
+            await page.click('#btn-quick-random-map');
+            await page.waitForFunction(() => {
+                const hud = document.getElementById('hud');
+                return hud && !hud.classList.contains('hidden');
+            }, { timeout: 15000 });
+            await page.waitForTimeout(200);
+            await returnToMenu(page);
+            await page.click('#menu-nav [data-session-type=\"single\"]');
+        }
+
+        expect(errors).toHaveLength(0);
+    });
+
+    test('T78: Developer Release-Vorschau Toggle-Burst bleibt stabil', async ({ page }) => {
+        const errors = collectErrors(page);
+        await loadGame(page);
+        await openDeveloperSubmenu(page);
+
+        if (!(await page.isChecked('#developer-mode-toggle'))) {
+            await page.check('#developer-mode-toggle');
+        }
+        await page.selectOption('#developer-text-id-select', 'menu.level3.start.label');
+        await page.fill('#developer-text-override-input', 'BurstStart');
+        await page.click('#btn-developer-text-apply');
+        await page.waitForTimeout(80);
+
+        for (let i = 0; i < 8; i += 1) {
+            if (i % 2 === 0) {
+                await page.check('#developer-release-preview-toggle');
+            } else {
+                await page.uncheck('#developer-release-preview-toggle');
+            }
+            await page.waitForTimeout(60);
+        }
+
+        await openGameSubmenu(page);
+        const startLabel = (await page.textContent('#btn-start')).trim();
+        expect(['Starten', 'BurstStart']).toContain(startLabel);
+        expect(errors).toHaveLength(0);
     });
 });

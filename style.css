@@ -202,6 +202,7 @@ body {
     width: min(1160px, 95vw);
     max-height: 92vh;
     overflow: auto;
+    position: relative;
     text-align: left;
     padding: 24px;
     background: var(--menu-theme-panel-bg);
@@ -431,6 +432,55 @@ body {
     gap: 16px;
 }
 
+.level4-drawer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: min(560px, 100%);
+    height: 100%;
+    z-index: 30;
+    padding: 16px;
+    border-left: 1px solid rgba(120, 180, 255, 0.25);
+    background: linear-gradient(165deg, rgba(10, 20, 35, 0.97), rgba(18, 30, 48, 0.94));
+    box-shadow: -16px 0 30px rgba(0, 0, 0, 0.32);
+    animation: level4SlideIn 0.22s ease;
+}
+
+.level4-drawer.hidden {
+    display: none !important;
+}
+
+@keyframes level4SlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(28px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.level4-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid rgba(120, 180, 255, 0.2);
+    padding-bottom: 10px;
+}
+
+.level4-header .btn-group {
+    width: auto;
+}
+
+.level4-header .secondary-btn {
+    width: auto;
+    white-space: nowrap;
+}
+
 .build-info-detail {
     font-family: 'Orbitron', monospace;
     font-size: 0.78em;
@@ -486,6 +536,94 @@ body {
     font-size: 0.78rem;
 }
 
+.menu-field-hint {
+    display: block;
+    margin-top: 6px;
+    margin-bottom: 0;
+    padding-left: 8px;
+    border-left: 2px solid rgba(130, 170, 220, 0.35);
+    color: #9ab2d6;
+    font-size: 0.75rem;
+    line-height: 1.35;
+}
+
+.menu-field-hint.hidden {
+    display: none;
+}
+
+.menu-field-hint.is-error {
+    border-left-color: rgba(255, 123, 123, 0.85);
+    color: #ffc4c4;
+}
+
+.menu-field-hint.is-lock {
+    border-left-color: rgba(255, 214, 96, 0.85);
+    color: #ffe3a3;
+}
+
+.menu-field-error {
+    border-color: rgba(255, 123, 123, 0.85) !important;
+    box-shadow: 0 0 0 1px rgba(255, 123, 123, 0.45);
+}
+
+.menu-summary {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(120, 190, 255, 0.24);
+    background: rgba(24, 42, 70, 0.42);
+    color: #d7eaff;
+    font-size: 0.86rem;
+}
+
+.setup-search-grid {
+    display: grid;
+    grid-template-columns: 1fr 150px;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.setup-chip-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.setup-chip-label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.72rem;
+    color: #91a5c8;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+
+.quick-pill-list {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.quick-pill {
+    width: auto;
+    padding: 6px 9px;
+    border-radius: 8px;
+    font-size: 0.76rem;
+}
+
+.menu-preview {
+    margin-top: 7px;
+    margin-bottom: 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(145, 205, 255, 0.24);
+    background: rgba(10, 24, 40, 0.46);
+    color: #b8d8ff;
+    font-size: 0.79rem;
+    line-height: 1.3;
+}
+
 .btn-group {
     display: flex;
     gap: 8px;
@@ -522,13 +660,15 @@ body {
 
 select,
 input[type="text"],
+textarea,
 input[type="range"],
 .secondary-btn {
     width: 100%;
 }
 
 select,
-input[type="text"] {
+input[type="text"],
+textarea {
     padding: 10px 12px;
     font-size: 0.95em;
     background: rgba(255, 255, 255, 0.05);
@@ -546,11 +686,17 @@ input[type="text"] {
     -webkit-user-select: text;
 }
 
+textarea {
+    resize: vertical;
+    min-height: 72px;
+}
+
 input[type="text"]::placeholder {
     color: #8190aa;
 }
 
 input[type="text"]:focus,
+textarea:focus,
 select:focus {
     outline: none;
     border-color: rgba(0, 170, 255, 0.6);
@@ -733,6 +879,61 @@ input[type="range"]::-webkit-slider-thumb {
 #submenu-developer .menu-hint,
 #submenu-multiplayer .menu-hint {
     line-height: 1.4;
+}
+
+#config-share-status[data-tone="error"] {
+    color: #ffb5b5;
+}
+
+#config-share-status[data-tone="success"] {
+    color: #9ff2c7;
+}
+
+#main-menu[data-menu-local-theme="hell"] .menu-content {
+    background: linear-gradient(170deg, rgba(246, 251, 255, 0.95), rgba(225, 236, 250, 0.92));
+    border-color: rgba(90, 130, 180, 0.35);
+    color: #1f2e45;
+}
+
+#main-menu[data-menu-local-theme="hell"] .subtitle,
+#main-menu[data-menu-local-theme="hell"] .menu-context,
+#main-menu[data-menu-local-theme="hell"] .menu-hint,
+#main-menu[data-menu-local-theme="hell"] .menu-field-hint,
+#main-menu[data-menu-local-theme="hell"] .section-title,
+#main-menu[data-menu-local-theme="hell"] .setup-chip-label {
+    color: #405c84;
+}
+
+#main-menu[data-menu-local-theme="hell"] .menu-field-hint {
+    border-left-color: rgba(69, 109, 159, 0.35);
+}
+
+#main-menu[data-menu-local-theme="hell"] .menu-field-hint.is-error {
+    border-left-color: rgba(209, 84, 84, 0.7);
+    color: #9f2e2e;
+}
+
+#main-menu[data-menu-local-theme="hell"] .menu-field-hint.is-lock {
+    border-left-color: rgba(164, 121, 26, 0.7);
+    color: #765618;
+}
+
+#main-menu[data-menu-local-theme="hell"] .nav-btn,
+#main-menu[data-menu-local-theme="hell"] .mode-btn,
+#main-menu[data-menu-local-theme="hell"] .secondary-btn,
+#main-menu[data-menu-local-theme="hell"] select,
+#main-menu[data-menu-local-theme="hell"] input[type="text"],
+#main-menu[data-menu-local-theme="hell"] textarea {
+    background: rgba(255, 255, 255, 0.72);
+    border-color: rgba(114, 145, 188, 0.35);
+    color: #233b5c;
+}
+
+#main-menu[data-menu-local-theme="hell"] .menu-summary,
+#main-menu[data-menu-local-theme="hell"] .menu-preview {
+    background: rgba(255, 255, 255, 0.78);
+    border-color: rgba(114, 145, 188, 0.35);
+    color: #233b5c;
 }
 
 /* ============================================
@@ -1214,6 +1415,31 @@ input[type="range"]::-webkit-slider-thumb {
 
     .nav-help-content {
         justify-content: flex-start;
+    }
+
+    .setup-search-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .setup-chip-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .level4-drawer {
+        position: relative;
+        width: 100%;
+        height: auto;
+        top: auto;
+        right: auto;
+        margin-top: 10px;
+        border-left: none;
+        border-top: 1px solid rgba(120, 180, 255, 0.22);
+        box-shadow: none;
+    }
+
+    .level4-header {
+        flex-direction: column;
+        align-items: flex-start;
     }
 
     .hunt-hud {

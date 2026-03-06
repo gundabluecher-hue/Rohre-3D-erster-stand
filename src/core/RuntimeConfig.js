@@ -6,6 +6,7 @@ import {
     createControlBindingsSnapshot,
     SETTINGS_LIMITS,
 } from './config/SettingsRuntimeContract.js';
+import { normalizeSessionType } from '../ui/menu/MenuDraftStore.js';
 
 function toNumber(value, fallback) {
     const parsed = Number(value);
@@ -59,7 +60,8 @@ export function createRuntimeConfigSnapshot(settings, { baseConfig = CONFIG } = 
     const huntSource = source.hunt && typeof source.hunt === 'object' ? source.hunt : {};
     const botBridgeSource = source.botBridge && typeof source.botBridge === 'object' ? source.botBridge : {};
 
-    const mode = source.mode === '2p' ? '2p' : '1p';
+    const sessionType = normalizeSessionType(source?.localSettings?.sessionType || (source.mode === '2p' ? 'splitscreen' : 'single'));
+    const mode = sessionType === 'splitscreen' ? '2p' : '1p';
     const numHumans = mode === '2p' ? 2 : 1;
     const huntFeatureEnabled = baseConfig?.HUNT?.ENABLED !== false;
     const activeGameMode = resolveActiveGameMode(source.gameMode, huntFeatureEnabled);
@@ -80,6 +82,7 @@ export function createRuntimeConfigSnapshot(settings, { baseConfig = CONFIG } = 
 
     const runtimeConfig = {
         session: {
+            sessionType,
             mode,
             numHumans,
             numBots: clampSettingValue(source.numBots, SETTINGS_LIMITS.session.numBots, 0),

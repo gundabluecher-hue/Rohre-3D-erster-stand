@@ -4,13 +4,52 @@ export async function loadGame(page) {
     await page.waitForSelector('#main-menu', { state: 'visible', timeout: 10000 });
 }
 
-export async function openSubmenu(page, submenuId) {
-    await page.locator(`#menu-nav [data-submenu="${submenuId}"]`).click({ force: true });
-    await page.waitForSelector(`#${submenuId}:not(.hidden)`, { timeout: 3000 });
+export async function selectSessionType(page, sessionType = 'single') {
+    const sessionButton = page.locator(`#menu-nav [data-session-type="${sessionType}"]`).first();
+    await sessionButton.click({ force: true });
+    await page.waitForSelector('#submenu-custom:not(.hidden)', { timeout: 4000 });
 }
 
-export async function openGameSubmenu(page) {
-    await openSubmenu(page, 'submenu-game');
+async function openViaNavigationRuntime(page, submenuId) {
+    const opened = await page.evaluate((panelId) => {
+        const runtime = window.GAME_INSTANCE?.uiManager?.menuNavigationRuntime;
+        if (!runtime?.showPanel) return false;
+        return !!runtime.showPanel(panelId, { trigger: 'test_helper' });
+    }, submenuId);
+    if (!opened) {
+        throw new Error(`Panel konnte nicht geoeffnet werden: ${submenuId}`);
+    }
+}
+
+export async function openSubmenu(page, submenuId, options = {}) {
+    if (submenuId === 'submenu-custom') {
+        await selectSessionType(page, options.sessionType || 'single');
+        return;
+    }
+
+    if (submenuId === 'submenu-game') {
+        await selectSessionType(page, options.sessionType || 'single');
+        const modePathButton = page.locator('#submenu-custom:not(.hidden) [data-mode-path="normal"]').first();
+        if (await modePathButton.count()) {
+            await modePathButton.click({ force: true });
+        } else {
+            await page.locator('#submenu-custom:not(.hidden) [data-menu-step-target="submenu-game"]').click({ force: true });
+        }
+        await page.waitForSelector('#submenu-game:not(.hidden)', { timeout: 5000 });
+        return;
+    }
+
+    const navButton = page.locator(`#menu-nav [data-submenu="${submenuId}"]`).first();
+    if (await navButton.count()) {
+        await navButton.click({ force: true });
+    } else {
+        await openViaNavigationRuntime(page, submenuId);
+    }
+    await page.waitForSelector(`#${submenuId}:not(.hidden)`, { timeout: 4000 });
+}
+
+export async function openGameSubmenu(page, options = {}) {
+    await openSubmenu(page, 'submenu-game', options);
 }
 
 export async function openCustomSubmenu(page) {
@@ -18,11 +57,25 @@ export async function openCustomSubmenu(page) {
 }
 
 export async function openMultiplayerSubmenu(page) {
-    await openSubmenu(page, 'submenu-multiplayer');
+    await openSubmenu(page, 'submenu-game', { sessionType: 'multiplayer' });
+}
+
+export async function openLevel4Drawer(page, options = {}) {
+    await openGameSubmenu(page, options);
+    await page.click('#btn-open-level4');
+    await page.waitForSelector('#submenu-level4:not(.hidden)', { timeout: 4000 });
 }
 
 export async function openDeveloperSubmenu(page) {
-    await openSubmenu(page, 'submenu-developer');
+    await openLevel4Drawer(page);
+    await page.click('#btn-open-developer');
+    await page.waitForSelector('#submenu-developer:not(.hidden)', { timeout: 4000 });
+}
+
+export async function openDebugSubmenu(page) {
+    await openDeveloperSubmenu(page);
+    await page.click('#btn-open-debug');
+    await page.waitForSelector('#submenu-debug:not(.hidden)', { timeout: 4000 });
 }
 
 const BENIGN_ERROR_PATTERNS = [

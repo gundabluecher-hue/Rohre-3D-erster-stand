@@ -1,3 +1,4 @@
+import { CONFIG } from '../../core/Config.js';
 import { GAME_MODE_TYPES } from '../../hunt/HuntMode.js';
 import { SETTINGS_CHANGE_KEYS } from '../SettingsChangeKeys.js';
 import { findFixedMenuPresetById } from './MenuPresetCatalog.js';
@@ -6,12 +7,17 @@ import { MENU_DEVELOPER_ACCESS_MODES } from './MenuStateContracts.js';
 export const MENU_COMPATIBILITY_CONTRACT_VERSION = 'menu-compatibility.v1';
 
 const MENU_COMPATIBILITY_RULES = Object.freeze([
+    { id: 'session_type_mode_sync', priority: 5 },
+    { id: 'mode_path_game_mode_sync', priority: 8 },
+    { id: 'map_key_validity_guard', priority: 9 },
     { id: 'mode_hunt_respawn', priority: 10 },
+    { id: 'theme_mode_local_guard', priority: 15 },
     { id: 'preset_identity_integrity', priority: 20 },
     { id: 'fixed_preset_exists', priority: 30 },
     { id: 'fixed_preset_binding', priority: 40 },
     { id: 'fixed_lock_requires_fixed_preset', priority: 50 },
     { id: 'developer_feature_flag_guard', priority: 60 },
+    { id: 'developer_release_preview_guard', priority: 65 },
     { id: 'developer_visibility_guard', priority: 70 },
 ]);
 
@@ -38,6 +44,85 @@ function trackFix(result, ruleId, path, previousValue, nextValue, reason) {
     });
 }
 
+function applySessionTypeModeSyncRule(settings, result) {
+    if (!settings?.localSettings || typeof settings.localSettings !== 'object') return;
+    const sessionType = normalizeString(settings.localSettings.sessionType);
+    const expectedMode = sessionType === 'splitscreen' ? '2p' : '1p';
+    const currentMode = settings.mode === '2p' ? '2p' : '1p';
+    if (currentMode === expectedMode) return;
+
+    const previousMode = settings.mode;
+    settings.mode = expectedMode;
+    addChangedKey(result, SETTINGS_CHANGE_KEYS.MODE);
+    trackFix(
+        result,
+        'session_type_mode_sync',
+        'mode',
+        previousMode,
+        settings.mode,
+        'mode_mismatch_for_session_type'
+    );
+}
+
+function applyModePathGameModeSyncRule(settings, result) {
+    if (!settings?.localSettings || typeof settings.localSettings !== 'object') return;
+    const modePath = normalizeString(settings.localSettings.modePath);
+    if (!modePath) return;
+
+    const shouldUseHunt = modePath === 'fight';
+    const expectedGameMode = shouldUseHunt ? GAME_MODE_TYPES.HUNT : GAME_MODE_TYPES.CLASSIC;
+    if (settings.gameMode !== expectedGameMode) {
+        const previousGameMode = settings.gameMode;
+        settings.gameMode = expectedGameMode;
+        addChangedKey(result, SETTINGS_CHANGE_KEYS.GAME_MODE);
+        trackFix(
+            result,
+            'mode_path_game_mode_sync',
+            'gameMode',
+            previousGameMode,
+            settings.gameMode,
+            'game_mode_mismatch_for_mode_path'
+        );
+    }
+
+    if (!settings.hunt || typeof settings.hunt !== 'object') {
+        settings.hunt = { respawnEnabled: false };
+    }
+    const expectedRespawnState = shouldUseHunt;
+    if (!!settings.hunt.respawnEnabled !== expectedRespawnState) {
+        const previousRespawnEnabled = settings.hunt.respawnEnabled;
+        settings.hunt.respawnEnabled = expectedRespawnState;
+        addChangedKey(result, SETTINGS_CHANGE_KEYS.HUNT_RESPAWN_ENABLED);
+        trackFix(
+            result,
+            'mode_path_game_mode_sync',
+            'hunt.respawnEnabled',
+            previousRespawnEnabled,
+            settings.hunt.respawnEnabled,
+            'respawn_mismatch_for_mode_path'
+        );
+    }
+}
+
+function applyMapKeyValidityGuardRule(settings, result) {
+    const currentMapKey = normalizeString(settings?.mapKey);
+    if (!currentMapKey) return;
+    if (currentMapKey === 'custom') return;
+    if (CONFIG?.MAPS?.[currentMapKey]) return;
+
+    const previousMapKey = settings.mapKey;
+    settings.mapKey = 'standard';
+    addChangedKey(result, SETTINGS_CHANGE_KEYS.MAP_KEY);
+    trackFix(
+        result,
+        'map_key_validity_guard',
+        'mapKey',
+        previousMapKey,
+        settings.mapKey,
+        'invalid_map_fallback_standard'
+    );
+}
+
 function applyModeHuntRespawnRule(settings, result) {
     if (!settings?.hunt || typeof settings.hunt !== 'object') return;
     if (settings.gameMode === GAME_MODE_TYPES.HUNT) return;
@@ -53,6 +138,24 @@ function applyModeHuntRespawnRule(settings, result) {
         previousValue,
         settings.hunt.respawnEnabled,
         'respawn_requires_hunt_mode'
+    );
+}
+
+function applyThemeModeLocalGuardRule(settings, result) {
+    if (!settings?.localSettings || typeof settings.localSettings !== 'object') return;
+    const currentThemeMode = normalizeString(settings.localSettings.themeMode, 'dunkel').toLowerCase();
+    if (currentThemeMode === 'hell' || currentThemeMode === 'dunkel') return;
+
+    const previousThemeMode = settings.localSettings.themeMode;
+    settings.localSettings.themeMode = 'dunkel';
+    addChangedKey(result, SETTINGS_CHANGE_KEYS.LOCAL_THEME_MODE);
+    trackFix(
+        result,
+        'theme_mode_local_guard',
+        'localSettings.themeMode',
+        previousThemeMode,
+        settings.localSettings.themeMode,
+        'invalid_theme_mode_fallback'
     );
 }
 
@@ -218,6 +321,24 @@ function applyDeveloperFeatureFlagGuardRule(settings, result) {
     );
 }
 
+function applyDeveloperReleasePreviewGuardRule(settings, result) {
+    if (!settings?.localSettings || typeof settings.localSettings !== 'object') return;
+    if (!settings.localSettings.releasePreviewEnabled) return;
+    if (!settings.localSettings.developerModeEnabled) return;
+
+    const previousValue = settings.localSettings.developerModeEnabled;
+    settings.localSettings.developerModeEnabled = false;
+    addChangedKey(result, SETTINGS_CHANGE_KEYS.DEVELOPER_MODE_ENABLED);
+    trackFix(
+        result,
+        'developer_release_preview_guard',
+        'localSettings.developerModeEnabled',
+        previousValue,
+        settings.localSettings.developerModeEnabled,
+        'release_preview_disables_developer_mode'
+    );
+}
+
 function applyDeveloperVisibilityGuardRule(settings, result, accessContext) {
     if (!settings?.localSettings || typeof settings.localSettings !== 'object') return;
     const visibilityMode = normalizeString(settings.localSettings.developerModeVisibility);
@@ -262,12 +383,17 @@ export function applyMenuCompatibilityRules(settings, options = {}) {
         return result;
     }
 
+    applySessionTypeModeSyncRule(source, result);
+    applyModePathGameModeSyncRule(source, result);
+    applyMapKeyValidityGuardRule(source, result);
     applyModeHuntRespawnRule(source, result);
+    applyThemeModeLocalGuardRule(source, result);
     applyPresetIdentityIntegrityRule(source, result);
     applyFixedPresetExistsRule(source, result);
     applyFixedPresetBindingRule(source, result);
     applyFixedLockRequiresFixedPresetRule(source, result);
     applyDeveloperFeatureFlagGuardRule(source, result);
+    applyDeveloperReleasePreviewGuardRule(source, result);
     applyDeveloperVisibilityGuardRule(source, result, accessContext);
 
     result.changedKeys = Array.from(result._changedKeySet);

@@ -134,4 +134,29 @@ export function setupMenuDevPanelBindings(ctx) {
             });
         });
     }
+
+    if (ui.developerReleasePreviewToggle) {
+        ui.developerReleasePreviewToggle.addEventListener('change', () => {
+            emit(eventTypes.DEVELOPER_RELEASE_PREVIEW_TOGGLE, {
+                enabled: !!ui.developerReleasePreviewToggle.checked,
+            });
+        });
+    }
+
+    if (ui.developerTextApplyButton) {
+        ui.developerTextApplyButton.addEventListener('click', () => {
+            emit(eventTypes.DEVELOPER_TEXT_OVERRIDE_SET, {
+                textId: String(ui.developerTextIdSelect?.value || '').trim(),
+                textValue: String(ui.developerTextOverrideInput?.value || ''),
+            });
+        });
+    }
+
+    if (ui.developerTextClearButton) {
+        ui.developerTextClearButton.addEventListener('click', () => {
+            emit(eventTypes.DEVELOPER_TEXT_OVERRIDE_CLEAR, {
+                textId: String(ui.developerTextIdSelect?.value || '').trim(),
+            });
+        });
+    }
 }

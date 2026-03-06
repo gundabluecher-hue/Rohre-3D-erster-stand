@@ -30,9 +30,13 @@ export class MenuNavigationRuntime {
         this._initialized = false;
         this._disposers = [];
         this._buttonByPanelId = new Map();
+        this._panelTargetByButton = new Map();
         this._panelById = new Map();
         this._navButtons = [];
         this._submenuPanels = [];
+        this._gamepadLoopHandle = null;
+        this._gamepadButtonStateByIndex = new Map();
+        this._activeSessionType = '';
     }
 
     init() {
@@ -47,6 +51,7 @@ export class MenuNavigationRuntime {
             : Array.from(document.querySelectorAll('.submenu-panel'));
 
         this._buttonByPanelId.clear();
+        this._panelTargetByButton.clear();
         this._panelById.clear();
         this._submenuPanels.forEach((panel) => {
             const id = normalizeId(panel?.id);
@@ -58,10 +63,18 @@ export class MenuNavigationRuntime {
             const rawTarget = normalizeId(button.dataset.submenu || button.dataset.menuTarget);
             const targetId = this.panelRegistry?.resolvePanelId(rawTarget) || rawTarget;
             if (!targetId) return;
-            this._buttonByPanelId.set(targetId, button);
+            if (!this._buttonByPanelId.has(targetId)) {
+                this._buttonByPanelId.set(targetId, []);
+            }
+            this._buttonByPanelId.get(targetId).push(button);
+            this._panelTargetByButton.set(button, targetId);
 
             const onClick = () => {
-                this.showPanel(targetId, { trigger: 'nav_button' });
+                const sessionType = normalizeId(button.dataset.sessionType);
+                this.showPanel(targetId, {
+                    trigger: 'nav_button',
+                    sessionType: sessionType || undefined,
+                });
             };
             button.addEventListener('click', onClick);
             this._disposers.push(() => button.removeEventListener('click', onClick));
@@ -101,6 +114,7 @@ export class MenuNavigationRuntime {
 
         this.applyAccessPolicy();
         this.showMainNav({ trigger: 'init' });
+        this._startGamepadLoop();
     }
 
     dispose() {
@@ -112,6 +126,7 @@ export class MenuNavigationRuntime {
                 // Ignore dispose errors to keep menu runtime robust.
             }
         }
+        this._stopGamepadLoop();
         this._initialized = false;
     }
 
@@ -122,20 +137,22 @@ export class MenuNavigationRuntime {
     }
 
     applyAccessPolicy() {
-        for (const [panelId, button] of this._buttonByPanelId.entries()) {
+        for (const [panelId, buttons] of this._buttonByPanelId.entries()) {
             const panelConfig = this.panelRegistry?.getPanelById(panelId);
             const panelPolicy = this._resolvePanelPolicy(panelConfig);
             const accessResult = evaluateMenuAccessPolicy(panelPolicy, this.accessContext);
             const isVisible = panelConfig?.visibility !== 'hidden' && accessResult.allowed;
-            button.classList.toggle('hidden', !isVisible);
-            button.setAttribute('aria-hidden', String(!isVisible));
-            if (!isVisible) {
-                button.setAttribute('tabindex', '-1');
-                button.setAttribute('aria-disabled', 'true');
-            } else {
-                button.removeAttribute('tabindex');
-                button.removeAttribute('aria-disabled');
-            }
+            buttons.forEach((button) => {
+                button.classList.toggle('hidden', !isVisible);
+                button.setAttribute('aria-hidden', String(!isVisible));
+                if (!isVisible) {
+                    button.setAttribute('tabindex', '-1');
+                    button.setAttribute('aria-disabled', 'true');
+                } else {
+                    button.removeAttribute('tabindex');
+                    button.removeAttribute('aria-disabled');
+                }
+            });
         }
     }
 
@@ -160,12 +177,27 @@ export class MenuNavigationRuntime {
             panel.setAttribute('data-menu-visible', isTarget ? 'true' : 'false');
         });
 
+        const requestedSessionType = normalizeId(metadata?.sessionType).toLowerCase();
+        if (requestedSessionType) {
+            this._activeSessionType = requestedSessionType;
+        }
+        const effectiveSessionType = this._activeSessionType;
         this._navButtons.forEach((button) => {
             const rawTarget = normalizeId(button.dataset.submenu || button.dataset.menuTarget);
             const resolvedTarget = this.panelRegistry?.resolvePanelId(rawTarget) || rawTarget;
-            const isActive = resolvedTarget === panelId;
-            button.classList.toggle('active', isActive);
-            button.setAttribute('aria-expanded', String(isActive));
+            const buttonSessionType = normalizeId(button.dataset.sessionType).toLowerCase();
+            if (buttonSessionType) {
+                const isActiveSession = !!effectiveSessionType && buttonSessionType === effectiveSessionType;
+                const isExpanded = resolvedTarget === panelId && isActiveSession;
+                button.classList.toggle('active', isActiveSession);
+                button.setAttribute('aria-pressed', String(isActiveSession));
+                button.setAttribute('aria-expanded', String(isExpanded));
+                return;
+            }
+
+            const isExpanded = resolvedTarget === panelId;
+            button.classList.toggle('active', isExpanded);
+            button.setAttribute('aria-expanded', String(isExpanded));
         });
 
         const semanticState = normalizeId(panelConfig?.semanticId, panelId);
@@ -173,7 +205,7 @@ export class MenuNavigationRuntime {
             ? this.stateMachine.transition(semanticState, metadata)
             : { state: semanticState };
 
-        this.onPanelChanged?.(panelId, panelConfig || null, transition);
+        this.onPanelChanged?.(panelId, panelConfig || null, transition, metadata && typeof metadata === 'object' ? { ...metadata } : null);
         this.onMenuStateChanged?.(transition);
 
         const focusables = getFocusableElements(targetPanel);
@@ -190,14 +222,17 @@ export class MenuNavigationRuntime {
             panel.setAttribute('data-menu-visible', 'false');
         });
         this._navButtons.forEach((button) => {
-            button.classList.remove('active');
+            const isSessionButton = !!normalizeId(button.dataset.sessionType);
+            if (!isSessionButton || button.getAttribute('aria-pressed') !== 'true') {
+                button.classList.remove('active');
+            }
             button.setAttribute('aria-expanded', 'false');
         });
 
         const transition = this.stateMachine?.transition
             ? this.stateMachine.transition(MENU_STATE_IDS.MAIN, metadata)
             : { state: MENU_STATE_IDS.MAIN };
-        this.onPanelChanged?.(null, null, transition);
+        this.onPanelChanged?.(null, null, transition, metadata && typeof metadata === 'object' ? { ...metadata } : null);
         this.onMenuStateChanged?.(transition);
 
         const firstVisibleButton = this._navButtons.find((button) => !button.classList.contains('hidden'));
@@ -212,19 +247,134 @@ export class MenuNavigationRuntime {
             return;
         }
 
-        if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
         const activeElement = document.activeElement;
-        if (!activeElement || !activeElement.classList.contains('nav-btn')) return;
+        const isTextInput = this._isTextInputElement(activeElement);
+        if (event.key === 'Enter' || event.key === ' ') {
+            if (isTextInput) return;
+            this._activateFocusedElement(event);
+            return;
+        }
 
-        const visibleButtons = this._navButtons.filter((button) => !button.classList.contains('hidden'));
-        if (visibleButtons.length < 2) return;
-        const activeIndex = visibleButtons.indexOf(activeElement);
-        if (activeIndex < 0) return;
+        if (!['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+        if (isTextInput) return;
 
         event.preventDefault();
-        const delta = event.key === 'ArrowRight' ? 1 : -1;
-        const nextIndex = (activeIndex + delta + visibleButtons.length) % visibleButtons.length;
-        visibleButtons[nextIndex].focus();
+        if (event.key === 'ArrowRight') this._moveFocusByDirection('right');
+        if (event.key === 'ArrowLeft') this._moveFocusByDirection('left');
+        if (event.key === 'ArrowUp') this._moveFocusByDirection('up');
+        if (event.key === 'ArrowDown') this._moveFocusByDirection('down');
+    }
+
+    _isTextInputElement(element) {
+        if (!element || typeof element.tagName !== 'string') return false;
+        const tagName = element.tagName.toLowerCase();
+        if (tagName === 'textarea') return true;
+        if (tagName !== 'input') return false;
+        const inputType = String(element.getAttribute('type') || 'text').toLowerCase();
+        return inputType === 'text'
+            || inputType === 'search'
+            || inputType === 'url'
+            || inputType === 'email'
+            || inputType === 'number'
+            || inputType === 'password';
+    }
+
+    _getVisibleNavButtons() {
+        return this._navButtons.filter((button) => !button.classList.contains('hidden'));
+    }
+
+    _getVisiblePanelElement() {
+        return this._submenuPanels.find((panel) => !panel.classList.contains('hidden')) || null;
+    }
+
+    _moveFocusInCollection(elements, delta) {
+        if (!Array.isArray(elements) || elements.length === 0) return;
+        const activeElement = document.activeElement;
+        const activeIndex = elements.indexOf(activeElement);
+        const resolvedIndex = activeIndex >= 0 ? activeIndex : 0;
+        const nextIndex = (resolvedIndex + delta + elements.length) % elements.length;
+        elements[nextIndex].focus();
+    }
+
+    _moveFocusByDirection(direction) {
+        const delta = direction === 'left' || direction === 'up' ? -1 : 1;
+        const state = this.stateMachine?.getState?.() || MENU_STATE_IDS.MAIN;
+        if (state === MENU_STATE_IDS.MAIN) {
+            this._moveFocusInCollection(this._getVisibleNavButtons(), delta);
+            return;
+        }
+
+        const visiblePanel = this._getVisiblePanelElement();
+        const focusables = getFocusableElements(visiblePanel);
+        if (focusables.length > 0) {
+            this._moveFocusInCollection(focusables, delta);
+            return;
+        }
+        this._moveFocusInCollection(this._getVisibleNavButtons(), delta);
+    }
+
+    _activateFocusedElement(event = null) {
+        const activeElement = document.activeElement;
+        if (!activeElement || typeof activeElement.click !== 'function') return;
+        if (!activeElement.matches('button, [role="button"], .nav-btn, .secondary-btn, .mode-btn')) return;
+        event?.preventDefault?.();
+        activeElement.click();
+    }
+
+    _isMenuInteractive() {
+        const menuRoot = this.ui.mainMenu || document.getElementById('main-menu');
+        if (!menuRoot) return false;
+        if (menuRoot.classList.contains('hidden')) return false;
+        if (menuRoot.getAttribute('aria-hidden') === 'true') return false;
+        return true;
+    }
+
+    _pollGamepadButtons() {
+        if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') return;
+        const gamepads = navigator.getGamepads();
+        const gamepad = Array.from(gamepads || []).find((entry) => !!entry);
+        if (!gamepad) {
+            this._gamepadButtonStateByIndex.clear();
+            return;
+        }
+        if (!this._isMenuInteractive()) return;
+
+        const consumePress = (index) => {
+            const isPressed = !!gamepad.buttons?.[index]?.pressed;
+            const wasPressed = !!this._gamepadButtonStateByIndex.get(index);
+            this._gamepadButtonStateByIndex.set(index, isPressed);
+            return isPressed && !wasPressed;
+        };
+
+        if (consumePress(14)) this._moveFocusByDirection('left');
+        if (consumePress(15)) this._moveFocusByDirection('right');
+        if (consumePress(12)) this._moveFocusByDirection('up');
+        if (consumePress(13)) this._moveFocusByDirection('down');
+        if (consumePress(0)) this._activateFocusedElement();
+        if (consumePress(1) && this.stateMachine?.getState?.() !== MENU_STATE_IDS.MAIN) {
+            this.showMainNav({ trigger: 'controller_back' });
+        }
+        if (consumePress(4)) this._moveFocusByDirection('left');
+        if (consumePress(5)) this._moveFocusByDirection('right');
+    }
+
+    _startGamepadLoop() {
+        if (this._gamepadLoopHandle !== null) return;
+        if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') return;
+        const tick = () => {
+            this._pollGamepadButtons();
+            this._gamepadLoopHandle = window.requestAnimationFrame(tick);
+        };
+        this._gamepadLoopHandle = window.requestAnimationFrame(tick);
+    }
+
+    _stopGamepadLoop() {
+        if (this._gamepadLoopHandle === null) return;
+        if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+            window.cancelAnimationFrame(this._gamepadLoopHandle);
+        }
+        this._gamepadLoopHandle = null;
+        this._gamepadButtonStateByIndex.clear();
     }
 
     _resolvePanelPolicy(panelConfig) {

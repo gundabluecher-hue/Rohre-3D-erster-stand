@@ -3,8 +3,12 @@ import {
     collectErrors,
     loadGame,
     openCustomSubmenu,
+    openDebugSubmenu,
+    openDeveloperSubmenu,
     openGameSubmenu,
+    openLevel4Drawer,
     openMultiplayerSubmenu,
+    openSubmenu,
     returnToMenu,
     startGame,
 } from './helpers.js';
@@ -39,7 +43,7 @@ test.describe('T1-20: Core & Infrastruktur', () => {
     test('T5: Menü-Navigation Buttons vorhanden', async ({ page }) => {
         await loadGame(page);
         const count = await page.locator('#menu-nav .nav-btn').count();
-        expect(count).toBeGreaterThanOrEqual(4);
+        expect(count).toBeGreaterThanOrEqual(3);
     });
 
     test('T6: GAME_INSTANCE mit Renderer und Settings verfügbar', async ({ page }) => {
@@ -121,8 +125,7 @@ test.describe('T1-20: Core & Infrastruktur', () => {
         await loadGame(page);
 
         for (const mapKey of ['standard', 'empty', 'maze', 'complex', 'pyramid']) {
-            await page.click('[data-submenu="submenu-game"]');
-            await page.waitForSelector('#submenu-game:not(.hidden)', { timeout: 5000 });
+            await openGameSubmenu(page);
             await page.selectOption('#map-select', mapKey);
             await page.click('#btn-start');
             await page.waitForFunction(() => {
@@ -137,8 +140,7 @@ test.describe('T1-20: Core & Infrastruktur', () => {
 
     test('T15: Bot-Count Slider aktualisiert Label', async ({ page }) => {
         await loadGame(page);
-        await page.click('[data-submenu="submenu-game"]');
-        await page.waitForSelector('#submenu-game:not(.hidden)', { timeout: 3000 });
+        await openGameSubmenu(page);
         await page.evaluate(() => {
             const slider = document.getElementById('bot-count');
             slider.value = '4';
@@ -150,8 +152,7 @@ test.describe('T1-20: Core & Infrastruktur', () => {
 
     test('T16: Schwierigkeitsstufen auswählbar', async ({ page }) => {
         await loadGame(page);
-        await page.click('[data-submenu="submenu-game"]');
-        await page.waitForSelector('#submenu-game:not(.hidden)', { timeout: 3000 });
+        await openGameSubmenu(page);
         for (const diff of ['EASY', 'NORMAL', 'HARD']) {
             await page.selectOption('#bot-difficulty', diff);
             expect(await page.inputValue('#bot-difficulty')).toBe(diff);
@@ -160,8 +161,7 @@ test.describe('T1-20: Core & Infrastruktur', () => {
 
     test('T17: Vehicle-Select hat mindestens 1 Option', async ({ page }) => {
         await loadGame(page);
-        await page.click('[data-submenu="submenu-game"]');
-        await page.waitForSelector('#submenu-game:not(.hidden)', { timeout: 3000 });
+        await openGameSubmenu(page);
         const count = await page.evaluate(() =>
             document.querySelectorAll('#vehicle-select-p1 option').length
         );
@@ -197,8 +197,7 @@ test.describe('T1-20: Core & Infrastruktur', () => {
 
     test('T20: Submenu Settings öffnet und schließt', async ({ page }) => {
         await loadGame(page);
-        await page.click('[data-submenu="submenu-settings"]');
-        await page.waitForSelector('#submenu-settings:not(.hidden)', { timeout: 3000 });
+        await openSubmenu(page, 'submenu-settings');
         await expect(page.locator('#submenu-settings')).toBeVisible();
         await page.click('#submenu-settings [data-back]');
         await page.waitForTimeout(400);
@@ -245,10 +244,12 @@ test.describe('T1-20: Core & Infrastruktur', () => {
         expect(eventTypes.includes('menu_opened')).toBeTruthy();
     });
 
-    test('T20c: Multiplayer ist eigener Hauptpunkt und Panel oeffnet', async ({ page }) => {
+    test('T20c: Multiplayer ist als Session-Typ in Ebene 1 waehlbar', async ({ page }) => {
         await loadGame(page);
+        await expect(page.locator('#menu-nav [data-session-type="multiplayer"]')).toBeVisible();
         await openMultiplayerSubmenu(page);
-        await expect(page.locator('#submenu-multiplayer')).toBeVisible();
+        await expect(page.locator('#submenu-game')).toBeVisible();
+        await expect(page.locator('#multiplayer-inline-stub')).toBeVisible();
     });
 
     test('T20d: Multiplayer-Bridge emittiert lifecycle.v1 Event-Contract', async ({ page }) => {
@@ -270,7 +271,7 @@ test.describe('T1-20: Core & Infrastruktur', () => {
     test('T20e: Open-Preset speichert Metadatenvertrag vollstaendig', async ({ page }) => {
         await loadGame(page);
         await page.evaluate(() => localStorage.removeItem('aero-arena-3d.menu-presets.v1'));
-        await openGameSubmenu(page);
+        await openLevel4Drawer(page);
         await page.fill('#preset-name', 'Open Preset QA');
         await page.click('#btn-preset-save-open');
         await page.waitForTimeout(120);
@@ -339,13 +340,13 @@ test.describe('T1-20: Core & Infrastruktur', () => {
         const focusIds = await page.evaluate(() => {
             const firstButton = document.querySelector('#menu-nav .nav-btn');
             firstButton?.focus();
-            const first = document.activeElement?.getAttribute('data-submenu');
+            const first = document.activeElement?.getAttribute('data-session-type');
             return { first };
         });
         expect(focusIds.first).toBeTruthy();
 
         await page.keyboard.press('ArrowRight');
-        const secondFocused = await page.evaluate(() => document.activeElement?.getAttribute('data-submenu') || '');
+        const secondFocused = await page.evaluate(() => document.activeElement?.getAttribute('data-session-type') || '');
         expect(secondFocused).not.toBe(focusIds.first);
 
         await openCustomSubmenu(page);
@@ -358,15 +359,39 @@ test.describe('T1-20: Core & Infrastruktur', () => {
 
     test('T20i: ARIA-Status wird bei Panelwechsel konsistent gesetzt', async ({ page }) => {
         await loadGame(page);
-        await openMultiplayerSubmenu(page);
+        await openCustomSubmenu(page);
 
         const ariaState = await page.evaluate(() => ({
-            panelHidden: document.getElementById('submenu-multiplayer')?.getAttribute('aria-hidden'),
-            buttonExpanded: document.querySelector('[data-submenu="submenu-multiplayer"]')?.getAttribute('aria-expanded'),
+            panelHidden: document.getElementById('submenu-custom')?.getAttribute('aria-hidden'),
+            sessionPressed: document.querySelector('[data-session-type="single"]')?.getAttribute('aria-pressed'),
+            expandedStates: Array.from(document.querySelectorAll('[data-session-type]')).map((button) => ({
+                sessionType: button.getAttribute('data-session-type'),
+                expanded: button.getAttribute('aria-expanded'),
+            })),
         }));
 
         expect(ariaState.panelHidden).toBe('false');
-        expect(ariaState.buttonExpanded).toBe('true');
+        expect(ariaState.sessionPressed).toBe('true');
+        const expandedTrue = ariaState.expandedStates.filter((entry) => entry.expanded === 'true');
+        expect(expandedTrue).toHaveLength(1);
+        expect(expandedTrue[0].sessionType).toBe('single');
+
+        await openGameSubmenu(page);
+        const expandedOnLevel3 = await page.evaluate(() => (
+            Array.from(document.querySelectorAll('[data-session-type]'))
+                .map((button) => button.getAttribute('aria-expanded'))
+                .filter((value) => value === 'true')
+                .length
+        ));
+        expect(expandedOnLevel3).toBe(0);
+    });
+
+    test('T20ia: Developer- und Debug-Pfad sind ueber Ebene 4 erreichbar', async ({ page }) => {
+        await loadGame(page);
+        await openDeveloperSubmenu(page);
+        await expect(page.locator('#submenu-developer')).toBeVisible();
+        await openDebugSubmenu(page);
+        await expect(page.locator('#submenu-debug')).toBeVisible();
     });
 
     test('T20j: Menu-Compatibility-Rules fixen inkonsistente Fixed-Preset-States deterministisch', async ({ page }) => {
@@ -418,8 +443,7 @@ test.describe('T1-20: Core & Infrastruktur', () => {
 
     test('T20k: Globale Cinematic-Taste ist im Menue belegbar', async ({ page }) => {
         await loadGame(page);
-        await page.click('[data-submenu="submenu-controls"]');
-        await page.waitForSelector('#submenu-controls:not(.hidden)', { timeout: 3000 });
+        await openLevel4Drawer(page);
 
         await page.click('#keybind-global .keybind-btn[data-action="CINEMATIC_TOGGLE"]');
         await page.keyboard.press('KeyB');
@@ -492,5 +516,179 @@ test.describe('T1-20: Core & Infrastruktur', () => {
         }
         expect(recorderState.exportMeta).toBeTruthy();
         expect(String(recorderState.exportMeta.fileName || '')).toContain('.webm');
+    });
+
+    test('T20o: Session-Drafts bleiben pro Session-Typ getrennt', async ({ page }) => {
+        await loadGame(page);
+        const draftState = await page.evaluate(() => {
+            const game = window.GAME_INSTANCE;
+            game.settings.localSettings.sessionType = 'single';
+            game.settings.mapKey = 'maze';
+            const saveSingle = game.settingsManager.saveSessionDraft(game.settings, 'single');
+
+            game.settings.localSettings.sessionType = 'splitscreen';
+            game.settings.mapKey = 'pyramid';
+            const saveSplit = game.settingsManager.saveSessionDraft(game.settings, 'splitscreen');
+
+            game.settings.mapKey = 'standard';
+            const loadSingle = game.settingsManager.applySessionDraft(game.settings, 'single');
+            const mapAfterSingle = game.settings.mapKey;
+            const loadSplit = game.settingsManager.applySessionDraft(game.settings, 'splitscreen');
+            const mapAfterSplit = game.settings.mapKey;
+            return {
+                saveSingle: saveSingle.success,
+                saveSplit: saveSplit.success,
+                loadSingle: loadSingle.success,
+                loadSplit: loadSplit.success,
+                mapAfterSingle,
+                mapAfterSplit,
+            };
+        });
+        expect(draftState.saveSingle).toBeTruthy();
+        expect(draftState.saveSplit).toBeTruthy();
+        expect(draftState.loadSingle).toBeTruthy();
+        expect(draftState.loadSplit).toBeTruthy();
+        expect(draftState.mapAfterSingle).toBe('maze');
+        expect(draftState.mapAfterSplit).toBe('pyramid');
+    });
+
+    test('T20p: Start-Validierung zeigt Feldgrund und fokussiert Ziel', async ({ page }) => {
+        await loadGame(page);
+        await openMultiplayerSubmenu(page);
+        await page.click('#btn-start');
+        await expect(page.locator('#start-validation-status')).toContainText('Start nicht moeglich');
+        const focusedElementId = await page.evaluate(() => document.activeElement?.id || '');
+        expect(focusedElementId).toBe('multiplayer-lobby-code');
+    });
+
+    test('T20q: Ebene-3- und Ebene-4-Reset greifen auf Defaults', async ({ page }) => {
+        await loadGame(page);
+        await openGameSubmenu(page);
+        await page.selectOption('#map-select', 'complex');
+        await page.selectOption('#theme-mode-select', 'hell');
+        await page.click('#btn-level3-reset');
+        expect(await page.inputValue('#map-select')).toBe('standard');
+        expect(await page.inputValue('#theme-mode-select')).toBe('dunkel');
+
+        await openLevel4Drawer(page);
+        await page.evaluate(() => {
+            const slider = document.getElementById('speed-slider');
+            if (!slider) return;
+            slider.value = '30';
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        await page.click('#btn-level4-reset');
+        await page.waitForTimeout(100);
+        expect(await page.inputValue('#speed-slider')).toBe('18');
+    });
+
+    test('T20r: Textkatalog-Override greift und Release-Vorschau deaktiviert ihn', async ({ page }) => {
+        await loadGame(page);
+        await openDeveloperSubmenu(page);
+
+        if (!(await page.isChecked('#developer-mode-toggle'))) {
+            await page.check('#developer-mode-toggle');
+        }
+        await page.selectOption('#developer-text-id-select', 'menu.level3.start.label');
+        await page.fill('#developer-text-override-input', 'Los jetzt');
+        await page.click('#btn-developer-text-apply');
+        await page.waitForTimeout(120);
+
+        await openGameSubmenu(page);
+        await expect(page.locator('#btn-start')).toHaveText('Los jetzt');
+
+        await openDeveloperSubmenu(page);
+        await page.selectOption('#developer-text-id-select', 'menu.level4.tools.map_editor.label');
+        await page.fill('#developer-text-override-input', 'Map Builder');
+        await page.click('#btn-developer-text-apply');
+        await page.waitForTimeout(120);
+
+        await openLevel4Drawer(page);
+        await expect(page.locator('#btn-open-editor')).toHaveText('Map Builder');
+
+        await openDeveloperSubmenu(page);
+        await page.check('#developer-release-preview-toggle');
+        await page.waitForTimeout(120);
+
+        await openGameSubmenu(page);
+        await expect(page.locator('#btn-start')).toHaveText('Starten');
+
+        await openDeveloperSubmenu(page);
+        await page.uncheck('#developer-release-preview-toggle');
+        if (!(await page.isChecked('#developer-mode-toggle'))) {
+            await page.check('#developer-mode-toggle');
+        }
+        await page.selectOption('#developer-text-id-select', 'menu.level3.start.label');
+        await page.click('#btn-developer-text-clear');
+        await page.selectOption('#developer-text-id-select', 'menu.level4.tools.map_editor.label');
+        await page.click('#btn-developer-text-clear');
+    });
+
+    test('T20s: Config-Export/Import stellt Setup reproduzierbar wieder her', async ({ page }) => {
+        await loadGame(page);
+        await openGameSubmenu(page);
+        await page.evaluate(() => {
+            const game = window.GAME_INSTANCE;
+            game.settings.mapKey = 'maze';
+            game.runtimeFacade.onSettingsChanged({ changedKeys: ['mapKey'] });
+        });
+        expect(await page.inputValue('#map-select')).toBe('maze');
+
+        await page.click('#btn-open-level4');
+        await page.waitForSelector('#submenu-level4:not(.hidden)', { timeout: 4000 });
+        await page.click('#btn-config-export-json');
+        const exportedJson = await page.inputValue('#config-share-input');
+        expect(exportedJson.length).toBeGreaterThan(20);
+        expect(JSON.parse(exportedJson).mapKey).toBe('maze');
+
+        await page.click('#btn-close-level4');
+        await page.evaluate(() => {
+            const game = window.GAME_INSTANCE;
+            game.settings.mapKey = 'pyramid';
+            game.runtimeFacade.onSettingsChanged({ changedKeys: ['mapKey'] });
+        });
+        expect(await page.inputValue('#map-select')).toBe('pyramid');
+
+        await page.click('#btn-open-level4');
+        await page.fill('#config-share-input', exportedJson);
+        await page.click('#btn-config-import');
+        await page.waitForTimeout(120);
+        expect(await page.inputValue('#map-select')).toBe('maze');
+    });
+
+    test('T20t: Suchfilter und Telemetrie sind im neuen Flow verfuegbar', async ({ page }) => {
+        await loadGame(page);
+        await openGameSubmenu(page);
+
+        await page.fill('#map-search-input', 'maze');
+        const mapOptions = await page.locator('#map-select option').allTextContents();
+        expect(mapOptions.length).toBeGreaterThanOrEqual(1);
+        expect(mapOptions.some((entry) => entry.toLowerCase().includes('maze') || entry.toLowerCase().includes('labyrinth'))).toBeTruthy();
+
+        await page.click('#submenu-game [data-back]');
+        await page.click('#menu-nav [data-session-type=\"single\"]');
+        await page.click('#btn-quick-last-settings');
+        await page.waitForTimeout(500);
+        await returnToMenu(page);
+
+        await openDeveloperSubmenu(page);
+        const telemetryText = await page.textContent('#developer-telemetry-output');
+        const telemetry = JSON.parse(telemetryText || '{}');
+        expect(Number(telemetry.quickStartCount || 0)).toBeGreaterThanOrEqual(1);
+        expect(Number(telemetry.startAttempts || 0)).toBeGreaterThanOrEqual(1);
+    });
+
+    test('T20u: Enter/Escape Navigation funktioniert ueber Ebene 1 bis 3', async ({ page }) => {
+        await loadGame(page);
+        await page.focus('#menu-nav [data-session-type=\"single\"]');
+        await page.keyboard.press('Enter');
+        await expect(page.locator('#submenu-custom')).toBeVisible();
+
+        await page.focus('#submenu-custom [data-mode-path=\"normal\"]');
+        await page.keyboard.press('Enter');
+        await expect(page.locator('#submenu-game')).toBeVisible();
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator('#menu-nav')).toBeVisible();
     });
 });

@@ -17,7 +17,22 @@ export const MENU_DEVELOPER_ACCESS_MODES = Object.freeze({
     OPEN: 'open',
 });
 
+export const MENU_SESSION_TYPES = Object.freeze({
+    SINGLE: 'single',
+    MULTIPLAYER: 'multiplayer',
+    SPLITSCREEN: 'splitscreen',
+});
+
+export const MENU_MODE_PATHS = Object.freeze({
+    QUICK_ACTION: 'quick_action',
+    ARCADE: 'arcade',
+    FIGHT: 'fight',
+    NORMAL: 'normal',
+});
+
 const VALID_DEVELOPER_ACCESS_MODE_SET = new Set(Object.values(MENU_DEVELOPER_ACCESS_MODES));
+const VALID_SESSION_TYPE_SET = new Set(Object.values(MENU_SESSION_TYPES));
+const VALID_MODE_PATH_SET = new Set(Object.values(MENU_MODE_PATHS));
 
 function normalizeBoolean(value, fallback) {
     return typeof value === 'boolean' ? value : fallback;
@@ -26,6 +41,21 @@ function normalizeBoolean(value, fallback) {
 function normalizeString(value, fallback) {
     const normalized = typeof value === 'string' ? value.trim() : '';
     return normalized || fallback;
+}
+
+function normalizeSessionType(value, fallback = MENU_SESSION_TYPES.SINGLE) {
+    const requested = normalizeString(value, fallback).toLowerCase();
+    return VALID_SESSION_TYPE_SET.has(requested) ? requested : fallback;
+}
+
+function normalizeModePath(value, fallback = MENU_MODE_PATHS.NORMAL) {
+    const requested = normalizeString(value, fallback).toLowerCase();
+    return VALID_MODE_PATH_SET.has(requested) ? requested : fallback;
+}
+
+function cloneObject(value, fallback = {}) {
+    if (!value || typeof value !== 'object') return { ...fallback };
+    return JSON.parse(JSON.stringify(value));
 }
 
 export function createMenuFeatureFlags(flags = null) {
@@ -57,6 +87,26 @@ function normalizeLocalSettingsState(localSettings = null) {
     const developerModeVisibility = VALID_DEVELOPER_ACCESS_MODE_SET.has(requestedAccessMode)
         ? requestedAccessMode
         : MENU_DEVELOPER_ACCESS_MODES.OWNER_ONLY;
+    const sessionType = normalizeSessionType(source.sessionType, MENU_SESSION_TYPES.SINGLE);
+    const modePath = normalizeModePath(source.modePath, MENU_MODE_PATHS.NORMAL);
+    const startSetup = cloneObject(source.startSetup, {
+        mapSearch: '',
+        mapFilter: 'all',
+        vehicleSearch: '',
+        vehicleFilter: 'all',
+    });
+    const toolsState = cloneObject(source.toolsState, {
+        level4Open: false,
+        activeSection: 'controls',
+    });
+    const draftStateBySessionType = cloneObject(source.draftStateBySessionType, {});
+    const telemetryState = cloneObject(source.telemetryState, {
+        abortCount: 0,
+        backtrackCount: 0,
+        quickStartCount: 0,
+        startAttempts: 0,
+        lastEvents: [],
+    });
 
     return {
         schemaVersion: LOCAL_SETTINGS_SCHEMA_VERSION,
@@ -65,8 +115,16 @@ function normalizeLocalSettingsState(localSettings = null) {
         developerModeVisibility,
         developerModeEnabled: normalizeBoolean(source.developerModeEnabled, false),
         developerThemeId: normalizeString(source.developerThemeId, 'classic-console'),
+        releasePreviewEnabled: normalizeBoolean(source.releasePreviewEnabled, false),
         fixedPresetId: normalizeString(source.fixedPresetId, ''),
         fixedPresetLockEnabled: normalizeBoolean(source.fixedPresetLockEnabled, false),
+        sessionType,
+        modePath,
+        themeMode: normalizeString(source.themeMode, 'dunkel').toLowerCase() === 'hell' ? 'hell' : 'dunkel',
+        startSetup,
+        toolsState,
+        draftStateBySessionType,
+        telemetryState,
     };
 }
 

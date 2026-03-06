@@ -1,6 +1,9 @@
 import { SETTINGS_CHANGE_KEYS } from './SettingsChangeKeys.js';
 
 export const UI_SETTINGS_SYNC_MAP = Object.freeze({
+    [SETTINGS_CHANGE_KEYS.SESSION_TYPE]: ['syncSessionState', 'syncModes', 'syncMultiplayerState'],
+    [SETTINGS_CHANGE_KEYS.MODE_PATH]: ['syncSessionState'],
+    [SETTINGS_CHANGE_KEYS.LOCAL_THEME_MODE]: ['syncSessionState'],
     [SETTINGS_CHANGE_KEYS.MODE]: ['syncModes'],
     [SETTINGS_CHANGE_KEYS.GAME_MODE]: ['syncModes'],
     [SETTINGS_CHANGE_KEYS.HUNT_RESPAWN_ENABLED]: ['syncModes'],
@@ -39,9 +42,13 @@ export const UI_SETTINGS_SYNC_MAP = Object.freeze({
     [SETTINGS_CHANGE_KEYS.DEVELOPER_VISIBILITY_MODE]: ['syncDeveloperState'],
     [SETTINGS_CHANGE_KEYS.DEVELOPER_FIXED_PRESET_LOCK]: ['syncDeveloperState'],
     [SETTINGS_CHANGE_KEYS.DEVELOPER_ACTOR_ID]: ['syncDeveloperState'],
+    [SETTINGS_CHANGE_KEYS.DEVELOPER_RELEASE_PREVIEW]: ['syncDeveloperState'],
+    [SETTINGS_CHANGE_KEYS.DEVELOPER_TEXT_OVERRIDES]: ['syncDeveloperState'],
+    [SETTINGS_CHANGE_KEYS.MENU_TELEMETRY]: ['syncDeveloperState'],
 });
 
 const SYNC_METHOD_EXECUTION_ORDER = Object.freeze([
+    'syncSessionState',
     'syncModes',
     'syncMap',
     'syncBots',

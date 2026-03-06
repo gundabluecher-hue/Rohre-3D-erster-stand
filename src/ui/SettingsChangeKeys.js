@@ -1,4 +1,7 @@
 export const SETTINGS_CHANGE_KEYS = Object.freeze({
+    SESSION_TYPE: 'session.type',
+    MODE_PATH: 'session.modePath',
+    LOCAL_THEME_MODE: 'local.themeMode',
     MODE: 'mode',
     GAME_MODE: 'gameMode',
     MAP_KEY: 'mapKey',
@@ -37,6 +40,9 @@ export const SETTINGS_CHANGE_KEYS = Object.freeze({
     DEVELOPER_VISIBILITY_MODE: 'developer.visibilityMode',
     DEVELOPER_FIXED_PRESET_LOCK: 'developer.fixedPresetLock',
     DEVELOPER_ACTOR_ID: 'developer.actorId',
+    DEVELOPER_RELEASE_PREVIEW: 'developer.releasePreview',
+    DEVELOPER_TEXT_OVERRIDES: 'developer.textOverrides',
+    MENU_TELEMETRY: 'menu.telemetry',
 });
 
 const SETTINGS_CHANGE_KEY_SET = new Set(Object.values(SETTINGS_CHANGE_KEYS));

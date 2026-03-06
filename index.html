@@ -39,30 +39,27 @@
 
                 <!-- ======= HAUPTNAVIGATION ======= -->
                 <div id="menu-nav" class="menu-nav-grid" role="navigation" aria-label="Hauptmenue">
-                    <button type="button" class="nav-btn" data-submenu="submenu-game" aria-controls="submenu-game"
-                        aria-expanded="false" data-menu-action="open-panel">🎮 Spiel starten</button>
-                    <button type="button" class="nav-btn" data-submenu="submenu-custom" aria-controls="submenu-custom"
-                        aria-expanded="false" data-menu-action="open-panel">🧩 Benutzerdefiniert</button>
-                    <button type="button" class="nav-btn" data-submenu="submenu-multiplayer"
-                        aria-controls="submenu-multiplayer" aria-expanded="false" data-menu-action="open-panel">🌐 Multiplayer</button>
-                    <button type="button" class="nav-btn" data-submenu="submenu-settings"
-                        aria-controls="submenu-settings" aria-expanded="false" data-menu-action="open-panel">⚙️ Einstellungen</button>
-                    <button type="button" class="nav-btn" data-submenu="submenu-controls"
-                        aria-controls="submenu-controls" aria-expanded="false" data-menu-action="open-panel">🎯 Steuerung</button>
-                    <button type="button" class="nav-btn" data-submenu="submenu-profiles"
-                        aria-controls="submenu-profiles" aria-expanded="false" data-menu-action="open-panel">👤 Profile</button>
-                    <button type="button" class="nav-btn" data-submenu="submenu-portals" aria-controls="submenu-portals"
-                        aria-expanded="false" data-menu-action="open-panel">🌀 Portale / Map</button>
-                    <button type="button" class="nav-btn" data-submenu="submenu-developer"
-                        aria-controls="submenu-developer" aria-expanded="false" data-menu-action="open-panel">🛠️ Developer</button>
-                    <button type="button" class="nav-btn" data-submenu="submenu-debug" aria-controls="submenu-debug"
-                        aria-expanded="false" data-menu-action="open-panel">ℹ️ Debug / Info</button>
+                    <button type="button" class="nav-btn" data-session-type="single" data-submenu="submenu-custom"
+                        aria-controls="submenu-custom" aria-expanded="false" data-menu-action="session-select"
+                        data-menu-text-id="menu.level1.single.label">
+                        Single Player
+                    </button>
+                    <button type="button" class="nav-btn" data-session-type="multiplayer" data-submenu="submenu-custom"
+                        aria-controls="submenu-custom" aria-expanded="false" data-menu-action="session-select"
+                        data-menu-text-id="menu.level1.multiplayer.label">
+                        Multiplayer
+                    </button>
+                    <button type="button" class="nav-btn" data-session-type="splitscreen" data-submenu="submenu-custom"
+                        aria-controls="submenu-custom" aria-expanded="false" data-menu-action="session-select"
+                        data-menu-text-id="menu.level1.splitscreen.label">
+                        Splitscreen
+                    </button>
                     <div class="nav-help-card" role="note">
-                        <div class="nav-help-title">Schnellstart</div>
+                        <div class="nav-help-title" data-menu-text-id="menu.level1.help.title">Ebene 1: Session-Typ</div>
                         <div class="nav-help-content">
-                            <span><kbd>ESC</kbd> Zurueck ins Menue</span>
-                            <span><kbd>O</kbd> FPS Overlay</span>
-                            <span><kbd>P</kbd> Grafik umschalten</span>
+                            <span data-menu-text-id="menu.level1.help.next">Danach folgt Ebene 2 (Spielweg)</span>
+                            <span><kbd>ESC</kbd> zurueck</span>
+                            <span><kbd>←/→</kbd> Fokus</span>
                         </div>
                     </div>
                 </div>
@@ -82,28 +79,117 @@
                     <div class="submenu-header">
                         <button type="button" class="back-btn" data-back data-menu-action="back" aria-label="Zur Hauptnavigation">←
                             Zurück</button>
-                        <h2 id="submenu-game-title" class="submenu-title">🎮 Spiel starten</h2>
+                        <h2 id="submenu-game-title" class="submenu-title" data-menu-text-id="menu.level3.title">Ebene 3: Start-Setup</h2>
                     </div>
 
                     <div class="submenu-body">
-                        <div class="menu-section">
-                            <h2 class="section-title">Spielmodus</h2>
+                        <div class="menu-section setup-summary-section">
+                            <h2 class="section-title" data-menu-text-id="menu.level3.summary.title">Aktuelle Auswahl</h2>
+                            <p id="menu-selection-summary" class="menu-summary" role="status" aria-live="polite">
+                                Single Player | Normal | Standard Arena | ship5 | Dunkel
+                            </p>
+                            <p id="start-validation-status" class="menu-field-hint hidden" role="status" aria-live="polite"></p>
                             <div class="btn-group">
-                                <button id="btn-1p" class="mode-btn active" data-mode="1p">1 Spieler</button>
-                                <button id="btn-2p" class="mode-btn" data-mode="2p">2 Spieler</button>
+                                <button type="button" id="btn-level3-reset" class="secondary-btn"
+                                    data-menu-text-id="menu.level3.reset.label">Ebene 3 reset</button>
+                                <button type="button" id="btn-open-level4" class="secondary-btn"
+                                    data-menu-text-id="menu.level3.open_level4.label">Ebene 4 oeffnen</button>
                             </div>
                         </div>
 
                         <div class="menu-section">
-                            <h2 class="section-title">Regelset</h2>
+                            <h2 class="section-title" data-menu-text-id="menu.level3.map.title">Map</h2>
+                            <div class="setup-search-grid">
+                                <input type="text" id="map-search-input" placeholder="Map suchen">
+                                <select id="map-filter-select">
+                                    <option value="all">Alle Groessen</option>
+                                    <option value="small">Small</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="large">Large</option>
+                                </select>
+                            </div>
+                            <select id="map-select">
+                                <option value="standard">Standard Arena</option>
+                                <option value="custom">Custom (Editor gespeichert)</option>
+                                <option value="empty">Leer</option>
+                                <option value="maze">Labyrinth</option>
+                                <option value="complex">Komplex</option>
+                                <option value="pyramid">Pyramide</option>
+                            </select>
+                            <p id="map-field-hint" class="menu-field-hint hidden" role="status" aria-live="polite"></p>
+                            <button type="button" id="btn-map-favorite-toggle" class="secondary-btn secondary-btn-spaced">
+                                Map Favorit umschalten
+                            </button>
+                            <div class="setup-chip-grid">
+                                <div>
+                                    <label class="setup-chip-label">Favoriten</label>
+                                    <div id="map-favorites-list" class="quick-pill-list"></div>
+                                </div>
+                                <div>
+                                    <label class="setup-chip-label">Zuletzt benutzt</label>
+                                    <div id="map-recent-list" class="quick-pill-list"></div>
+                                </div>
+                            </div>
+                            <p id="map-preview" class="menu-preview">Map-Vorschau</p>
+                        </div>
+
+                        <div class="menu-section">
+                            <h2 class="section-title" data-menu-text-id="menu.level3.vehicle.title">Flugzeug</h2>
+                            <div class="setup-search-grid">
+                                <input type="text" id="vehicle-search-input" placeholder="Flugzeug suchen">
+                                <select id="vehicle-filter-select">
+                                    <option value="all">Alle Klassen</option>
+                                    <option value="light">Light</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="heavy">Heavy</option>
+                                </select>
+                            </div>
+                            <label for="vehicle-select-p1">Flugzeug P1</label>
+                            <select id="vehicle-select-p1"></select>
+                            <p id="vehicle-p1-field-hint" class="menu-field-hint hidden" role="status" aria-live="polite"></p>
+                            <p id="vehicle-preview-p1" class="menu-preview">P1 Vorschau</p>
+                            <div id="vehicle-p2-container" class="menu-section hidden">
+                                <label for="vehicle-select-p2">Flugzeug P2</label>
+                                <select id="vehicle-select-p2"></select>
+                                <p id="vehicle-p2-field-hint" class="menu-field-hint hidden" role="status" aria-live="polite"></p>
+                                <p id="vehicle-preview-p2" class="menu-preview">P2 Vorschau</p>
+                            </div>
+                            <button type="button" id="btn-vehicle-favorite-toggle" class="secondary-btn secondary-btn-spaced">
+                                Flugzeug Favorit umschalten
+                            </button>
+                            <div class="setup-chip-grid">
+                                <div>
+                                    <label class="setup-chip-label">Favoriten</label>
+                                    <div id="vehicle-favorites-list" class="quick-pill-list"></div>
+                                </div>
+                                <div>
+                                    <label class="setup-chip-label">Zuletzt benutzt</label>
+                                    <div id="vehicle-recent-list" class="quick-pill-list"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="menu-section">
+                            <h2 class="section-title" data-menu-text-id="menu.level3.theme.title">Hell / Dunkel (lokal)</h2>
+                            <label for="theme-mode-select">Theme (nur lokal, nicht match-relevant)</label>
+                            <select id="theme-mode-select">
+                                <option value="dunkel">Dunkel</option>
+                                <option value="hell">Hell</option>
+                            </select>
+                            <p id="theme-field-hint" class="menu-field-hint hidden" role="status" aria-live="polite"></p>
+                        </div>
+
+                        <div class="menu-section">
+                            <h2 class="section-title" data-menu-text-id="menu.level3.matchfields.title">Session-Relevante Matchfelder</h2>
                             <div class="btn-group">
                                 <button id="btn-mode-classic" class="mode-btn game-mode-btn active"
                                     data-game-mode="CLASSIC">Classic</button>
                                 <button id="btn-mode-hunt" class="mode-btn game-mode-btn"
-                                    data-game-mode="HUNT">Jagd</button>
+                                    data-game-mode="HUNT">Fight</button>
                             </div>
-                            <small id="hunt-mode-hint" class="menu-hint">Regelset fuer die laufende Session
+                            <small id="hunt-mode-hint" class="menu-hint" data-menu-text-id="menu.level3.matchfields.hint">Regelset fuer die laufende Session
                                 waehlen.</small>
+                            <p id="match-field-hint" class="menu-field-hint hidden" role="status" aria-live="polite"></p>
                         </div>
 
                         <div id="hunt-respawn-row" class="menu-section hidden">
@@ -114,25 +200,15 @@
                         </div>
 
                         <div class="menu-section" data-menu-panel="quickstart-presets">
-                            <h2 class="section-title">Quickstart Presets (V6)</h2>
+                            <h2 class="section-title">Preset-Standardkombinationen</h2>
                             <div class="btn-group">
                                 <button type="button" class="secondary-btn" data-preset-id="arcade">Arcade</button>
                                 <button type="button" class="secondary-btn" data-preset-id="competitive">Competitive</button>
                                 <button type="button" class="secondary-btn" data-preset-id="chaos">Chaos</button>
+                                <button type="button" class="secondary-btn" data-preset-id="fight-standard">Fight Standard</button>
+                                <button type="button" class="secondary-btn" data-preset-id="normal-standard">Normal Standard</button>
                             </div>
                             <small id="preset-status" class="menu-hint">Preset: custom</small>
-                        </div>
-
-                        <div class="menu-section">
-                            <label for="map-select">Map</label>
-                            <select id="map-select">
-                                <option value="standard">Standard Arena</option>
-                                <option value="custom">Custom (Editor gespeichert)</option>
-                                <option value="empty">Leer</option>
-                                <option value="maze">Labyrinth</option>
-                                <option value="complex">Komplex</option>
-                                <option value="pyramid">Pyramide</option>
-                            </select>
                         </div>
 
                         <div class="menu-section">
@@ -154,45 +230,198 @@
                             <input type="range" id="win-count" min="1" max="15" value="5">
                         </div>
 
-                        <div class="menu-section">
-                            <label for="vehicle-select-p1">Fahrzeug Spieler 1</label>
-                            <select id="vehicle-select-p1"></select>
+                        <div id="multiplayer-inline-stub" class="menu-section hidden">
+                            <h2 class="section-title">Multiplayer Stub (Ebene 3)</h2>
+                            <p id="multiplayer-lobby-state" class="menu-hint">Multiplayer-Stub: nicht in Lobby</p>
+                            <label for="multiplayer-lobby-code">Lobby Code</label>
+                            <input type="text" id="multiplayer-lobby-code" maxlength="32" placeholder="z. B. TEST-1234">
+                            <div class="btn-group secondary-btn-spaced">
+                                <button type="button" id="btn-multiplayer-host" class="secondary-btn" data-menu-action="multiplayer-host">Host</button>
+                                <button type="button" id="btn-multiplayer-join" class="secondary-btn" data-menu-action="multiplayer-join">Join</button>
+                            </div>
+                            <label class="toggle-row secondary-btn-spaced" for="multiplayer-ready-toggle">
+                                <input type="checkbox" id="multiplayer-ready-toggle">
+                                Ready setzen
+                            </label>
+                            <p id="multiplayer-status" class="menu-hint" role="status" aria-live="polite">
+                                Lobby Stub v1 | Rolle: Host
+                            </p>
                         </div>
 
-                        <div id="vehicle-p2-container" class="menu-section hidden">
-                            <label for="vehicle-select-p2">Fahrzeug Spieler 2</label>
-                            <select id="vehicle-select-p2"></select>
+                        <button type="button" id="btn-start" class="start-btn" data-menu-action="start-match"
+                            data-menu-text-id="menu.level3.start.label">Starten</button>
+                    </div>
+                </div>
+
+                <div id="submenu-level4" class="level4-drawer hidden" aria-hidden="true">
+                    <div class="level4-header">
+                        <h3 class="submenu-title" data-menu-text-id="menu.level4.title">Ebene 4: Feineinstellungen & Tools</h3>
+                        <div class="btn-group">
+                            <button type="button" id="btn-level4-reset" class="secondary-btn"
+                                data-menu-text-id="menu.level4.reset.label">Ebene 4 reset</button>
+                            <button type="button" id="btn-close-level4" class="secondary-btn"
+                                data-menu-text-id="menu.level4.close.label">Schliessen</button>
+                        </div>
+                    </div>
+                    <div class="submenu-body">
+                        <div class="menu-section">
+                            <h2 class="section-title" data-menu-text-id="menu.level4.controls.title">Steuerung</h2>
+                            <div class="submenu-columns">
+                                <div>
+                                    <label>Tasten Spieler 1</label>
+                                    <div id="keybind-p1" class="keybind-grid"></div>
+                                </div>
+                                <div>
+                                    <label>Tasten Spieler 2</label>
+                                    <div id="keybind-p2" class="keybind-grid"></div>
+                                </div>
+                            </div>
+                            <label class="secondary-btn-spaced">Globale Taste</label>
+                            <div id="keybind-global" class="keybind-grid"></div>
+                            <button type="button" id="btn-reset-keys" class="secondary-btn secondary-btn-spaced"
+                                data-menu-action="reset-keys" data-menu-text-id="menu.level4.controls.reset_keys.label">
+                                Standard-Tasten wiederherstellen
+                            </button>
                         </div>
 
                         <div class="menu-section">
-                            <h2 class="section-title">Preset Verwaltung</h2>
-                            <label for="preset-select">Preset Katalog</label>
+                            <h2 class="section-title" data-menu-text-id="menu.level4.gameplay.title">Gameplay-Feineinstellungen</h2>
+                            <label for="speed-slider">Geschwindigkeit: <span id="speed-label">18.0</span></label>
+                            <input type="range" id="speed-slider" min="8" max="40" step="0.5" value="18">
+                            <label for="turn-slider">Lenk-Empfindlichkeit: <span id="turn-label">2.2</span></label>
+                            <input type="range" id="turn-slider" min="0.8" max="5.0" step="0.1" value="2.2">
+                            <label for="plane-size-slider">Flugzeug-Groesse: <span id="plane-size-label">1.0</span></label>
+                            <input type="range" id="plane-size-slider" min="0.6" max="2.0" step="0.1" value="1.0">
+                            <label for="trail-width-slider">Strahldicke: <span id="trail-width-label">0.60</span></label>
+                            <input type="range" id="trail-width-slider" min="0.2" max="2.5" step="0.05" value="0.6">
+                            <label for="gap-size-slider">Luecken-Groesse: <span id="gap-size-label">0.30</span></label>
+                            <input type="range" id="gap-size-slider" min="0.05" max="1.5" step="0.05" value="0.3">
+                            <label for="gap-frequency-slider">Luecken-Haeufigkeit: <span id="gap-frequency-label">0.020</span></label>
+                            <input type="range" id="gap-frequency-slider" min="0" max="0.25" step="0.005" value="0.02">
+                            <label for="item-amount-slider">Item-Menge: <span id="item-amount-label">8</span></label>
+                            <input type="range" id="item-amount-slider" min="1" max="20" step="1" value="8">
+                            <label for="fire-rate-slider">Schussgeschwindigkeit: <span id="fire-rate-label">0.45</span>s</label>
+                            <input type="range" id="fire-rate-slider" min="0.1" max="2.0" step="0.05" value="0.45">
+                            <label for="lockon-slider">Lock-On Radius: <span id="lockon-label">15</span>°</label>
+                            <input type="range" id="lockon-slider" min="5" max="45" step="1" value="15">
+                            <label for="mg-trail-aim-slider">MG Trail-Zielsuchradius: <span id="mg-trail-aim-label">0.78</span></label>
+                            <input type="range" id="mg-trail-aim-slider" min="0.2" max="3.0" step="0.05" value="0.78">
+
+                            <label class="toggle-row secondary-btn-spaced">
+                                <input type="checkbox" id="auto-roll-toggle" checked>
+                                <span>Auto-Roll aktiv</span>
+                            </label>
+                            <div class="toggle-grid secondary-btn-spaced">
+                                <label class="toggle-row">
+                                    <input type="checkbox" id="invert-p1">
+                                    <span>Invert Pitch P1</span>
+                                </label>
+                                <label class="toggle-row">
+                                    <input type="checkbox" id="invert-p2">
+                                    <span>Invert Pitch P2</span>
+                                </label>
+                                <label class="toggle-row">
+                                    <input type="checkbox" id="cockpit-cam-p1">
+                                    <span>Cockpit P1</span>
+                                </label>
+                                <label class="toggle-row">
+                                    <input type="checkbox" id="cockpit-cam-p2">
+                                    <span>Cockpit P2</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="menu-section">
+                            <h2 class="section-title" data-menu-text-id="menu.level4.advanced_map.title">Erweiterte Map-Einstellungen</h2>
+                            <label class="toggle-row">
+                                <input type="checkbox" id="portals-toggle" checked>
+                                <span>Portale aktiviert</span>
+                            </label>
+                            <label for="portal-count-slider">Anzahl Portale: <span id="portal-count-label">0</span></label>
+                            <input type="range" id="portal-count-slider" min="0" max="20" step="2" value="0">
+                            <label for="planar-level-count-slider">Anzahl Ebenen: <span id="planar-level-count-label">5</span></label>
+                            <input type="range" id="planar-level-count-slider" min="2" max="10" step="1" value="5">
+                            <label class="toggle-row">
+                                <input type="checkbox" id="planar-mode-toggle">
+                                <span>Planar Modus (kein Pitch)</span>
+                            </label>
+                        </div>
+
+                        <div class="menu-section">
+                            <h2 class="section-title" data-menu-text-id="menu.level4.tools.title">Tools</h2>
+                            <label for="profile-name" data-menu-text-id="menu.level4.tools.profile_name.label">Profilname</label>
+                            <input type="text" id="profile-name" maxlength="32" placeholder="z. B. Turnier">
+                            <button type="button" id="btn-profile-save" class="secondary-btn secondary-btn-spaced"
+                                data-menu-action="profile-save" data-menu-text-id="menu.level4.tools.profile_save.label">
+                                Profil speichern
+                            </button>
+                            <label for="profile-select" data-menu-text-id="menu.level4.tools.profile_list.label">Gespeicherte Profile</label>
+                            <select id="profile-select">
+                                <option value="">Kein Profil gewaehlt</option>
+                            </select>
+                            <button type="button" id="btn-profile-load" class="secondary-btn secondary-btn-spaced"
+                                data-menu-action="profile-load" data-menu-text-id="menu.level4.tools.profile_load.label">
+                                Profil laden
+                            </button>
+                            <button type="button" id="btn-profile-delete" class="secondary-btn secondary-btn-spaced"
+                                data-menu-action="profile-delete" data-menu-text-id="menu.level4.tools.profile_delete.label">
+                                Profil loeschen
+                            </button>
+
+                            <label for="preset-select" class="secondary-btn-spaced"
+                                data-menu-text-id="menu.level4.tools.preset_catalog.label">Preset Katalog</label>
                             <select id="preset-select">
                                 <option value="">Preset waehlen</option>
                             </select>
-                        <button type="button" id="btn-preset-apply" class="secondary-btn secondary-btn-spaced" data-menu-action="preset-apply">
-                            Preset anwenden
-                        </button>
-                            <label for="preset-name">Neuer Preset-Name</label>
+                            <button type="button" id="btn-preset-apply" class="secondary-btn secondary-btn-spaced"
+                                data-menu-action="preset-apply" data-menu-text-id="menu.level4.tools.preset_apply.label">
+                                Preset anwenden
+                            </button>
+                            <label for="preset-name" data-menu-text-id="menu.level4.tools.preset_name.label">Neuer Preset-Name</label>
                             <input type="text" id="preset-name" maxlength="40" placeholder="z. B. Team Scrim">
-                            <button type="button" id="btn-preset-save-open" class="secondary-btn secondary-btn-spaced" data-menu-action="preset-save-open">
+                            <button type="button" id="btn-preset-save-open" class="secondary-btn secondary-btn-spaced"
+                                data-menu-action="preset-save-open" data-menu-text-id="menu.level4.tools.preset_save_open.label">
                                 Als open preset speichern
                             </button>
-                            <button type="button" id="btn-preset-save-fixed" class="secondary-btn secondary-btn-spaced" data-menu-action="preset-save-fixed">
+                            <button type="button" id="btn-preset-save-fixed" class="secondary-btn secondary-btn-spaced"
+                                data-menu-action="preset-save-fixed" data-menu-text-id="menu.level4.tools.preset_save_fixed.label">
                                 Als fixed preset speichern (owner)
                             </button>
-                            <button type="button" id="btn-preset-delete" class="secondary-btn secondary-btn-spaced" data-menu-action="preset-delete">
+                            <button type="button" id="btn-preset-delete" class="secondary-btn secondary-btn-spaced"
+                                data-menu-action="preset-delete" data-menu-text-id="menu.level4.tools.preset_delete.label">
                                 Preset loeschen
+                            </button>
+
+                            <button type="button" id="btn-open-editor" class="secondary-btn secondary-btn-spaced"
+                                data-menu-action="open-map-editor" data-menu-text-id="menu.level4.tools.map_editor.label">
+                                3D Map-Editor oeffnen
+                            </button>
+                            <button type="button" id="btn-open-vehicle-editor" class="secondary-btn secondary-btn-spaced"
+                                data-menu-action="open-vehicle-editor" data-menu-text-id="menu.level4.tools.vehicle_editor.label">
+                                Vehicle-Editor oeffnen
+                            </button>
+                            <button type="button" id="btn-open-developer" class="secondary-btn secondary-btn-spaced"
+                                data-menu-step-target="submenu-developer" data-menu-text-id="menu.level4.tools.open_developer.label">
+                                Developer oeffnen
                             </button>
                         </div>
 
-                        <button type="button" id="btn-start" class="start-btn" data-menu-action="start-match">Spiel starten</button>
-                        <button type="button" id="btn-open-editor" class="secondary-btn secondary-btn-spaced" data-menu-action="open-map-editor">
-                            3D Map-Editor öffnen
-                        </button>
-                        <button type="button" id="btn-open-vehicle-editor" class="secondary-btn secondary-btn-spaced" data-menu-action="open-vehicle-editor">
-                            Vehicle-Editor öffnen
-                        </button>
+                        <div class="menu-section">
+                            <h2 class="section-title">Import / Export</h2>
+                            <textarea id="config-share-input" rows="6" placeholder="Config-Code oder JSON"></textarea>
+                            <div class="btn-group secondary-btn-spaced">
+                                <button type="button" id="btn-config-export-code" class="secondary-btn"
+                                    data-menu-text-id="menu.tools.export_code.label">Code exportieren</button>
+                                <button type="button" id="btn-config-export-json" class="secondary-btn"
+                                    data-menu-text-id="menu.tools.export_json.label">JSON exportieren</button>
+                            </div>
+                            <button type="button" id="btn-config-import" class="secondary-btn secondary-btn-spaced"
+                                data-menu-text-id="menu.tools.import.label">Importieren</button>
+                            <p id="config-share-status" class="menu-hint">Kein Import/Export ausgefuehrt.</p>
+                            <button type="button" id="btn-save-keys" class="secondary-btn secondary-btn-spaced" data-menu-action="save-settings">
+                                💾 Einstellungen explizit speichern
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -202,23 +431,49 @@
                     <div class="submenu-header">
                         <button type="button" class="back-btn" data-back data-menu-action="back" aria-label="Zur Hauptnavigation">←
                             Zurück</button>
-                        <h2 id="submenu-custom-title" class="submenu-title">🧩 Benutzerdefiniert</h2>
+                        <h2 id="submenu-custom-title" class="submenu-title" data-menu-text-id="menu.level2.title">Ebene 2: Spielweg</h2>
                     </div>
                     <div class="submenu-body">
                         <div class="menu-section">
-                            <h2 class="section-title">Schrittweiser Setup</h2>
+                            <h2 class="section-title" data-menu-text-id="menu.level2.quick.title">Schnellaktionen</h2>
+                            <p class="menu-hint" data-menu-text-id="menu.level2.quick.hint">Diese Aktionen starten direkt ohne weiteren Menueschritt.</p>
                             <div class="btn-group">
-                                <button type="button" class="secondary-btn" data-menu-step-target="submenu-settings">1. Regeln</button>
-                                <button type="button" class="secondary-btn" data-menu-step-target="submenu-controls">2. Steuerung</button>
+                                <button type="button" id="btn-quick-last-settings" class="secondary-btn"
+                                    data-menu-action="quickstart-last" data-menu-text-id="menu.level2.quick_last.label">
+                                    Letzte Einstellungen starten
+                                </button>
+                                <button type="button" id="btn-quick-random-map" class="secondary-btn"
+                                    data-menu-action="quickstart-random" data-menu-text-id="menu.level2.quick_random.label">
+                                    Random Map starten
+                                </button>
                             </div>
-                            <div class="btn-group secondary-btn-spaced">
-                                <button type="button" class="secondary-btn" data-menu-step-target="submenu-profiles">3. Profile</button>
-                                <button type="button" class="secondary-btn" data-menu-step-target="submenu-portals">4. Portale/Map</button>
-                            </div>
-                            <small class="menu-hint">Stepper bleibt klickbar; du kannst in jeden Schritt direkt springen.</small>
                         </div>
                         <div class="menu-section">
-                            <button type="button" class="secondary-btn" data-menu-step-target="submenu-game">Zu Quickstart & Startbutton</button>
+                            <h2 class="section-title" data-menu-text-id="menu.level2.mode.title">Modi</h2>
+                            <p class="menu-hint" data-menu-text-id="menu.level2.mode.hint">Moduswahl befuellt Ebene 3 direkt mit sinnvollen Defaults.</p>
+                            <div class="btn-group">
+                                <button type="button" class="mode-btn mode-path-btn" data-mode-path="arcade"
+                                    data-menu-text-id="menu.level2.arcade.label">
+                                    Arcade
+                                    <small class="menu-hint">Preset: arcade</small>
+                                </button>
+                                <button type="button" class="mode-btn mode-path-btn" data-mode-path="fight"
+                                    data-menu-text-id="menu.level2.fight.label">
+                                    Fight
+                                    <small class="menu-hint">intern: HUNT</small>
+                                </button>
+                                <button type="button" class="mode-btn mode-path-btn" data-mode-path="normal"
+                                    data-menu-text-id="menu.level2.normal.label">
+                                    Normal
+                                    <small class="menu-hint">Classic ohne Zwangspfad</small>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="menu-section">
+                            <button type="button" class="secondary-btn" data-menu-step-target="submenu-game"
+                                data-menu-text-id="menu.level2.next_to_start.label">
+                                Weiter zu Ebene 3 (Start-Setup)
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -234,27 +489,11 @@
 
                     <div class="submenu-body">
                         <div class="menu-section">
-                            <h2 class="section-title">Lobby (Stub v1)</h2>
-                            <label for="multiplayer-lobby-code">Lobby Code</label>
-                            <input type="text" id="multiplayer-lobby-code" maxlength="32" placeholder="z. B. TEST-1234">
-                        </div>
-                        <div class="menu-section">
-                            <div class="btn-group">
-                                <button type="button" id="btn-multiplayer-host" class="secondary-btn" data-menu-action="multiplayer-host">Host</button>
-                                <button type="button" id="btn-multiplayer-join" class="secondary-btn" data-menu-action="multiplayer-join">Join</button>
-                            </div>
-                        </div>
-                        <div class="menu-section">
-                            <label class="toggle-row" for="multiplayer-ready-toggle">
-                                <input type="checkbox" id="multiplayer-ready-toggle">
-                                Ready setzen
-                            </label>
-                        </div>
-                        <div class="menu-section">
-                            <p id="multiplayer-status" class="menu-hint" role="status" aria-live="polite">
-                                Lobby Stub v1 | Rolle: Host
+                            <h2 class="section-title">Weiterleitung</h2>
+                            <p class="menu-hint">
+                                Multiplayer liegt im 4-Ebenen-Flow in Ebene 3 (Start-Setup) als Inline-Stub.
                             </p>
-                            <p class="menu-hint">Hinweis: Netzwerk-Runtime folgt spaeter, aktuell Event-Bridge mit Fallback.</p>
+                            <p class="menu-hint">Bitte Session-Typ `Multiplayer` waehlen und in Ebene 3 fortfahren.</p>
                         </div>
                     </div>
                 </div>
@@ -270,63 +509,10 @@
 
                     <div class="submenu-body">
                         <div class="menu-section">
-                            <label for="speed-slider">Geschwindigkeit: <span id="speed-label">18.0</span></label>
-                            <input type="range" id="speed-slider" min="8" max="40" step="0.5" value="18">
-                        </div>
-
-                        <div class="menu-section">
-                            <label for="turn-slider">Lenk-Empfindlichkeit: <span id="turn-label">2.2</span></label>
-                            <input type="range" id="turn-slider" min="0.8" max="5.0" step="0.1" value="2.2">
-                        </div>
-
-                        <div class="menu-section">
-                            <label for="plane-size-slider">Flugzeug-Groesse: <span
-                                    id="plane-size-label">1.0</span></label>
-                            <input type="range" id="plane-size-slider" min="0.6" max="2.0" step="0.1" value="1.0">
-                        </div>
-
-                        <div class="menu-section">
-                            <label for="trail-width-slider">Strahldicke: <span
-                                    id="trail-width-label">0.60</span></label>
-                            <input type="range" id="trail-width-slider" min="0.2" max="2.5" step="0.05" value="0.6">
-                        </div>
-
-                        <div class="menu-section">
-                            <label for="gap-size-slider">Luecken-Groesse: <span id="gap-size-label">0.30</span></label>
-                            <input type="range" id="gap-size-slider" min="0.05" max="1.5" step="0.05" value="0.3">
-                        </div>
-
-                        <div class="menu-section">
-                            <label for="gap-frequency-slider">Luecken-Haeufigkeit: <span
-                                    id="gap-frequency-label">0.020</span></label>
-                            <input type="range" id="gap-frequency-slider" min="0" max="0.25" step="0.005" value="0.02">
-                        </div>
-
-                        <div class="menu-section">
-                            <label for="item-amount-slider">Item-Menge: <span id="item-amount-label">8</span></label>
-                            <input type="range" id="item-amount-slider" min="1" max="20" step="1" value="8">
-                        </div>
-
-                        <div class="menu-section">
-                            <label for="fire-rate-slider">Schussgeschwindigkeit: <span
-                                    id="fire-rate-label">0.45</span>s</label>
-                            <input type="range" id="fire-rate-slider" min="0.1" max="2.0" step="0.05" value="0.45">
-                        </div>
-
-                        <div class="menu-section">
-                            <label for="lockon-slider">Lock-On Radius: <span id="lockon-label">15</span>°</label>
-                            <input type="range" id="lockon-slider" min="5" max="45" step="1" value="15">
-                        </div>
-
-                        <div class="menu-section">
-                            <label for="mg-trail-aim-slider">MG Trail-Zielsuchradius: <span
-                                    id="mg-trail-aim-label">0.78</span></label>
-                            <input type="range" id="mg-trail-aim-slider" min="0.2" max="3.0" step="0.05" value="0.78">
-                        </div>
-
-                        <div class="menu-section">
-                            <button type="button" id="btn-save-keys" class="secondary-btn secondary-btn-spaced" data-menu-action="save-settings">💾
-                                Einstellungen explizit speichern</button>
+                            <p class="menu-hint">
+                                Einstellungen wurden in Ebene 4 als Slide-in unter `Gameplay-Feineinstellungen` konsolidiert.
+                            </p>
+                            <button type="button" class="secondary-btn" data-menu-action="level4-open">Ebene 4 oeffnen</button>
                         </div>
                     </div>
                 </div>
@@ -341,66 +527,11 @@
                     </div>
 
                     <div class="submenu-body">
-                        <div class="submenu-columns">
-                            <div>
-                                <div class="menu-section">
-                                    <h2 class="section-title">Tasten Spieler 1</h2>
-                                    <div id="keybind-p1" class="keybind-grid"></div>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="menu-section">
-                                    <h2 class="section-title">Tasten Spieler 2</h2>
-                                    <div id="keybind-p2" class="keybind-grid"></div>
-                                </div>
-                            </div>
-                        </div>
-
                         <div class="menu-section">
-                            <h2 class="section-title">Globale Kamera-Taste</h2>
-                            <div id="keybind-global" class="keybind-grid"></div>
-                            <small class="menu-hint">Eine Taste fuer beide Spieler: Cinematic Kamera an/aus.</small>
-                        </div>
-
-                        <div class="menu-section">
-                            <label for="auto-roll-toggle">Auto-Roll</label>
-                            <label class="toggle-row">
-                                <input type="checkbox" id="auto-roll-toggle" checked>
-                                <span>Stabilisierung aktiv</span>
-                            </label>
-                        </div>
-
-                        <div class="menu-section">
-                            <h2 class="section-title">Invert Pitch (hoch/runter)</h2>
-                            <div class="toggle-grid">
-                                <label class="toggle-row">
-                                    <input type="checkbox" id="invert-p1">
-                                    <span>Spieler 1</span>
-                                </label>
-                                <label class="toggle-row">
-                                    <input type="checkbox" id="invert-p2">
-                                    <span>Spieler 2</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="menu-section">
-                            <h2 class="section-title">Cockpit-Kamera (Horizont dreht mit)</h2>
-                            <div class="toggle-grid">
-                                <label class="toggle-row">
-                                    <input type="checkbox" id="cockpit-cam-p1">
-                                    <span>Spieler 1</span>
-                                </label>
-                                <label class="toggle-row">
-                                    <input type="checkbox" id="cockpit-cam-p2">
-                                    <span>Spieler 2</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="menu-section">
-                            <button type="button" id="btn-reset-keys" class="secondary-btn" data-menu-action="reset-keys">Standard-Tasten
-                                wiederherstellen</button>
+                            <p class="menu-hint">
+                                Steuerung liegt jetzt in Ebene 4 im Bereich `Steuerung`.
+                            </p>
+                            <button type="button" class="secondary-btn" data-menu-action="level4-open">Ebene 4 oeffnen</button>
                         </div>
                     </div>
                 </div>
@@ -416,22 +547,10 @@
 
                     <div class="submenu-body">
                         <div class="menu-section">
-                            <h2 class="section-title">Preset-Profile</h2>
-                            <label for="profile-name">Profilname</label>
-                            <input type="text" id="profile-name" maxlength="32" placeholder="z. B. Turnier">
-                            <button type="button" id="btn-profile-save" class="secondary-btn secondary-btn-spaced" data-menu-action="profile-save">
-                                Profil unter Namen speichern</button>
-                        </div>
-
-                        <div class="menu-section">
-                            <label for="profile-select">Gespeicherte Profile</label>
-                            <select id="profile-select">
-                                <option value="">Kein Profil gewaehlt</option>
-                            </select>
-                            <button type="button" id="btn-profile-load" class="secondary-btn secondary-btn-spaced" data-menu-action="profile-load">
-                                Profil laden</button>
-                            <button type="button" id="btn-profile-delete" class="secondary-btn secondary-btn-spaced" data-menu-action="profile-delete">
-                                Profil loeschen</button>
+                            <p class="menu-hint">
+                                Profile liegen jetzt in Ebene 4 im Bereich `Tools`.
+                            </p>
+                            <button type="button" class="secondary-btn" data-menu-action="level4-open">Ebene 4 oeffnen</button>
                         </div>
                     </div>
                 </div>
@@ -447,30 +566,10 @@
 
                     <div class="submenu-body">
                         <div class="menu-section">
-                            <label class="toggle-row">
-                                <input type="checkbox" id="portals-toggle" checked>
-                                <span>Portale aktiviert</span>
-                            </label>
-                        </div>
-
-                        <div class="menu-section">
-                            <label for="portal-count-slider">Anzahl Portale: <span
-                                    id="portal-count-label">0</span></label>
-                            <input type="range" id="portal-count-slider" min="0" max="20" step="2" value="0">
-                        </div>
-
-                        <div class="menu-section">
-                            <label for="planar-level-count-slider">Anzahl Ebenen: <span
-                                    id="planar-level-count-label">5</span></label>
-                            <input type="range" id="planar-level-count-slider" min="2" max="10" step="1" value="5">
-                        </div>
-
-                        <div class="menu-section">
-                            <label for="planar-mode-toggle">Ebene erzwingen</label>
-                            <label class="toggle-row">
-                                <input type="checkbox" id="planar-mode-toggle">
-                                <span>Planar Modus (Kein Pitch)</span>
-                            </label>
+                            <p class="menu-hint">
+                                Erweiterte Map-Optionen liegen jetzt in Ebene 4 im Bereich `Erweiterte Map-Einstellungen`.
+                            </p>
+                            <button type="button" class="secondary-btn" data-menu-action="level4-open">Ebene 4 oeffnen</button>
                         </div>
                     </div>
                 </div>
@@ -481,7 +580,7 @@
                     <div class="submenu-header">
                         <button type="button" class="back-btn" data-back data-menu-action="back" aria-label="Zur Hauptnavigation">←
                             Zurück</button>
-                        <h2 id="submenu-developer-title" class="submenu-title">🛠️ Developer</h2>
+                        <h2 id="submenu-developer-title" class="submenu-title" data-menu-text-id="menu.developer.title">🛠️ Developer</h2>
                     </div>
                     <div class="submenu-body">
                         <div class="menu-section">
@@ -520,6 +619,41 @@
                             </select>
                         </div>
                         <div class="menu-section">
+                            <label class="toggle-row" for="developer-release-preview-toggle">
+                                <input type="checkbox" id="developer-release-preview-toggle">
+                                Release-Vorschau aktivieren (Developer-Off simulieren)
+                            </label>
+                        </div>
+                        <div class="menu-section">
+                            <button type="button" id="btn-open-debug" class="secondary-btn"
+                                data-menu-step-target="submenu-debug" data-menu-text-id="menu.developer.open_debug.label">
+                                Debug / Info oeffnen
+                            </button>
+                        </div>
+                        <div class="menu-section">
+                            <h2 class="section-title" data-menu-text-id="menu.developer.text_override.title">Textkatalog-Override</h2>
+                            <label for="developer-text-id-select">Text-ID</label>
+                            <select id="developer-text-id-select">
+                                <option value="">Bitte Text-ID waehlen</option>
+                            </select>
+                            <label for="developer-text-override-input">Override-Text</label>
+                            <input type="text" id="developer-text-override-input" maxlength="120" placeholder="Neuer Label-Text">
+                            <div class="btn-group secondary-btn-spaced">
+                                <button type="button" id="btn-developer-text-apply" class="secondary-btn"
+                                    data-menu-text-id="menu.developer.text_override.apply.label">
+                                    Override setzen
+                                </button>
+                                <button type="button" id="btn-developer-text-clear" class="secondary-btn"
+                                    data-menu-text-id="menu.developer.text_override.clear.label">
+                                    Override loeschen
+                                </button>
+                            </div>
+                        </div>
+                        <div class="menu-section">
+                            <h2 class="section-title" data-menu-text-id="menu.developer.telemetry.title">Entwicklungs-Telemetrie</h2>
+                            <pre id="developer-telemetry-output" class="build-info-detail">Keine Telemetrie vorhanden.</pre>
+                        </div>
+                        <div class="menu-section">
                             <p id="developer-hint" class="menu-hint" role="status" aria-live="polite">
                                 Developer Scope: owner_only | Session: owner
                             </p>
@@ -533,7 +667,7 @@
                     <div class="submenu-header">
                         <button type="button" class="back-btn" data-back data-menu-action="back" aria-label="Zur Hauptnavigation">←
                             Zurück</button>
-                        <h2 id="submenu-debug-title" class="submenu-title">ℹ️ Debug / Info</h2>
+                        <h2 id="submenu-debug-title" class="submenu-title" data-menu-text-id="menu.debug.title">ℹ️ Debug / Info</h2>
                     </div>
 
                     <div class="submenu-body">

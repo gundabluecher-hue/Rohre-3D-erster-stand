@@ -1,7 +1,7 @@
 # Feature: Menu Ebenen Follow-up (V26.3b)
 
 Stand: 2026-03-06
-Status: Geplant
+Status: Abgeschlossen (26.3b.0-26.3b.8)
 Owner: Single-Agent Umsetzung
 
 ## Ziel
@@ -122,7 +122,7 @@ Produktziel:
 
 ## Umsetzungsphasen
 
-- [ ] 26.3b.0 Baseline und UX-Freeze
+- [x] 26.3b.0 Baseline und UX-Freeze (abgeschlossen 2026-03-06)
   - Aktuellen Ist-Flow gegen den gewuenschten 4-Ebenen-Flow festziehen.
   - Panel-Mapping fixieren:
     - Ebene 1 = Hauptnavigation
@@ -144,16 +144,27 @@ Produktziel:
     - `Portale / Ebenen`
     - `Debug / Info`
     - `Developer`
+  - Freeze-Ergebnis (2026-03-06):
+    - `Profile` und `Preset-Verwaltung` liegen in Ebene 4 unter `Tools`.
+    - `Map-Editor` und `Vehicle-Editor` liegen in Ebene 4 unter `Tools`.
+    - `Portale / Ebenen` liegen in Ebene 4 unter `Erweiterte Map-Einstellungen`.
+    - `Debug / Info` ist nur noch ueber `Developer` bzw. Release-gesperrte Owner-Pfade erreichbar.
+    - `Developer` bleibt owner-only, kann per Feature-Flag global deaktiviert werden und enthaelt Textkatalog-Overrides + Release-Vorschau.
+    - Datenmodell-Freeze aktiv fuer `sessionType`, `modePath`, `startSetup`, `toolsState`, `draftStateBySessionType`, `telemetryState`.
 
-- [ ] 26.3b.1 Session-Level (Ebene 1) einziehen
+- [x] 26.3b.1 Session-Level (Ebene 1) einziehen (abgeschlossen 2026-03-06)
   - Hauptnavigation auf `Single Player`, `Multiplayer`, `Splitscreen` reduzieren.
   - `sessionType` als eigenen Menue-State und Settings-Vertrag verankern.
   - Migration definieren: `single -> mode=1p`, `splitscreen -> mode=2p`, `multiplayer -> mode=1p oder spaeterer Runtime-Stub`.
   - `Multiplayer`-Stub so verschieben, dass er nicht mehr als eigener Hauptfluss konkurriert.
   - Pro Session-Typ die sichtbaren Felder fuer Ebene 3 definieren.
   - Session-Wechsel laedt und speichert getrennte Entwuerfe pro Pfad.
+  - Umgesetzt:
+    - `sessionType` liegt im Local-Contract und wird in Runtime auf `mode` gemappt.
+    - Session-Wechsel nutzt getrennten Draft-Store (`single`/`multiplayer`/`splitscreen`) inkl. Wiederherstellung.
+    - Ebene-1-Navigation zeigt nur noch die drei Session-Typen; Multiplayer bleibt als Stub in den Folgeebenen.
 
-- [ ] 26.3b.2 Spielweg-Level (Ebene 2) bauen
+- [x] 26.3b.2 Spielweg-Level (Ebene 2) bauen (abgeschlossen 2026-03-06)
   - Ebene 2 visuell in `Schnellaktionen` und `Modi` aufteilen.
   - Ebene 2 als klarer Auswahlbildschirm fuer:
     - `Letzte Einstellungen starten`
@@ -166,8 +177,14 @@ Produktziel:
   - `Fight` bleibt intern `HUNT`, ohne dass der UI-Name technische Begriffe tragen muss.
   - Jede Moduswahl setzt gute Defaults fuer Ebene 3 vorab.
   - Empfohlene Standard-Kombinationen werden als konkrete Presets modelliert und hier angebunden.
+  - Umgesetzt:
+    - Ebene 2 hat getrennte Bereiche fuer Schnellaktionen und Modi.
+    - `Letzte Einstellungen starten` und `Random Map starten` starten direkt aus Ebene 2.
+    - Modus-Buttons setzen `modePath` und mappen auf Preset-/Runtime-Defaults (`Arcade`, `Fight`, `Normal`).
+    - `Fight` bleibt als UI-Begriff, mappt intern auf `HUNT`.
+    - Zusaetzliche Fixed-Presets `fight-standard` und `normal-standard` als Standard-Kombinationen angebunden.
 
-- [ ] 26.3b.3 Start-Setup-Level (Ebene 3) bauen
+- [x] 26.3b.3 Start-Setup-Level (Ebene 3) bauen (abgeschlossen 2026-03-06)
   - Ebene 3 mit `Map`, `Flugzeug`, `Hell/Dunkel`, kompakter Session-Zusammenfassung und `Starten`.
   - Die Zusammenfassung bleibt immer sichtbar.
   - `Map` und `Flugzeug` erhalten `Zuletzt benutzt` und `Favoriten`.
@@ -180,8 +197,15 @@ Produktziel:
   - Ruecksprung zu Ebene 2 und Einstieg in Ebene 4 muessen eindeutig bleiben.
   - `Starten` startet immer von Ebene 3; Ebene 4 darf nie der einzige Weg zum Matchstart sein.
   - Ebene 3 bekommt einen Reset nur fuer diese Ebene.
+  - Umgesetzt:
+    - Feste Zusammenfassung (`Session-Typ | Modus | Map | Flugzeug | Theme`) ist dauerhaft sichtbar.
+    - Map/Flugzeug haben Suche, Filter, Favoriten, Zuletzt-benutzt und Mini-Vorschau.
+    - `Hell/Dunkel` ist in Ebene 3 als lokal markiert.
+    - Splitscreen zeigt `Flugzeug P1/P2`; Multiplayer zeigt Inline-Lobby-Stub mit Status `nicht/in Lobby`.
+    - `Starten` bleibt in Ebene 3, mit eindeutigem Rueckweg zu Ebene 2 und Einstieg in Ebene 4.
+    - Eigener Ebene-3-Reset umgesetzt.
 
-- [ ] 26.3b.4 Feineinstellungen-Level (Ebene 4) konsolidieren
+- [x] 26.3b.4 Feineinstellungen-Level (Ebene 4) konsolidieren (abgeschlossen 2026-03-06)
   - Ebene 4 als Untermenue oder Slide-in von Ebene 3 aufbauen, nicht als harter Vollwechsel.
   - `Steuerung` und `Gameplay-Feineinstellungen` in einem Untermenue ab Ebene 3 zusammenfuehren.
   - Bisherige Controls-/Settings-/Portal-Feintuning-Elemente hier logisch gruppieren.
@@ -190,8 +214,13 @@ Produktziel:
   - `Tools` visuell und interaktionell klar vom Kern-Startpfad absetzen.
   - Ebene 4 bekommt Bereichs- oder Ebenen-Reset statt nur globalem Reset.
   - `Tools` enthalten auch Import/Export fuer Konfigurations-Code bzw. JSON.
+  - Umgesetzt:
+    - Ebene 4 als Slide-in (`submenu-level4`) aus Ebene 3 implementiert.
+    - Bereiche `Steuerung`, `Gameplay-Feineinstellungen`, `Erweiterte Map-Einstellungen` und `Tools` konsolidiert.
+    - Legacy-Panels (`Settings/Controls/Profile/Portale`) wurden auf Weiterleitung zu Ebene 4 reduziert.
+    - Ebene-4-Reset plus Config-Import/Export (Code/JSON) im Tools-Bereich integriert.
 
-- [ ] 26.3b.5 Developer-Modus und Textkatalog erweitern
+- [x] 26.3b.5 Developer-Modus und Textkatalog erweitern (abgeschlossen 2026-03-06)
   - Bestehenden owner-only `Developer-Modus` in den neuen Flow ueberfuehren statt entfernen.
   - Zentralen Textkatalog fuer Buttons, Paneltitel und Hilfetexte einfuehren.
   - Stabile Text-IDs fuer alle katalogisierten Menuetexte definieren.
@@ -199,8 +228,13 @@ Produktziel:
   - Release-Pfad absichern: Feature-Flag kann Developer-Modus, Debug-Hinweise und Text-Overrides voll deaktivieren.
   - Zusaetzlich `Release-Vorschau` im Developer-Modus anbieten.
   - Entwicklungs-Telemetrie fuer Menuenutzung sichtbar machen.
+  - Umgesetzt:
+    - Zentraler Textkatalog um Ebenentitel und Hilfetexte erweitert; DOM-Texte laufen ueber stabile `data-menu-text-id`.
+    - Developer-Text-Overrides sind als owner-guarded Runtime-Events (`set/clear`) integriert und auf gueltige Katalog-IDs begrenzt.
+    - Release-Cut umgesetzt: bei deaktiviertem Feature-Flag wird der Developer-Pfad ausgeblendet; bei Release-Vorschau werden Debug-Hinweise und Overrides simuliert deaktiviert.
+    - Entwicklungs-Telemetrie (`quickstart`, `start_attempt`, `backtrack`, `abort`) wird gesammelt und im Developer-Panel als Snapshot angezeigt.
 
-- [ ] 26.3b.6 Startlogik, Defaults und Kompatibilitaet nachziehen
+- [x] 26.3b.6 Startlogik, Defaults und Kompatibilitaet nachziehen (abgeschlossen 2026-03-06)
   - Defaults auf schnellen Start ausrichten.
   - Start-Validierung an Ebene 3 koppeln.
   - Validierung zeigt Grund und bietet direkten Sprung zur betroffenen Stelle.
@@ -208,18 +242,31 @@ Produktziel:
   - Kompatibilitaetsregeln fuer `sessionType`, `Fight/Hunt`, `Random-Map`, `Hell/Dunkel` und Tools-Zugaenge nachziehen.
   - A11y erhalten: Fokus, Escape, Arrow-Navigation, ARIA-Status.
   - Controller-/Keyboard-Navigation pro Ebene absichern.
+  - Umgesetzt:
+    - Start-Validierung haengt jetzt an `Starten` in Ebene 3, zeigt Feldgrund + Statustext und fokussiert direkt auf das betroffene Eingabefeld.
+    - Feldnahe Hinweise fuer Konflikte/Sperren sind integriert (`Preset-Lock`, Validierungsfehler inkl. visueller Feldmarkierung).
+    - Kompatibilitaetsregeln erweitert um `sessionType->mode`, `modePath->Fight/Hunt`, Map-Key-Guards, `Hell/Dunkel`-Sanitizing und Release-Vorschau-Guard.
+    - Keyboard-/Controller-Navigation erweitert: Pfeiltasten in allen Ebenen, Enter/Space-Aktivierung, Escape/Controller-Back sowie D-Pad/A/B/LB/RB-Fokussteuerung.
 
-- [ ] 26.3b.7 Tests fuer neuen Menuefluss anpassen
+- [x] 26.3b.7 Tests fuer neuen Menuefluss anpassen (abgeschlossen 2026-03-06)
   - `tests/helpers.js` auf neuen Level-Flow umbauen.
   - `tests/core.spec.js` auf neue Selektoren und Startpfade aktualisieren.
   - `tests/stress.spec.js` fuer schnelle Start/Zurueck-Zyklen im neuen Flow stabilisieren.
   - Tests fuer `Developer-Modus`, Textkatalog-Overrides und deaktivierten Release-Zustand ergaenzen.
   - Tests fuer per-Ebene-Reset, Drafts pro Session-Typ, Suche/Preview, Config-Import/Export und Telemetrie-Daten ergaenzen.
+  - Umgesetzt:
+    - `test:core` erweitert um Draft-Isolation, Start-Validierung/Fokus-Sprung, per-Ebene-Reset, Textkatalog-Override + Release-Vorschau, Config-Import/Export, Suche/Telemetrie und Enter/Escape-Flows.
+    - `test:stress` angepasst an den 4-Ebenen-Flow (Profile ueber Ebene 4) und um Quickstart-/Release-Vorschau-Burst-Regressionen erweitert.
+    - Verifikation abgeschlossen mit gruenen Runs fuer `npm run test:core` und `npm run test:stress`.
 
-- [ ] 26.3b.8 Abschluss-Gate und Dokumentation
+- [x] 26.3b.8 Abschluss-Gate und Dokumentation (abgeschlossen 2026-03-06)
   - Betroffene Feature-Dokus aktualisieren.
   - `npm run docs:sync`
   - `npm run docs:check`
+  - Umgesetzt:
+    - Build-Gate bestanden (`npm run build`).
+    - Finale Test-Gates bestanden (`npm run test:core`, `npm run test:stress`).
+    - Doku-Freeze abgeschlossen (`npm run docs:sync`, `npm run docs:check`) und Referenzdoku `docs/Feature_Menu_Umbau_V26_3.md` auf den 26.3b-Follow-up verlinkt.
 
 ## Verifikation
 

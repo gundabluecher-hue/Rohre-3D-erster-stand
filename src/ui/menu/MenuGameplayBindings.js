@@ -16,12 +16,46 @@ export function setupMenuGameplayBindings(ctx) {
     const keys = ctx.settingsChangeKeys;
     const huntFeatureEnabled = CONFIG.HUNT?.ENABLED !== false;
 
-    ui.modeButtons.forEach((btn) => {
-        btn.addEventListener('click', () => {
-            settings.mode = btn.dataset.mode === '2p' ? '2p' : '1p';
-            emitSettingsChangedImmediate([keys.MODE]);
+    if (Array.isArray(ui.sessionButtons)) {
+        ui.sessionButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const sessionType = String(button?.dataset?.sessionType || '').trim().toLowerCase();
+                if (!sessionType) return;
+                emit(eventTypes.SESSION_TYPE_CHANGE, { sessionType });
+            });
         });
-    });
+    }
+
+    if (Array.isArray(ui.modePathButtons)) {
+        ui.modePathButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const modePath = String(button?.dataset?.modePath || '').trim().toLowerCase();
+                if (!modePath) return;
+                emit(eventTypes.MODE_PATH_CHANGE, { modePath });
+            });
+        });
+    }
+
+    if (ui.quickStartLastButton) {
+        ui.quickStartLastButton.addEventListener('click', () => {
+            emit(eventTypes.QUICKSTART_LAST_START);
+        });
+    }
+
+    if (ui.quickStartRandomButton) {
+        ui.quickStartRandomButton.addEventListener('click', () => {
+            emit(eventTypes.QUICKSTART_RANDOM_START);
+        });
+    }
+
+    if (Array.isArray(ui.modeButtons)) {
+        ui.modeButtons.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                settings.mode = btn.dataset.mode === '2p' ? '2p' : '1p';
+                emitSettingsChangedImmediate([keys.MODE]);
+            });
+        });
+    }
 
     if (Array.isArray(ui.gameModeButtons)) {
         ui.gameModeButtons.forEach((btn) => {
@@ -29,6 +63,11 @@ export function setupMenuGameplayBindings(ctx) {
                 const requested = String(btn.dataset.gameMode || GAME_MODE_TYPES.CLASSIC);
                 const changedKeys = [keys.GAME_MODE];
                 settings.gameMode = resolveActiveGameMode(requested, huntFeatureEnabled);
+                if (!settings.localSettings || typeof settings.localSettings !== 'object') {
+                    settings.localSettings = {};
+                }
+                settings.localSettings.modePath = settings.gameMode === GAME_MODE_TYPES.HUNT ? 'fight' : 'normal';
+                changedKeys.push(keys.MODE_PATH);
                 if (settings.gameMode !== GAME_MODE_TYPES.HUNT) {
                     if (!settings.hunt) settings.hunt = {};
                     settings.hunt.respawnEnabled = false;
@@ -67,6 +106,16 @@ export function setupMenuGameplayBindings(ctx) {
             : 'standard';
         emitSettingsChangedImmediate([keys.MAP_KEY]);
     });
+
+    if (ui.themeModeSelect) {
+        ui.themeModeSelect.addEventListener('change', () => {
+            if (!settings.localSettings || typeof settings.localSettings !== 'object') {
+                settings.localSettings = {};
+            }
+            settings.localSettings.themeMode = ui.themeModeSelect.value === 'hell' ? 'hell' : 'dunkel';
+            emitSettingsChangedImmediate([keys.LOCAL_THEME_MODE]);
+        });
+    }
 
     ui.botSlider.addEventListener('input', () => {
         settings.numBots = clamp(parseInt(ui.botSlider.value, 10), 0, 8);
@@ -190,6 +239,57 @@ export function setupMenuGameplayBindings(ctx) {
     ui.startButton.addEventListener('click', () => {
         emit(eventTypes.START_MATCH);
     });
+
+    if (ui.level3ResetButton) {
+        ui.level3ResetButton.addEventListener('click', () => {
+            emit(eventTypes.LEVEL3_RESET);
+        });
+    }
+
+    if (ui.openLevel4Button) {
+        ui.openLevel4Button.addEventListener('click', () => {
+            emit(eventTypes.LEVEL4_OPEN);
+        });
+    }
+
+    const legacyLevel4OpenButtons = Array.from(document.querySelectorAll('[data-menu-action="level4-open"]'));
+    legacyLevel4OpenButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            emit(eventTypes.LEVEL4_OPEN);
+        });
+    });
+
+    if (ui.closeLevel4Button) {
+        ui.closeLevel4Button.addEventListener('click', () => {
+            emit(eventTypes.LEVEL4_CLOSE);
+        });
+    }
+
+    if (ui.level4ResetButton) {
+        ui.level4ResetButton.addEventListener('click', () => {
+            emit(eventTypes.LEVEL4_RESET);
+        });
+    }
+
+    if (ui.exportConfigCodeButton) {
+        ui.exportConfigCodeButton.addEventListener('click', () => {
+            emit(eventTypes.CONFIG_EXPORT_CODE);
+        });
+    }
+
+    if (ui.exportConfigJsonButton) {
+        ui.exportConfigJsonButton.addEventListener('click', () => {
+            emit(eventTypes.CONFIG_EXPORT_JSON);
+        });
+    }
+
+    if (ui.importConfigButton) {
+        ui.importConfigButton.addEventListener('click', () => {
+            emit(eventTypes.CONFIG_IMPORT, {
+                inputValue: String(ui.configShareInput?.value || ''),
+            });
+        });
+    }
 
     if (ui.openEditorButton) {
         ui.openEditorButton.addEventListener('click', () => {

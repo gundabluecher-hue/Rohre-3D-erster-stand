@@ -1,5 +1,7 @@
 export const MENU_STATE_IDS = Object.freeze({
     MAIN: 'main',
+    PATH: 'path',
+    START_SETUP: 'start_setup',
     QUICKSTART: 'quickstart',
     CUSTOM: 'custom',
     MULTIPLAYER: 'multiplayer',
@@ -12,6 +14,8 @@ export const MENU_STATE_IDS = Object.freeze({
 });
 
 const CUSTOM_FLOW_STATE_SET = new Set([
+    MENU_STATE_IDS.PATH,
+    MENU_STATE_IDS.START_SETUP,
     MENU_STATE_IDS.CUSTOM,
     MENU_STATE_IDS.SETTINGS,
     MENU_STATE_IDS.CONTROLS,
@@ -29,6 +33,8 @@ function createDefaultTransitionMap() {
         [MENU_STATE_IDS.MAIN, new Set([
             MENU_STATE_IDS.MAIN,
             MENU_STATE_IDS.QUICKSTART,
+            MENU_STATE_IDS.PATH,
+            MENU_STATE_IDS.START_SETUP,
             MENU_STATE_IDS.CUSTOM,
             MENU_STATE_IDS.SETTINGS,
             MENU_STATE_IDS.CONTROLS,
@@ -41,6 +47,8 @@ function createDefaultTransitionMap() {
         [MENU_STATE_IDS.QUICKSTART, new Set([
             MENU_STATE_IDS.MAIN,
             MENU_STATE_IDS.QUICKSTART,
+            MENU_STATE_IDS.PATH,
+            MENU_STATE_IDS.START_SETUP,
             MENU_STATE_IDS.CUSTOM,
             MENU_STATE_IDS.SETTINGS,
             MENU_STATE_IDS.CONTROLS,
@@ -53,12 +61,16 @@ function createDefaultTransitionMap() {
         [MENU_STATE_IDS.MULTIPLAYER, new Set([
             MENU_STATE_IDS.MAIN,
             MENU_STATE_IDS.QUICKSTART,
+            MENU_STATE_IDS.PATH,
+            MENU_STATE_IDS.START_SETUP,
             MENU_STATE_IDS.MULTIPLAYER,
             MENU_STATE_IDS.DEBUG,
         ])],
         [MENU_STATE_IDS.DEVELOPER, new Set([
             MENU_STATE_IDS.MAIN,
             MENU_STATE_IDS.QUICKSTART,
+            MENU_STATE_IDS.PATH,
+            MENU_STATE_IDS.START_SETUP,
             MENU_STATE_IDS.DEVELOPER,
             MENU_STATE_IDS.DEBUG,
         ])],

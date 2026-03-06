@@ -4,6 +4,10 @@ Stand: 2026-03-06
 Status: Abgeschlossen (26.3.0-26.3.9)  
 Owner: Single-Agent Umsetzung
 
+Nachlauf:
+- 4-Ebenen-Follow-up `26.3b.0-26.3b.8` wurde am 2026-03-06 abgeschlossen.
+- Referenz: `docs/Feature_Menu_Ebenen_Followup_V26_3b.md`.
+
 ## Ableitung
 
 - Produktableitung basiert auf `menu_anleitung_v2.md` (2026-03-05) mit Fokus auf:

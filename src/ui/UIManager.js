@@ -9,11 +9,23 @@ import { isSettingsChangeKey, normalizeSettingsChangeKeys } from './SettingsChan
 import { resolveSyncMethodNamesForChangeKeys } from './UISettingsSyncMap.js';
 import { createMenuSchema } from './menu/MenuSchema.js';
 import { MenuPanelRegistry } from './menu/MenuPanelRegistry.js';
-import { resolveMenuAccessContext } from './menu/MenuAccessPolicy.js';
-import { ensureMenuContractState } from './menu/MenuStateContracts.js';
+import {
+    evaluateMenuAccessPolicy,
+    resolveDeveloperAccessPolicy,
+    resolveMenuAccessContext,
+} from './menu/MenuAccessPolicy.js';
+import { ensureMenuContractState, MENU_SESSION_TYPES } from './menu/MenuStateContracts.js';
 import { MenuNavigationRuntime } from './menu/MenuNavigationRuntime.js';
 import { MenuStateMachine, MENU_STATE_IDS } from './menu/MenuStateMachine.js';
 import { applyDeveloperThemeToDocument } from './menu/MenuDeveloperModeOps.js';
+import {
+    listMapPreviewEntries,
+    listVehiclePreviewEntries,
+    resolveMapPreview,
+    resolveVehiclePreview,
+} from './menu/MenuPreviewCatalog.js';
+import { listMenuTextCatalogEntries } from './menu/MenuTextCatalog.js';
+import { MenuTextRuntime } from './menu/MenuTextRuntime.js';
 
 export class UIManager {
     constructor(game) {
@@ -37,14 +49,32 @@ export class UIManager {
             ? game.menuStateMachine
             : new MenuStateMachine({ initialState: MENU_STATE_IDS.MAIN });
         this.menuNavigationRuntime = null;
+        this._mapPreviewEntries = listMapPreviewEntries();
+        this._vehiclePreviewEntries = listVehiclePreviewEntries();
+        this._startSetupDisposers = [];
+        this._startValidationIssue = null;
+        this._developerNavButtons = Array.from(document.querySelectorAll(
+            '[data-submenu="submenu-developer"], [data-menu-target="submenu-developer"], [data-menu-step-target="submenu-developer"]'
+        ));
+        this._debugNavButtons = Array.from(document.querySelectorAll(
+            '[data-submenu="submenu-debug"], [data-menu-target="submenu-debug"], [data-menu-step-target="submenu-debug"]'
+        ));
+        this._developerPanel = document.getElementById('submenu-developer');
+        this._debugHintNodes = Array.isArray(this.ui.debugHints) ? this.ui.debugHints : [];
+        this.menuTextRuntime = game.menuTextRuntime instanceof MenuTextRuntime
+            ? game.menuTextRuntime
+            : new MenuTextRuntime({ overrideStore: game.settingsManager?.menuTextOverrideStore });
         game.menuSchema = this.menuSchema;
         game.menuPanelRegistry = this.menuPanelRegistry;
         game.menuStateMachine = this.menuStateMachine;
+        game.menuTextRuntime = this.menuTextRuntime;
     }
 
     init() {
         this._setupVehicleSelects();
         this._setupMapSelect();
+        this._setupStartSetupControls();
+        this._setupDeveloperTextCatalog();
         this._setupMenuNavigation();
         this.syncAll();
         this.updateContext();
@@ -86,6 +116,333 @@ export class UIManager {
         }
     }
 
+    _ensureStartSetupLocalState(settings = this.game.settings) {
+        if (!settings.localSettings || typeof settings.localSettings !== 'object') {
+            settings.localSettings = {};
+        }
+        if (!settings.localSettings.startSetup || typeof settings.localSettings.startSetup !== 'object') {
+            settings.localSettings.startSetup = {};
+        }
+        const startSetup = settings.localSettings.startSetup;
+        if (!Array.isArray(startSetup.favoriteMaps)) startSetup.favoriteMaps = [];
+        if (!Array.isArray(startSetup.recentMaps)) startSetup.recentMaps = [];
+        if (!Array.isArray(startSetup.favoriteVehicles)) startSetup.favoriteVehicles = [];
+        if (!Array.isArray(startSetup.recentVehicles)) startSetup.recentVehicles = [];
+        if (typeof startSetup.mapSearch !== 'string') startSetup.mapSearch = '';
+        if (typeof startSetup.mapFilter !== 'string') startSetup.mapFilter = 'all';
+        if (typeof startSetup.vehicleSearch !== 'string') startSetup.vehicleSearch = '';
+        if (typeof startSetup.vehicleFilter !== 'string') startSetup.vehicleFilter = 'all';
+        return startSetup;
+    }
+
+    _toggleFavoriteEntry(list, value) {
+        const normalizedValue = String(value || '').trim();
+        if (!normalizedValue) return;
+        const index = list.indexOf(normalizedValue);
+        if (index >= 0) {
+            list.splice(index, 1);
+            return;
+        }
+        list.unshift(normalizedValue);
+        if (list.length > 8) list.length = 8;
+    }
+
+    _pushRecentEntry(list, value) {
+        const normalizedValue = String(value || '').trim();
+        if (!normalizedValue) return;
+        const filtered = list.filter((entry) => entry !== normalizedValue);
+        filtered.unshift(normalizedValue);
+        if (filtered.length > 6) filtered.length = 6;
+        list.length = 0;
+        list.push(...filtered);
+    }
+
+    _renderQuickList(container, items, dataKey) {
+        if (!container) return;
+        container.innerHTML = '';
+        if (!Array.isArray(items) || items.length === 0) {
+            const empty = document.createElement('span');
+            empty.className = 'menu-hint';
+            empty.textContent = 'keine';
+            container.appendChild(empty);
+            return;
+        }
+        items.forEach((value) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'secondary-btn quick-pill';
+            button.textContent = String(value);
+            button.dataset[dataKey] = String(value);
+            container.appendChild(button);
+        });
+    }
+
+    _setupStartSetupControls() {
+        const settings = this.game.settings;
+        const startSetup = this._ensureStartSetupLocalState(settings);
+
+        const mapSearchInput = this.ui.mapSearchInput;
+        const mapFilterSelect = this.ui.mapFilterSelect;
+        const vehicleSearchInput = this.ui.vehicleSearchInput;
+        const vehicleFilterSelect = this.ui.vehicleFilterSelect;
+        const mapFavoriteToggleButton = this.ui.mapFavoriteToggleButton;
+        const vehicleFavoriteToggleButton = this.ui.vehicleFavoriteToggleButton;
+
+        if (mapSearchInput) {
+            mapSearchInput.value = startSetup.mapSearch;
+            mapSearchInput.addEventListener('input', () => {
+                startSetup.mapSearch = String(mapSearchInput.value || '');
+                this.syncStartSetupState(settings);
+            });
+        }
+        if (mapFilterSelect) {
+            mapFilterSelect.value = startSetup.mapFilter;
+            mapFilterSelect.addEventListener('change', () => {
+                startSetup.mapFilter = String(mapFilterSelect.value || 'all');
+                this.syncStartSetupState(settings);
+            });
+        }
+        if (vehicleSearchInput) {
+            vehicleSearchInput.value = startSetup.vehicleSearch;
+            vehicleSearchInput.addEventListener('input', () => {
+                startSetup.vehicleSearch = String(vehicleSearchInput.value || '');
+                this.syncStartSetupState(settings);
+            });
+        }
+        if (vehicleFilterSelect) {
+            vehicleFilterSelect.value = startSetup.vehicleFilter;
+            vehicleFilterSelect.addEventListener('change', () => {
+                startSetup.vehicleFilter = String(vehicleFilterSelect.value || 'all');
+                this.syncStartSetupState(settings);
+            });
+        }
+
+        if (this.ui.mapSelect) {
+            this.ui.mapSelect.addEventListener('change', () => {
+                this._pushRecentEntry(startSetup.recentMaps, this.ui.mapSelect.value);
+                this.syncStartSetupState(settings);
+            });
+        }
+        if (this.ui.vehicleSelectP1) {
+            this.ui.vehicleSelectP1.addEventListener('change', () => {
+                this._pushRecentEntry(startSetup.recentVehicles, this.ui.vehicleSelectP1.value);
+                this.syncStartSetupState(settings);
+            });
+        }
+        if (this.ui.vehicleSelectP2) {
+            this.ui.vehicleSelectP2.addEventListener('change', () => {
+                this._pushRecentEntry(startSetup.recentVehicles, this.ui.vehicleSelectP2.value);
+                this.syncStartSetupState(settings);
+            });
+        }
+
+        if (mapFavoriteToggleButton) {
+            mapFavoriteToggleButton.addEventListener('click', () => {
+                this._toggleFavoriteEntry(startSetup.favoriteMaps, this.ui.mapSelect?.value);
+                this.syncStartSetupState(settings);
+            });
+        }
+        if (vehicleFavoriteToggleButton) {
+            vehicleFavoriteToggleButton.addEventListener('click', () => {
+                this._toggleFavoriteEntry(startSetup.favoriteVehicles, this.ui.vehicleSelectP1?.value);
+                this.syncStartSetupState(settings);
+            });
+        }
+
+        if (this.ui.mapFavoritesList) {
+            this.ui.mapFavoritesList.addEventListener('click', (event) => {
+                const button = event.target.closest('button[data-map-key]');
+                if (!button || !this.ui.mapSelect) return;
+                this.ui.mapSelect.value = button.dataset.mapKey;
+                this.ui.mapSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        }
+        if (this.ui.mapRecentList) {
+            this.ui.mapRecentList.addEventListener('click', (event) => {
+                const button = event.target.closest('button[data-map-key]');
+                if (!button || !this.ui.mapSelect) return;
+                this.ui.mapSelect.value = button.dataset.mapKey;
+                this.ui.mapSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        }
+        if (this.ui.vehicleFavoritesList) {
+            this.ui.vehicleFavoritesList.addEventListener('click', (event) => {
+                const button = event.target.closest('button[data-vehicle-id]');
+                if (!button || !this.ui.vehicleSelectP1) return;
+                this.ui.vehicleSelectP1.value = button.dataset.vehicleId;
+                this.ui.vehicleSelectP1.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        }
+        if (this.ui.vehicleRecentList) {
+            this.ui.vehicleRecentList.addEventListener('click', (event) => {
+                const button = event.target.closest('button[data-vehicle-id]');
+                if (!button || !this.ui.vehicleSelectP1) return;
+                this.ui.vehicleSelectP1.value = button.dataset.vehicleId;
+                this.ui.vehicleSelectP1.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        }
+    }
+
+    _getStartFieldBinding(fieldKey) {
+        const gameModeButton = Array.isArray(this.ui.gameModeButtons) ? this.ui.gameModeButtons[0] : null;
+        const bindings = {
+            map: { control: this.ui.mapSelect, hint: this.ui.mapFieldHint },
+            vehicleP1: { control: this.ui.vehicleSelectP1, hint: this.ui.vehicleP1FieldHint },
+            vehicleP2: { control: this.ui.vehicleSelectP2, hint: this.ui.vehicleP2FieldHint },
+            theme: { control: this.ui.themeModeSelect, hint: this.ui.themeFieldHint },
+            match: { control: gameModeButton || this.ui.huntRespawnToggle, hint: this.ui.matchFieldHint },
+            multiplayer: { control: this.ui.multiplayerLobbyCodeInput, hint: this.ui.matchFieldHint },
+        };
+        return bindings[fieldKey] || { control: null, hint: null };
+    }
+
+    _setFieldHint(hintElement, message, tone = 'info') {
+        if (!hintElement) return;
+        const normalizedMessage = String(message || '').trim();
+        const normalizedTone = tone === 'error' ? 'error' : (tone === 'lock' ? 'lock' : 'info');
+        hintElement.textContent = normalizedMessage;
+        hintElement.classList.remove('hidden', 'is-error', 'is-lock');
+        hintElement.classList.toggle('hidden', !normalizedMessage);
+        hintElement.classList.toggle('is-error', !!normalizedMessage && normalizedTone === 'error');
+        hintElement.classList.toggle('is-lock', !!normalizedMessage && normalizedTone === 'lock');
+    }
+
+    _clearFieldHints() {
+        ['map', 'vehicleP1', 'vehicleP2', 'theme', 'match', 'multiplayer'].forEach((fieldKey) => {
+            const binding = this._getStartFieldBinding(fieldKey);
+            if (binding.control) binding.control.classList.remove('menu-field-error');
+            if (binding.hint) this._setFieldHint(binding.hint, '', 'info');
+        });
+        if (this.ui.startValidationStatus) {
+            this._setFieldHint(this.ui.startValidationStatus, '', 'info');
+        }
+    }
+
+    _resolveLockedFieldHints(settings = this.game.settings) {
+        const lockHints = new Map();
+        const activePresetId = String(settings?.matchSettings?.activePresetId || '').trim();
+        const activePresetKind = String(settings?.matchSettings?.activePresetKind || '').trim();
+        if (!activePresetId || activePresetKind !== 'fixed') return lockHints;
+
+        const presets = this.game.settingsManager?.listMenuPresets?.() || [];
+        const activePreset = presets.find((preset) => String(preset?.id || '').trim() === activePresetId);
+        const lockedFields = Array.isArray(activePreset?.metadata?.lockedFields) ? activePreset.metadata.lockedFields : [];
+        if (lockedFields.length === 0) return lockHints;
+
+        const lockMessagesByField = {
+            map: [],
+            vehicleP1: [],
+            vehicleP2: [],
+            match: [],
+        };
+        lockedFields.forEach((fieldPath) => {
+            const normalizedPath = String(fieldPath || '').trim();
+            if (!normalizedPath) return;
+            if (normalizedPath === 'mapKey') {
+                lockMessagesByField.map.push('Map');
+                return;
+            }
+            if (normalizedPath === 'vehicles.PLAYER_1') {
+                lockMessagesByField.vehicleP1.push('Flugzeug P1');
+                return;
+            }
+            if (normalizedPath === 'vehicles.PLAYER_2') {
+                lockMessagesByField.vehicleP2.push('Flugzeug P2');
+                return;
+            }
+            lockMessagesByField.match.push(normalizedPath);
+        });
+
+        Object.entries(lockMessagesByField).forEach(([fieldKey, labels]) => {
+            if (!Array.isArray(labels) || labels.length === 0) return;
+            const uniqueLabels = Array.from(new Set(labels));
+            lockHints.set(fieldKey, `Preset-Lock aktiv: ${uniqueLabels.join(', ')}`);
+        });
+        return lockHints;
+    }
+
+    _renderStartFieldHints(settings = this.game.settings, options = {}) {
+        this._clearFieldHints();
+        const lockHints = this._resolveLockedFieldHints(settings);
+        lockHints.forEach((message, fieldKey) => {
+            const binding = this._getStartFieldBinding(fieldKey);
+            if (binding.hint) {
+                this._setFieldHint(binding.hint, message, 'lock');
+            }
+        });
+
+        const issue = this._startValidationIssue;
+        if (!issue) return;
+
+        const summaryMessage = String(issue.message || '').trim();
+        if (this.ui.startValidationStatus) {
+            this._setFieldHint(this.ui.startValidationStatus, summaryMessage, 'error');
+        }
+
+        const fieldKey = String(issue.fieldKey || '').trim();
+        if (!fieldKey) return;
+        const binding = this._getStartFieldBinding(fieldKey);
+        if (binding.hint) {
+            this._setFieldHint(binding.hint, String(issue.fieldMessage || issue.message || ''), 'error');
+        }
+        if (binding.control) {
+            binding.control.classList.add('menu-field-error');
+            if (options.focusField) {
+                binding.control.focus();
+            }
+        }
+    }
+
+    showStartValidationError(issue, options = {}) {
+        const normalizedIssue = issue && typeof issue === 'object' ? issue : {};
+        this._startValidationIssue = {
+            message: String(normalizedIssue.message || 'Start nicht moeglich.').trim(),
+            fieldKey: String(normalizedIssue.fieldKey || '').trim(),
+            fieldMessage: String(normalizedIssue.fieldMessage || '').trim(),
+        };
+        this._renderStartFieldHints(this.game.settings, {
+            focusField: options.focusField !== false,
+        });
+    }
+
+    clearStartValidationError() {
+        if (!this._startValidationIssue) return;
+        this._startValidationIssue = null;
+        this._renderStartFieldHints(this.game.settings);
+    }
+
+    _setupDeveloperTextCatalog() {
+        const select = this.ui.developerTextIdSelect;
+        if (!select) return;
+
+        const entries = listMenuTextCatalogEntries().sort((left, right) => left.id.localeCompare(right.id, 'de'));
+        const previousValue = String(select.value || '');
+        select.innerHTML = '';
+
+        const placeholderOption = document.createElement('option');
+        placeholderOption.value = '';
+        placeholderOption.textContent = 'Bitte Text-ID waehlen';
+        select.appendChild(placeholderOption);
+
+        entries.forEach((entry) => {
+            const option = document.createElement('option');
+            option.value = entry.id;
+            option.textContent = `${entry.id} -> ${entry.text}`;
+            select.appendChild(option);
+        });
+
+        const hasPreviousValue = entries.some((entry) => entry.id === previousValue);
+        if (hasPreviousValue) {
+            select.value = previousValue;
+        }
+        select.addEventListener('change', () => {
+            const selectedTextId = String(select.value || '').trim();
+            if (!this.ui.developerTextOverrideInput) return;
+            const overrideValue = this.game.settingsManager?.menuTextOverrideStore?.getOverride?.(selectedTextId) || '';
+            this.ui.developerTextOverrideInput.value = overrideValue;
+        });
+    }
+
     _setupMenuNavigation() {
         this._navButtons = Array.isArray(this.ui.menuNavButtons) && this.ui.menuNavButtons.length > 0
             ? this.ui.menuNavButtons
@@ -110,12 +467,19 @@ export class UIManager {
             panelRegistry: this.menuPanelRegistry,
             stateMachine: this.menuStateMachine,
             accessContext: this._accessContext,
-            onPanelChanged: (panelId) => {
+            onPanelChanged: (panelId, _panelConfig, _transition, transitionMetadata) => {
+                const previousPanelId = this.game._activeSubmenu || null;
                 this.game._activeSubmenu = panelId || null;
+                if (panelId !== 'submenu-game' && this.settings?.localSettings?.toolsState?.level4Open) {
+                    this.settings.localSettings.toolsState.level4Open = false;
+                    this.setLevel4Open(false);
+                }
+                this.game.runtimeFacade?.handleMenuPanelChanged?.(previousPanelId, panelId || null, transitionMetadata || null);
                 this.updateContext();
             },
-            onMenuStateChanged: () => {
+            onMenuStateChanged: (transition) => {
                 this.game._menuState = this.menuStateMachine.getState();
+                this.game._menuTransition = transition || null;
             },
         });
         this.menuNavigationRuntime.init();
@@ -124,6 +488,7 @@ export class UIManager {
     showMainNav() {
         if (this.menuNavigationRuntime) {
             this.menuNavigationRuntime.showMainNav({ trigger: 'ui_manager' });
+            this.setLevel4Open(false);
             return;
         }
         const submenus = this._submenuPanels.length > 0
@@ -132,20 +497,125 @@ export class UIManager {
         submenus.forEach(p => p.classList.add('hidden'));
         this._navButtons.forEach(b => b.classList.remove('active'));
         this.game._activeSubmenu = null;
+        this.setLevel4Open(false);
         this.updateContext();
+    }
+
+    setLevel4Open(isOpen) {
+        const drawer = this.ui.level4Drawer;
+        if (!drawer) return;
+        const open = !!isOpen;
+        drawer.classList.toggle('hidden', !open);
+        drawer.setAttribute('aria-hidden', String(!open));
+        if (open) {
+            const firstFocusable = drawer.querySelector('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            firstFocusable?.focus();
+        }
+    }
+
+    _resolveDeveloperReleaseState(settings = this.game.settings) {
+        const localSettings = settings?.localSettings && typeof settings.localSettings === 'object'
+            ? settings.localSettings
+            : {};
+        const featureEnabled = settings?.menuFeatureFlags?.developerModeEnabled !== false;
+        const releasePreviewEnabled = !!localSettings.releasePreviewEnabled;
+        return {
+            featureEnabled,
+            releasePreviewEnabled,
+            developerUiHidden: !featureEnabled,
+            releaseCutEnabled: !featureEnabled || releasePreviewEnabled,
+        };
+    }
+
+    _setElementsHidden(elements, hidden) {
+        if (!Array.isArray(elements)) return;
+        elements.forEach((element) => {
+            if (!element) return;
+            element.classList.toggle('hidden', !!hidden);
+            element.setAttribute('aria-hidden', String(!!hidden));
+            if (hidden) {
+                element.setAttribute('tabindex', '-1');
+            } else {
+                element.removeAttribute('tabindex');
+            }
+        });
+    }
+
+    _syncDeveloperReleaseCutVisibility(settings = this.game.settings, releaseState = this._resolveDeveloperReleaseState(settings)) {
+        const shouldHideDeveloperUi = releaseState.developerUiHidden;
+        const shouldHideDebugHints = releaseState.releaseCutEnabled;
+        const accessContext = resolveMenuAccessContext(settings);
+        const developerPanelConfig = this.menuPanelRegistry.getPanelById('submenu-developer');
+        const debugPanelConfig = this.menuPanelRegistry.getPanelById('submenu-debug');
+        const developerPolicy = developerPanelConfig?.semanticId === 'developer'
+            ? resolveDeveloperAccessPolicy(accessContext)
+            : (developerPanelConfig?.accessPolicy || 'open');
+        const developerAllowed = !shouldHideDeveloperUi
+            && developerPanelConfig?.visibility !== 'hidden'
+            && evaluateMenuAccessPolicy(developerPolicy, accessContext).allowed;
+        const debugAllowed = !shouldHideDeveloperUi
+            && debugPanelConfig?.visibility !== 'hidden'
+            && evaluateMenuAccessPolicy(debugPanelConfig?.accessPolicy || 'open', accessContext).allowed;
+
+        this._setElementsHidden(this._developerNavButtons, !developerAllowed);
+        this._setElementsHidden(this._debugNavButtons, !debugAllowed);
+        this._setElementsHidden(this._debugHintNodes, shouldHideDebugHints);
+
+        if (this._developerPanel) {
+            this._developerPanel.setAttribute('data-release-cut', shouldHideDeveloperUi ? 'true' : 'false');
+        }
+        if (!developerAllowed && this.game._activeSubmenu === 'submenu-developer') {
+            this.showMainNav();
+            return;
+        }
+        if (!debugAllowed && this.game._activeSubmenu === 'submenu-debug') {
+            this.showMainNav();
+        }
     }
 
     syncAll() {
         const settings = this.game.settings;
+        this.syncSessionState(settings);
         this.syncModes(settings);
         this.syncMap(settings);
         this.syncBots(settings);
         this.syncRules(settings);
         this.syncGameplay(settings);
         this.syncVehicles(settings);
+        this.syncStartSetupState(settings);
         this.syncPresetState(settings);
         this.syncMultiplayerState(settings);
         this.syncDeveloperState(settings);
+    }
+
+    syncSessionState(settings = this.game.settings) {
+        const ui = this.ui;
+        const sessionType = String(settings?.localSettings?.sessionType || MENU_SESSION_TYPES.SINGLE).toLowerCase();
+        const modePath = String(settings?.localSettings?.modePath || 'normal').toLowerCase();
+        if (Array.isArray(ui.sessionButtons)) {
+            ui.sessionButtons.forEach((button) => {
+                const buttonSessionType = String(button?.dataset?.sessionType || '').trim().toLowerCase();
+                const isActive = buttonSessionType === sessionType;
+                button.classList.toggle('active', isActive);
+                button.setAttribute('aria-pressed', String(isActive));
+            });
+        }
+        if (Array.isArray(ui.modePathButtons)) {
+            ui.modePathButtons.forEach((button) => {
+                const buttonModePath = String(button?.dataset?.modePath || '').trim().toLowerCase();
+                const isActive = buttonModePath === modePath;
+                button.classList.toggle('active', isActive);
+                button.setAttribute('aria-pressed', String(isActive));
+            });
+        }
+
+        const themeMode = String(settings?.localSettings?.themeMode || 'dunkel').toLowerCase() === 'hell'
+            ? 'hell'
+            : 'dunkel';
+        if (this.ui.mainMenu) {
+            this.ui.mainMenu.setAttribute('data-menu-local-theme', themeMode);
+        }
+        this.syncStartSetupState(settings);
     }
 
     syncByChangeKeys(changedKeys) {
@@ -186,9 +656,14 @@ export class UIManager {
 
     syncModes(settings = this.game.settings) {
         const ui = this.ui;
-        ui.modeButtons.forEach((btn) => {
-            btn.classList.toggle('active', btn.dataset.mode === settings.mode);
-        });
+        const sessionType = String(settings?.localSettings?.sessionType || MENU_SESSION_TYPES.SINGLE).toLowerCase();
+        settings.mode = sessionType === MENU_SESSION_TYPES.SPLITSCREEN ? '2p' : '1p';
+
+        if (Array.isArray(ui.modeButtons)) {
+            ui.modeButtons.forEach((btn) => {
+                btn.classList.toggle('active', btn.dataset.mode === settings.mode);
+            });
+        }
         if (ui.vehicleP2Container) {
             ui.vehicleP2Container.classList.toggle('hidden', settings.mode !== '2p');
         }
@@ -225,7 +700,10 @@ export class UIManager {
     }
 
     syncMap(settings = this.game.settings) {
-        this.ui.mapSelect.value = settings.mapKey;
+        if (this.ui.mapSelect) {
+            this.ui.mapSelect.value = settings.mapKey;
+        }
+        this.syncStartSetupState(settings);
     }
 
     syncBots(settings = this.game.settings) {
@@ -282,6 +760,147 @@ export class UIManager {
         const ui = this.ui;
         if (ui.vehicleSelectP1) ui.vehicleSelectP1.value = settings.vehicles.PLAYER_1;
         if (ui.vehicleSelectP2) ui.vehicleSelectP2.value = settings.vehicles.PLAYER_2;
+        this.syncStartSetupState(settings);
+    }
+
+    syncStartSetupState(settings = this.game.settings) {
+        const startSetup = this._ensureStartSetupLocalState(settings);
+        const mapSearch = String(startSetup.mapSearch || '').trim().toLowerCase();
+        const mapFilter = String(startSetup.mapFilter || 'all').toLowerCase();
+        const vehicleSearch = String(startSetup.vehicleSearch || '').trim().toLowerCase();
+        const vehicleFilter = String(startSetup.vehicleFilter || 'all').toLowerCase();
+
+        if (this.ui.mapSearchInput && this.ui.mapSearchInput.value !== startSetup.mapSearch) {
+            this.ui.mapSearchInput.value = startSetup.mapSearch;
+        }
+        if (this.ui.mapFilterSelect && this.ui.mapFilterSelect.value !== startSetup.mapFilter) {
+            this.ui.mapFilterSelect.value = startSetup.mapFilter;
+        }
+        if (this.ui.vehicleSearchInput && this.ui.vehicleSearchInput.value !== startSetup.vehicleSearch) {
+            this.ui.vehicleSearchInput.value = startSetup.vehicleSearch;
+        }
+        if (this.ui.vehicleFilterSelect && this.ui.vehicleFilterSelect.value !== startSetup.vehicleFilter) {
+            this.ui.vehicleFilterSelect.value = startSetup.vehicleFilter;
+        }
+
+        if (this.ui.mapSelect) {
+            const previousValue = String(settings.mapKey || this.ui.mapSelect.value || 'standard');
+            this.ui.mapSelect.innerHTML = '';
+            this._mapPreviewEntries
+                .filter((entry) => {
+                    const matchesSearch = !mapSearch || entry.name.toLowerCase().includes(mapSearch) || entry.key.toLowerCase().includes(mapSearch);
+                    const matchesFilter = mapFilter === 'all' || entry.category === mapFilter;
+                    return matchesSearch && matchesFilter;
+                })
+                .forEach((entry) => {
+                    const option = document.createElement('option');
+                    option.value = entry.key;
+                    option.textContent = entry.name;
+                    this.ui.mapSelect.appendChild(option);
+                });
+            if (this.ui.mapSelect.options.length === 0) {
+                const option = document.createElement('option');
+                option.value = previousValue;
+                option.textContent = previousValue;
+                this.ui.mapSelect.appendChild(option);
+            }
+            this.ui.mapSelect.value = Array.from(this.ui.mapSelect.options).some((option) => option.value === previousValue)
+                ? previousValue
+                : this.ui.mapSelect.options[0].value;
+        }
+
+        const vehicleCandidates = this._vehiclePreviewEntries.filter((entry) => {
+            const matchesSearch = !vehicleSearch || entry.label.toLowerCase().includes(vehicleSearch) || entry.id.toLowerCase().includes(vehicleSearch);
+            const matchesFilter = vehicleFilter === 'all' || entry.category === vehicleFilter;
+            return matchesSearch && matchesFilter;
+        });
+        if (this.ui.vehicleSelectP1) {
+            const currentValue = String(settings?.vehicles?.PLAYER_1 || this.ui.vehicleSelectP1.value || '');
+            this.ui.vehicleSelectP1.innerHTML = '';
+            vehicleCandidates.forEach((entry) => {
+                const option = document.createElement('option');
+                option.value = entry.id;
+                option.textContent = entry.label;
+                this.ui.vehicleSelectP1.appendChild(option);
+            });
+            if (this.ui.vehicleSelectP1.options.length === 0) {
+                const fallbackOption = document.createElement('option');
+                fallbackOption.value = currentValue || 'ship5';
+                fallbackOption.textContent = currentValue || 'ship5';
+                this.ui.vehicleSelectP1.appendChild(fallbackOption);
+            }
+            this.ui.vehicleSelectP1.value = Array.from(this.ui.vehicleSelectP1.options).some((option) => option.value === currentValue)
+                ? currentValue
+                : this.ui.vehicleSelectP1.options[0].value;
+        }
+        if (this.ui.vehicleSelectP2) {
+            const currentValue = String(settings?.vehicles?.PLAYER_2 || this.ui.vehicleSelectP2.value || '');
+            this.ui.vehicleSelectP2.innerHTML = '';
+            vehicleCandidates.forEach((entry) => {
+                const option = document.createElement('option');
+                option.value = entry.id;
+                option.textContent = entry.label;
+                this.ui.vehicleSelectP2.appendChild(option);
+            });
+            if (this.ui.vehicleSelectP2.options.length === 0) {
+                const fallbackOption = document.createElement('option');
+                fallbackOption.value = currentValue || 'ship5';
+                fallbackOption.textContent = currentValue || 'ship5';
+                this.ui.vehicleSelectP2.appendChild(fallbackOption);
+            }
+            this.ui.vehicleSelectP2.value = Array.from(this.ui.vehicleSelectP2.options).some((option) => option.value === currentValue)
+                ? currentValue
+                : this.ui.vehicleSelectP2.options[0].value;
+        }
+
+        this._renderQuickList(this.ui.mapFavoritesList, startSetup.favoriteMaps, 'mapKey');
+        this._renderQuickList(this.ui.mapRecentList, startSetup.recentMaps, 'mapKey');
+        this._renderQuickList(this.ui.vehicleFavoritesList, startSetup.favoriteVehicles, 'vehicleId');
+        this._renderQuickList(this.ui.vehicleRecentList, startSetup.recentVehicles, 'vehicleId');
+
+        if (this.ui.menuSummary) {
+            const sessionLabel = settings?.localSettings?.sessionType === 'splitscreen'
+                ? 'Splitscreen'
+                : (settings?.localSettings?.sessionType === 'multiplayer' ? 'Multiplayer' : 'Single Player');
+            const modePath = String(settings?.localSettings?.modePath || 'normal').toLowerCase();
+            const modeLabel = modePath === 'fight' ? 'Fight' : (modePath === 'arcade' ? 'Arcade' : (modePath === 'quick_action' ? 'Schnellstart' : 'Normal'));
+            const themeLabel = String(settings?.localSettings?.themeMode || 'dunkel').toLowerCase() === 'hell' ? 'Hell' : 'Dunkel';
+            const mapPreview = resolveMapPreview(settings.mapKey);
+            this.ui.menuSummary.textContent = `${sessionLabel} | ${modeLabel} | ${mapPreview.name} | ${settings?.vehicles?.PLAYER_1 || 'ship5'} | ${themeLabel}`;
+        }
+
+        if (this.ui.mapPreview) {
+            const mapPreview = resolveMapPreview(settings.mapKey);
+            this.ui.mapPreview.textContent = `${mapPreview.name} | ${mapPreview.sizeText} | Hindernisse ${mapPreview.obstacleCount} | Portale ${mapPreview.portalCount}`;
+        }
+        if (this.ui.vehiclePreviewP1) {
+            const vehiclePreview = resolveVehiclePreview(settings?.vehicles?.PLAYER_1);
+            this.ui.vehiclePreviewP1.textContent = `${vehiclePreview.label} | Hitbox ${vehiclePreview.hitboxRadius.toFixed(2)} | ${vehiclePreview.category}`;
+        }
+        if (this.ui.vehiclePreviewP2) {
+            const vehiclePreview = resolveVehiclePreview(settings?.vehicles?.PLAYER_2);
+            this.ui.vehiclePreviewP2.textContent = `${vehiclePreview.label} | Hitbox ${vehiclePreview.hitboxRadius.toFixed(2)} | ${vehiclePreview.category}`;
+        }
+
+        const sessionType = String(settings?.localSettings?.sessionType || MENU_SESSION_TYPES.SINGLE).toLowerCase();
+        if (this.ui.multiplayerInlineState) {
+            this.ui.multiplayerInlineState.classList.toggle('hidden', sessionType !== MENU_SESSION_TYPES.MULTIPLAYER);
+        }
+        if (this.ui.multiplayerLobbyState) {
+            const hasCode = String(this.ui.multiplayerLobbyCodeInput?.value || '').trim().length > 0;
+            const ready = !!this.ui.multiplayerReadyToggle?.checked;
+            const state = hasCode || ready ? 'in Lobby' : 'nicht in Lobby';
+            this.ui.multiplayerLobbyState.textContent = `Multiplayer-Stub: ${state}`;
+        }
+
+        if (this.ui.themeModeSelect) {
+            const themeMode = String(settings?.localSettings?.themeMode || 'dunkel').toLowerCase() === 'hell' ? 'hell' : 'dunkel';
+            this.ui.themeModeSelect.value = themeMode;
+        }
+
+        const level4Open = !!settings?.localSettings?.toolsState?.level4Open;
+        this.setLevel4Open(level4Open);
+        this._renderStartFieldHints(settings);
     }
 
     syncPresetState(settings = this.game.settings) {
@@ -346,13 +965,30 @@ export class UIManager {
     syncDeveloperState(settings = this.game.settings) {
         const ui = this.ui;
         const localSettings = settings?.localSettings || {};
-        applyDeveloperThemeToDocument(localSettings.developerThemeId || 'classic-console');
+        const releaseState = this._resolveDeveloperReleaseState(settings);
+        const resolvedDeveloperEnabled = !!localSettings.developerModeEnabled
+            && releaseState.featureEnabled
+            && !releaseState.releasePreviewEnabled;
+        const resolvedThemeId = releaseState.releaseCutEnabled
+            ? 'classic-console'
+            : String(localSettings.developerThemeId || 'classic-console');
+
+        applyDeveloperThemeToDocument(resolvedThemeId);
+        this._syncDeveloperReleaseCutVisibility(settings, releaseState);
+
+        this.menuTextRuntime.applyToDocument(document, {
+            allowOverrides: true,
+            developerFeatureEnabled: releaseState.featureEnabled,
+            developerModeEnabled: resolvedDeveloperEnabled,
+            releasePreviewEnabled: releaseState.releaseCutEnabled,
+        });
 
         if (ui.developerModeToggle) {
             ui.developerModeToggle.checked = !!localSettings.developerModeEnabled;
+            ui.developerModeToggle.disabled = !releaseState.featureEnabled;
         }
-        if (ui.developerThemeSelect && localSettings.developerThemeId) {
-            ui.developerThemeSelect.value = String(localSettings.developerThemeId);
+        if (ui.developerThemeSelect) {
+            ui.developerThemeSelect.value = String(localSettings.developerThemeId || 'classic-console');
         }
         if (ui.developerVisibilitySelect && localSettings.developerModeVisibility) {
             ui.developerVisibilitySelect.value = String(localSettings.developerModeVisibility);
@@ -363,10 +999,53 @@ export class UIManager {
         if (ui.developerActorSelect && localSettings.actorId) {
             ui.developerActorSelect.value = String(localSettings.actorId);
         }
+        if (ui.developerReleasePreviewToggle) {
+            ui.developerReleasePreviewToggle.checked = !!localSettings.releasePreviewEnabled;
+            ui.developerReleasePreviewToggle.disabled = !releaseState.featureEnabled;
+        }
+
+        const controlsLocked = !releaseState.featureEnabled
+            || !localSettings.developerModeEnabled
+            || releaseState.releasePreviewEnabled;
+        const developerControls = [
+            ui.developerThemeSelect,
+            ui.developerVisibilitySelect,
+            ui.developerFixedPresetLockToggle,
+            ui.developerActorSelect,
+            ui.developerTextIdSelect,
+            ui.developerTextOverrideInput,
+            ui.developerTextApplyButton,
+            ui.developerTextClearButton,
+        ];
+        developerControls.forEach((control) => {
+            if (!control) return;
+            control.disabled = controlsLocked;
+        });
+
+        const selectedTextId = String(ui.developerTextIdSelect?.value || '').trim();
+        if (ui.developerTextOverrideInput) {
+            const overrideValue = this.game.settingsManager?.menuTextOverrideStore?.getOverride?.(selectedTextId) || '';
+            if (ui.developerTextOverrideInput.value !== overrideValue) {
+                ui.developerTextOverrideInput.value = overrideValue;
+            }
+        }
+
+        const telemetrySnapshot = this.game.settingsManager?.getMenuTelemetrySnapshot?.(settings)
+            || localSettings.telemetryState
+            || null;
+        if (ui.developerTelemetryOutput) {
+            ui.developerTelemetryOutput.textContent = telemetrySnapshot
+                ? JSON.stringify(telemetrySnapshot, null, 2)
+                : 'Keine Telemetrie vorhanden.';
+        }
+
         if (ui.developerHint) {
             const mode = String(localSettings.developerModeVisibility || 'owner_only');
             const ownerState = this._accessContext?.isOwner ? 'owner' : 'player';
-            ui.developerHint.textContent = `Developer Scope: ${mode} | Session: ${ownerState}`;
+            const releaseStateText = releaseState.releasePreviewEnabled
+                ? 'release_preview_active'
+                : (releaseState.featureEnabled ? 'dev_enabled' : 'dev_feature_off');
+            ui.developerHint.textContent = `Developer Scope: ${mode} | Session: ${ownerState} | Release: ${releaseStateText}`;
         }
     }
 

@@ -26,6 +26,9 @@ export const MENU_EVENT_ACCESS_POLICIES = Object.freeze({
     developer_visibility_change: MENU_ACCESS_POLICIES.OWNER_ONLY,
     developer_fixed_preset_lock_toggle: (context) => resolveDeveloperAccessPolicy(context),
     developer_actor_change: MENU_ACCESS_POLICIES.OWNER_ONLY,
+    developer_release_preview_toggle: (context) => resolveDeveloperAccessPolicy(context),
+    developer_text_override_set: (context) => resolveDeveloperAccessPolicy(context),
+    developer_text_override_clear: (context) => resolveDeveloperAccessPolicy(context),
     preset_set_fixed_lock: (context) => resolveDeveloperAccessPolicy(context),
     preset_save_fixed: MENU_ACCESS_POLICIES.OWNER_ONLY,
     preset_delete_fixed: MENU_ACCESS_POLICIES.OWNER_ONLY,
@@ -56,6 +59,7 @@ export function resolveMenuAccessContext(settings) {
         isOwner: actorId === ownerId,
         developerModeVisibility,
         developerModeEnabled: settings?.menuFeatureFlags?.developerModeEnabled !== false,
+        releasePreviewEnabled: !!localSettings.releasePreviewEnabled,
     };
 }
 
@@ -108,7 +112,15 @@ export function isPanelVisibleForAccess(panelConfig, accessContext) {
 
 export function guardMenuRuntimeEvent(eventType, accessContext, policyMap = MENU_EVENT_ACCESS_POLICIES) {
     const type = normalizeString(eventType, '');
+    const context = accessContext && typeof accessContext === 'object'
+        ? accessContext
+        : { isOwner: true, developerModeVisibility: MENU_DEVELOPER_ACCESS_MODES.OWNER_ONLY };
+    const isDeveloperEvent = type.startsWith('developer_');
+    const releaseCutActive = context.developerModeEnabled === false || context.releasePreviewEnabled === true;
+    if (isDeveloperEvent && type !== 'developer_release_preview_toggle' && releaseCutActive) {
+        return { allowed: false, reason: MENU_ACCESS_GUARD_REASONS.LOCKED };
+    }
     const rawPolicy = policyMap[type] || MENU_ACCESS_POLICIES.OPEN;
-    const policy = typeof rawPolicy === 'function' ? rawPolicy(accessContext || null) : rawPolicy;
-    return evaluateMenuAccessPolicy(policy, accessContext);
+    const policy = typeof rawPolicy === 'function' ? rawPolicy(context) : rawPolicy;
+    return evaluateMenuAccessPolicy(policy, context);
 }
