@@ -18,7 +18,23 @@ Abgeschlossene oder abgeloeste Planstaende liegen unter `docs/archive/plans/`.
 - Abgeloeste Master-/Detailplaene werden nach `docs/archive/plans/superseded/` verschoben.
 - Historische Altarchive unter `docs/archive/` bleiben als Referenz bestehen.
 
-## Prioritaeten (Stand: 2026-03-06)
+## Bearbeitungsprotokoll (merge-sicher)
+
+- Bestehende Bloecke werden nicht umsortiert oder umnummeriert.
+- Statusaenderungen passieren nur im jeweils betroffenen Block.
+- Neue Plaene werden bei Parallelbetrieb nicht mitten in bestehende Bereiche eingefuegt.
+- Ein zweiter Agent haengt neue Planideen oder neue Referenzplaene nur in `Plan-Eingang (append-only)` an.
+- Die Rueckfuehrung aus dem Eingang in einen Hauptblock passiert spaeter in einem separaten Cleanup-Schritt.
+- Prioritaeten und Index werden bewusst seltener angepasst als die Detailbloecke, um Merge-Konflikte klein zu halten.
+
+## Schnellindex Offener Arbeit
+
+- `V26 Gameplay & Features`: `V4`, `V5`, `V9`, `V11`, `V16`
+- `V27 Profile, Statistiken & UI`: `V7`, `V8`, `V15`
+- `V28 Architektur & Performance`: `V13`, Player-/Bot-God-Class-Refactoring
+- `Nachlauf / Technik`: `N1` Multiplayer-Runtime, `N2` Recording-UI, `T1` Testersatz, `T2` Bundle-Groesse
+
+## Prioritaeten (stabil, nur bei Bedarf anpassen)
 
 **Wichtig:**
 
@@ -37,47 +53,13 @@ Abgeschlossene oder abgeloeste Planstaende liegen unter `docs/archive/plans/`.
 - Dummy-Tests schrittweise durch echte Integritaetstests ersetzen.
 - Bundle-Groesse ueber Code-Splitting weiter optimieren.
 
-## Offene Produkt- und Technikpunkte
+## Aktive Workstreams
 
-- [ ] V4 Treffer-/Schadensfeedback verbessern
-  - Audio-/VFX-Signale fuer MG-, Raketen-, Trail- und Schildtreffer nachziehen.
-  - Zielpfade: `src/hunt/HuntHUD.js`, `src/core/Audio.js`, `src/entities/systems/ProjectileSystem.js`.
-- [ ] V5 Hunt-Mode Feintuning datenbasiert abschliessen
-  - TTK, Overheat, Respawn-Timer und Pickup-Spawns gegen Telemetrie kalibrieren.
-  - Zielpfade: `src/core/Config.js`, `src/hunt/HuntConfig.js`, `src/hunt/RespawnSystem.js`, `src/hunt/RocketPickupSystem.js`.
-- [ ] V7 Profile-UX ausbauen
-  - Profile duplizieren, importieren/exportieren und Standardprofil markieren.
-  - Zielpfade: `src/ui/SettingsStore.js`, `src/ui/Profile*Ops.js`, `src/ui/MenuController.js`.
-- [ ] V8 Post-Match-Statistiken erweitern
-  - Kill/Death, Trefferquote, Ueberlebenszeit und Todesursachen sichtbar machen.
-  - Zielpfade: `src/ui/HUD.js`, `src/ui/MatchFlowUiController.js`, `src/state/RoundRecorder.js`.
-- [ ] V9 Replay/Ghost fuer letzte Runde
-  - Leichten Replay-/Ghost-Pfad fuer Lern- und Highlight-Momente aufbauen.
-  - Zielpfade: `src/state/RoundRecorder.js`, `src/core/main.js`, `src/ui/MatchFlowUiController.js`.
-- [ ] V11 Mehr Map-Varianz ueber GLB/GLTF-Maps
-  - Externe GLB-Umgebungen inkl. Collider- und Fallback-Pfad integrieren.
-  - Zielpfade: `src/entities/Arena.js`, `src/entities/GLBMapLoader.js`, `src/core/Config.js`, `src/ui/MenuController.js`.
-- [ ] V13 Performance-Hotspot `maze` gezielt optimieren
-  - Draw-Calls per Batching/Instancing/LOD reduzieren, ohne Gameplay-Regression.
-  - Zielpfade: `src/entities/Arena.js`, `src/core/Renderer.js`, `src/core/Config.js`.
-- [ ] V15 Telemetrie-Dashboard fuer Balancing
-  - Winrate-, Survival-, Stuck- und Schadensmetriken pro Mode/Map/Bot-Level auswertbar machen.
-  - Zielpfade: `scripts/`, `data/`, `src/ui/`, `docs/archive/tests/Testergebnisse_*.md`.
-- [ ] V16 Event-Playlist/Fun-Modes
-  - Rotierende Spezialregeln als zeitlich limitierte Modi vorbereiten und testen.
-  - Zielpfade: `src/core/Config.js`, `src/core/main.js`, `src/ui/MenuController.js`.
-- [ ] N1 Multiplayer-Runtime statt UI-Stub
-  - Host/Join/Ready-Stubs in echte Netzwerksession und Runtime-Wiring ueberfuehren.
-  - Zielpfade: `src/ui/menu/MenuMultiplayerBridge.js`, `src/core/main.js`, kuenftige Netzwerkmodule.
-- [ ] N2 Recording-UI / manueller Trigger fuer V29
-  - Optionalen UI-Toggle bzw. manuellen Recording-Trigger produktiv anbinden.
-  - Zielpfade: `index.html`, `src/ui/KeybindEditorController.js`, `src/ui/menu/MenuControlBindings.js`, `src/core/MediaRecorderSystem.js`.
-- [ ] T1 Dummy-Tests schrittweise durch echte Integritaetstests ersetzen
-  - Bestehende Platzhaltertests entlang des geaenderten Codes ersetzen.
-- [ ] T2 Bundle-Groesse weiter optimieren
-  - Code-Splitting und Ladepfade nur dann vertiefen, wenn der Nutzen messbar bleibt.
+### Block V26: Gameplay & Features
 
-## Single-Agent Block V26: Gameplay & Features (offen)
+- Scope: `V4`, `V5`, `V9`, `V11`, `V16`
+- Hauptpfade: `src/hunt/**`, `src/entities/**`, `src/core/**`, `src/ui/**`
+- Konfliktregel: keine neuen fremden Plaene mitten in diesen Block einfuegen; neue Arbeit nur im `Plan-Eingang` ankuendigen
 
 - [ ] 26.0 Baseline-Freeze und Gameplay-Metriken erfassen
 - [ ] 26.1 V4 Treffer-/Schadensfeedback (Audio & VFX)
@@ -97,7 +79,11 @@ Abgeschlossene oder abgeloeste Planstaende liegen unter `docs/archive/plans/`.
 - [ ] 26.6 V16 Event-Playlist / Fun-Modes Mechanik testen
 - [ ] 26.8 Abschluss-Gate, Playtest und Doku-Freeze (`docs:sync`, `docs:check`)
 
-## Single-Agent Block V27: Profile, Statistiken & UI (offen)
+### Block V27: Profile, Statistiken & UI
+
+- Scope: `V7`, `V8`, `V15`
+- Hauptpfade: `src/ui/**`, `src/state/**`, `scripts/**`, `data/**`
+- Konfliktregel: Statistik-/Profil-Details nur in diesem Block pflegen
 
 - [ ] 27.0 Baseline-Freeze und UI-Markup-Analyse
 - [ ] 27.1 V7 Profile-UX Ausbau
@@ -109,7 +95,11 @@ Abgeschlossene oder abgeloeste Planstaende liegen unter `docs/archive/plans/`.
 - [ ] 27.3 V15 Telemetrie-Dashboard fuer iteratives Balancing
 - [ ] 27.4 Abschluss-Gate, UI-Verifikation und Doku-Freeze (`docs:sync`, `docs:check`)
 
-## Single-Agent Block V28: Architektur & Performance (offen)
+### Block V28: Architektur & Performance
+
+- Scope: `V13`, Player-/Bot-God-Class-Refactoring
+- Hauptpfade: `src/entities/**`, `src/core/**`
+- Konfliktregel: `maze`-Optimierung und Klassen-Splits bleiben in diesem Block gebuendelt
 
 - [ ] 28.0 Baseline-Freeze und Regression-Setup
 - [ ] 28.1 Player "God Class" Refactoring
@@ -120,6 +110,45 @@ Abgeschlossene oder abgeloeste Planstaende liegen unter `docs/archive/plans/`.
   - [ ] 28.2.2 Sensing/Probing-Logik fuer kuenftiges ML-Training abstrahieren
 - [ ] 28.3 V13 Performance-Hotspot `maze` (Draw-Calls / Batching optimieren)
 - [ ] 28.4 Abschluss-Gate, Performance-Metrics pruefen und Doku-Freeze (`docs:sync`, `docs:check`)
+
+## Nachlauf / Technik-Backlog
+
+- [ ] N1 Multiplayer-Runtime statt UI-Stub
+  - Ziel: Host/Join/Ready-Stubs in echte Netzwerksession und Runtime-Wiring ueberfuehren.
+  - Zielpfade: `src/ui/menu/MenuMultiplayerBridge.js`, `src/core/main.js`, kuenftige Netzwerkmodule.
+- [ ] N2 Recording-UI / manueller Trigger fuer V29
+  - Ziel: optionalen UI-Toggle bzw. manuellen Recording-Trigger produktiv anbinden.
+  - Zielpfade: `index.html`, `src/ui/KeybindEditorController.js`, `src/ui/menu/MenuControlBindings.js`, `src/core/MediaRecorderSystem.js`.
+- [ ] T1 Dummy-Tests schrittweise durch echte Integritaetstests ersetzen
+  - Ziel: bestehende Platzhaltertests entlang des geaenderten Codes ersetzen.
+- [ ] T2 Bundle-Groesse weiter optimieren
+  - Ziel: Code-Splitting und Ladepfade nur dann vertiefen, wenn der Nutzen messbar bleibt.
+
+## Plan-Eingang (append-only)
+
+Regeln:
+
+- Neue Plaene eines zweiten Agenten nur hier am Ende anhaengen.
+- Bestehende Bloecke dafuer nicht umsortieren.
+- Pro neuem Plan genau einen Eintrag anlegen; die spaetere Einsortierung passiert separat.
+
+Template:
+
+- [ ] PX Kurztitel
+  - Erstellt am: `YYYY-MM-DD`
+  - Agent: `A` oder `B`
+  - Plan-Datei: `docs/Feature_Name.md`
+  - Datei-Scope: `src/...`, `tests/...`
+  - Konfliktregel: kurzer Hinweis zu Datei-Overlap oder bewusstem Non-Overlap
+
+<!-- PLAN-INTAKE-START -->
+- [ ] PX Menu UX Follow-up V26.3c
+  - Erstellt am: `2026-03-06`
+  - Agent: `A`
+  - Plan-Datei: `docs/Feature_Menu_UX_Followup_V26_3c.md`
+  - Datei-Scope: `index.html`, `style.css`, `src/ui/**`, `tests/**`
+  - Konfliktregel: nur append-only Intake-Eintrag; keine Umsortierung bestehender Masterplan-Bloecke waehrend paralleler Restrukturierung
+<!-- PLAN-INTAKE-END -->
 
 ## Archivierte Referenzen
 

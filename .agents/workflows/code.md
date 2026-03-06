@@ -13,6 +13,8 @@ description: Implement a planned change from coding to verification and commit.
 - Define target files and expected behavior.
 - If scope is clear, proceed directly.
 - Ask only for critical missing constraints.
+- If unrelated worktree changes from another agent/user exist, do not absorb them into the current task.
+- After explicit user approval, continue with strictly scoped staging/commit for only the files owned by the current task.
 
 ## 2. Implement
 
@@ -51,6 +53,8 @@ git commit -m "[type]: [name] - [short reason]"
 - `type` must match workflow intent (`feat`, `fix`, `refactor`, `perf`, `chore`, `release`).
 - Before push, show impacted files (`git diff --name-only`) and confirm scope if unrelated changes exist.
 - Push only after scope confirmation.
+- In parallel-agent scenarios, never stage unrelated modified or untracked files just to get a clean worktree.
+- If foreign changes remain in the worktree, commit only the scoped files for the current task and mention the untouched paths in the report.
 
 ## Report
 
