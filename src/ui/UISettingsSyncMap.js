@@ -29,6 +29,16 @@ export const UI_SETTINGS_SYNC_MAP = Object.freeze({
     [SETTINGS_CHANGE_KEYS.GAMEPLAY_PLANAR_LEVEL_COUNT]: ['syncGameplay'],
     [SETTINGS_CHANGE_KEYS.VEHICLES_PLAYER_1]: ['syncVehicles'],
     [SETTINGS_CHANGE_KEYS.VEHICLES_PLAYER_2]: ['syncVehicles'],
+    [SETTINGS_CHANGE_KEYS.PRESET_ACTIVE_ID]: ['syncPresetState'],
+    [SETTINGS_CHANGE_KEYS.PRESET_ACTIVE_KIND]: ['syncPresetState'],
+    [SETTINGS_CHANGE_KEYS.PRESET_LIST]: ['syncPresetState'],
+    [SETTINGS_CHANGE_KEYS.PRESET_STATUS]: ['syncPresetState'],
+    [SETTINGS_CHANGE_KEYS.MULTIPLAYER_STATUS]: ['syncMultiplayerState'],
+    [SETTINGS_CHANGE_KEYS.DEVELOPER_MODE_ENABLED]: ['syncDeveloperState'],
+    [SETTINGS_CHANGE_KEYS.DEVELOPER_THEME_ID]: ['syncDeveloperState'],
+    [SETTINGS_CHANGE_KEYS.DEVELOPER_VISIBILITY_MODE]: ['syncDeveloperState'],
+    [SETTINGS_CHANGE_KEYS.DEVELOPER_FIXED_PRESET_LOCK]: ['syncDeveloperState'],
+    [SETTINGS_CHANGE_KEYS.DEVELOPER_ACTOR_ID]: ['syncDeveloperState'],
 });
 
 const SYNC_METHOD_EXECUTION_ORDER = Object.freeze([
@@ -38,6 +48,9 @@ const SYNC_METHOD_EXECUTION_ORDER = Object.freeze([
     'syncRules',
     'syncGameplay',
     'syncVehicles',
+    'syncPresetState',
+    'syncMultiplayerState',
+    'syncDeveloperState',
 ]);
 
 export function resolveSyncMethodNamesForChangeKeys(changedKeys) {

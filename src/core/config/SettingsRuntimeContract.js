@@ -76,12 +76,20 @@ export function normalizeControlBindings(source, fallback, { guardCombatConflict
     };
 }
 
+export function normalizeGlobalControlBindings(source, fallback) {
+    const src = source && typeof source === 'object' ? source : {};
+    const base = fallback || {};
+    return {
+        CINEMATIC_TOGGLE: src.CINEMATIC_TOGGLE || base.CINEMATIC_TOGGLE || 'F8',
+    };
+}
+
 export function createControlBindingsSnapshot(controls, fallbackControls, options = {}) {
     const defaults = fallbackControls || {};
     const src = controls && typeof controls === 'object' ? controls : {};
     return {
         PLAYER_1: normalizeControlBindings(src.PLAYER_1, defaults.PLAYER_1, options),
         PLAYER_2: normalizeControlBindings(src.PLAYER_2, defaults.PLAYER_2, options),
+        GLOBAL: normalizeGlobalControlBindings(src.GLOBAL, defaults.GLOBAL),
     };
 }
-

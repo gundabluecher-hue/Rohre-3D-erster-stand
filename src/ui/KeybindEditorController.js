@@ -1,4 +1,4 @@
-import { KEY_BIND_ACTIONS } from '../core/SettingsManager.js';
+import { GLOBAL_KEY_BIND_ACTIONS, KEY_BIND_ACTIONS } from '../core/SettingsManager.js';
 
 export class KeybindEditorController {
     constructor(game) {
@@ -8,18 +8,19 @@ export class KeybindEditorController {
     renderEditor() {
         const game = this.game;
         const conflicts = this.collectKeyConflicts();
-        this.renderKeybindRows('PLAYER_1', game.ui.keybindP1, conflicts);
-        this.renderKeybindRows('PLAYER_2', game.ui.keybindP2, conflicts);
+        this.renderKeybindRows('PLAYER_1', game.ui.keybindP1, KEY_BIND_ACTIONS, conflicts);
+        this.renderKeybindRows('PLAYER_2', game.ui.keybindP2, KEY_BIND_ACTIONS, conflicts);
+        this.renderKeybindRows('GLOBAL', game.ui.keybindGlobal, GLOBAL_KEY_BIND_ACTIONS, conflicts);
         this.updateKeyConflictWarning(conflicts);
     }
 
-    renderKeybindRows(playerKey, container, conflicts) {
+    renderKeybindRows(playerKey, container, actions, conflicts) {
         if (!container) return;
 
         const game = this.game;
         container.innerHTML = '';
 
-        for (const action of KEY_BIND_ACTIONS) {
+        for (const action of actions) {
             const row = document.createElement('div');
             row.className = 'key-row';
 
@@ -92,9 +93,14 @@ export class KeybindEditorController {
 
     collectKeyConflicts() {
         const counts = new Map();
-        for (const playerKey of ['PLAYER_1', 'PLAYER_2']) {
-            for (const action of KEY_BIND_ACTIONS) {
-                const code = this.getControlValue(playerKey, action.key);
+        const scopes = [
+            { key: 'PLAYER_1', actions: KEY_BIND_ACTIONS },
+            { key: 'PLAYER_2', actions: KEY_BIND_ACTIONS },
+            { key: 'GLOBAL', actions: GLOBAL_KEY_BIND_ACTIONS },
+        ];
+        for (const scope of scopes) {
+            for (const action of scope.actions) {
+                const code = this.getControlValue(scope.key, action.key);
                 if (!code) continue;
                 counts.set(code, (counts.get(code) || 0) + 1);
             }

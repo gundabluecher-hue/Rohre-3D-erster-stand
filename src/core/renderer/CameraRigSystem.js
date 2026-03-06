@@ -3,9 +3,10 @@ import { CONFIG } from '../Config.js';
 import { CameraCollisionSolver } from './camera/CameraCollisionSolver.js';
 import { CameraModeStrategySet } from './camera/CameraModeStrategySet.js';
 import { CameraShakeSolver } from './camera/CameraShakeSolver.js';
+import { CinematicCameraSystem } from '../../entities/systems/CinematicCameraSystem.js';
 
 export class CameraRigSystem {
-    constructor() {
+    constructor({ cinematicEnabled = true } = {}) {
         this.cameras = [];
         this.cameraTargets = [];
         this.cameraModes = [];
@@ -26,6 +27,9 @@ export class CameraRigSystem {
             this.cameraShakeDurations,
             this.cameraShakeIntensities
         );
+        this.cinematicCameraSystem = new CinematicCameraSystem({
+            enabled: cinematicEnabled,
+        });
     }
 
     createCamera(aspect) {
@@ -61,6 +65,14 @@ export class CameraRigSystem {
 
     triggerCameraShake(playerIndex, intensity = 0.2, duration = 0.2) {
         this.shakeSolver.trigger(playerIndex, this.cameras.length, intensity, duration);
+    }
+
+    setCinematicEnabled(enabled) {
+        this.cinematicCameraSystem.setEnabled(enabled);
+    }
+
+    getCinematicEnabled() {
+        return this.cinematicCameraSystem.isEnabled();
     }
 
     updateCamera(
@@ -159,6 +171,17 @@ export class CameraRigSystem {
             this.modeStrategies.applyTopDown(target, playerPosition);
         }
 
+        this.cinematicCameraSystem.apply({
+            playerIndex,
+            mode,
+            target,
+            playerDirection,
+            playerPosition,
+            dt,
+            isBoosting,
+            cockpitCamera,
+        });
+
         if (hasShake) {
             target.position.add(shakeOffset);
             target.lookAt.addScaledVector(shakeOffset, 0.35);
@@ -188,6 +211,6 @@ export class CameraRigSystem {
         this.cameraShakeDurations.length = 0;
         this.cameraShakeIntensities.length = 0;
         this.collisionSolver.reset();
+        this.cinematicCameraSystem.reset();
     }
 }
-

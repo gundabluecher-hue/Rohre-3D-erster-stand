@@ -288,6 +288,7 @@ export const CONFIG_SECTIONS = {
         FOV: 75,
         NEAR: 0.1,
         FAR: 200,
+        CINEMATIC_ENABLED: true,
         FOLLOW_DISTANCE: 12,
         FOLLOW_HEIGHT: 6,
         LOOK_AHEAD: 5,
@@ -333,6 +334,9 @@ export const CONFIG_SECTIONS = {
             NEXT_ITEM: 'KeyL',
             DROP: 'KeyH',
             CAMERA: 'KeyV',
+        },
+        GLOBAL: {
+            CINEMATIC_TOGGLE: 'F8',
         }
     }
 };

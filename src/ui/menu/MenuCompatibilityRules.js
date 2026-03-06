@@ -1,0 +1,276 @@
+import { GAME_MODE_TYPES } from '../../hunt/HuntMode.js';
+import { SETTINGS_CHANGE_KEYS } from '../SettingsChangeKeys.js';
+import { findFixedMenuPresetById } from './MenuPresetCatalog.js';
+import { MENU_DEVELOPER_ACCESS_MODES } from './MenuStateContracts.js';
+
+export const MENU_COMPATIBILITY_CONTRACT_VERSION = 'menu-compatibility.v1';
+
+const MENU_COMPATIBILITY_RULES = Object.freeze([
+    { id: 'mode_hunt_respawn', priority: 10 },
+    { id: 'preset_identity_integrity', priority: 20 },
+    { id: 'fixed_preset_exists', priority: 30 },
+    { id: 'fixed_preset_binding', priority: 40 },
+    { id: 'fixed_lock_requires_fixed_preset', priority: 50 },
+    { id: 'developer_feature_flag_guard', priority: 60 },
+    { id: 'developer_visibility_guard', priority: 70 },
+]);
+
+function normalizeString(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function addChangedKey(result, key) {
+    if (typeof key !== 'string' || !key.trim()) return;
+    result._changedKeySet.add(key);
+}
+
+function trackFix(result, ruleId, path, previousValue, nextValue, reason) {
+    if (Object.is(previousValue, nextValue)) return;
+    if (!result.appliedRuleIds.includes(ruleId)) {
+        result.appliedRuleIds.push(ruleId);
+    }
+    result.fixes.push({
+        ruleId,
+        path,
+        from: previousValue,
+        to: nextValue,
+        reason,
+    });
+}
+
+function applyModeHuntRespawnRule(settings, result) {
+    if (!settings?.hunt || typeof settings.hunt !== 'object') return;
+    if (settings.gameMode === GAME_MODE_TYPES.HUNT) return;
+    if (settings.hunt.respawnEnabled !== true) return;
+
+    const previousValue = settings.hunt.respawnEnabled;
+    settings.hunt.respawnEnabled = false;
+    addChangedKey(result, SETTINGS_CHANGE_KEYS.HUNT_RESPAWN_ENABLED);
+    trackFix(
+        result,
+        'mode_hunt_respawn',
+        'hunt.respawnEnabled',
+        previousValue,
+        settings.hunt.respawnEnabled,
+        'respawn_requires_hunt_mode'
+    );
+}
+
+function applyPresetIdentityIntegrityRule(settings, result) {
+    if (!settings?.matchSettings || typeof settings.matchSettings !== 'object') return;
+    const activePresetId = normalizeString(settings.matchSettings.activePresetId);
+    const activePresetKind = normalizeString(settings.matchSettings.activePresetKind);
+    const activePresetSourceId = normalizeString(settings.matchSettings.activePresetSourceId);
+
+    if (activePresetId) return;
+
+    if (activePresetKind) {
+        const previousValue = settings.matchSettings.activePresetKind;
+        settings.matchSettings.activePresetKind = '';
+        addChangedKey(result, SETTINGS_CHANGE_KEYS.PRESET_ACTIVE_KIND);
+        trackFix(
+            result,
+            'preset_identity_integrity',
+            'matchSettings.activePresetKind',
+            previousValue,
+            settings.matchSettings.activePresetKind,
+            'active_preset_kind_requires_id'
+        );
+    }
+
+    if (activePresetSourceId) {
+        const previousValue = settings.matchSettings.activePresetSourceId;
+        settings.matchSettings.activePresetSourceId = '';
+        addChangedKey(result, SETTINGS_CHANGE_KEYS.PRESET_STATUS);
+        trackFix(
+            result,
+            'preset_identity_integrity',
+            'matchSettings.activePresetSourceId',
+            previousValue,
+            settings.matchSettings.activePresetSourceId,
+            'active_preset_source_requires_id'
+        );
+    }
+}
+
+function clearActivePresetIdentity(settings, result, reason) {
+    const activePresetId = normalizeString(settings?.matchSettings?.activePresetId);
+    const activePresetKind = normalizeString(settings?.matchSettings?.activePresetKind);
+    const activePresetSourceId = normalizeString(settings?.matchSettings?.activePresetSourceId);
+    if (!activePresetId && !activePresetKind && !activePresetSourceId) return;
+
+    const previousId = settings.matchSettings.activePresetId;
+    const previousKind = settings.matchSettings.activePresetKind;
+    const previousSource = settings.matchSettings.activePresetSourceId;
+    settings.matchSettings.activePresetId = '';
+    settings.matchSettings.activePresetKind = '';
+    settings.matchSettings.activePresetSourceId = '';
+    addChangedKey(result, SETTINGS_CHANGE_KEYS.PRESET_ACTIVE_ID);
+    addChangedKey(result, SETTINGS_CHANGE_KEYS.PRESET_ACTIVE_KIND);
+    addChangedKey(result, SETTINGS_CHANGE_KEYS.PRESET_STATUS);
+    trackFix(
+        result,
+        'fixed_preset_exists',
+        'matchSettings.activePresetId',
+        previousId,
+        settings.matchSettings.activePresetId,
+        reason
+    );
+    trackFix(
+        result,
+        'fixed_preset_exists',
+        'matchSettings.activePresetKind',
+        previousKind,
+        settings.matchSettings.activePresetKind,
+        reason
+    );
+    trackFix(
+        result,
+        'fixed_preset_exists',
+        'matchSettings.activePresetSourceId',
+        previousSource,
+        settings.matchSettings.activePresetSourceId,
+        reason
+    );
+}
+
+function applyFixedPresetExistsRule(settings, result) {
+    if (!settings?.matchSettings || typeof settings.matchSettings !== 'object') return;
+    const activePresetId = normalizeString(settings.matchSettings.activePresetId);
+    const activePresetKind = normalizeString(settings.matchSettings.activePresetKind);
+    if (!activePresetId || activePresetKind !== 'fixed') return;
+
+    const fixedPreset = findFixedMenuPresetById(activePresetId);
+    if (fixedPreset) return;
+    clearActivePresetIdentity(settings, result, 'fixed_preset_not_found');
+}
+
+function applyFixedPresetBindingRule(settings, result) {
+    if (!settings?.localSettings || typeof settings.localSettings !== 'object') return;
+    const activePresetId = normalizeString(settings?.matchSettings?.activePresetId);
+    const activePresetKind = normalizeString(settings?.matchSettings?.activePresetKind);
+    const fixedPresetId = normalizeString(settings.localSettings.fixedPresetId);
+
+    if (activePresetId && activePresetKind === 'fixed') {
+        if (fixedPresetId === activePresetId) return;
+        const previousValue = settings.localSettings.fixedPresetId;
+        settings.localSettings.fixedPresetId = activePresetId;
+        addChangedKey(result, SETTINGS_CHANGE_KEYS.PRESET_STATUS);
+        trackFix(
+            result,
+            'fixed_preset_binding',
+            'localSettings.fixedPresetId',
+            previousValue,
+            settings.localSettings.fixedPresetId,
+            'sync_fixed_preset_id'
+        );
+        return;
+    }
+
+    if (!fixedPresetId) return;
+    const previousValue = settings.localSettings.fixedPresetId;
+    settings.localSettings.fixedPresetId = '';
+    addChangedKey(result, SETTINGS_CHANGE_KEYS.PRESET_STATUS);
+    trackFix(
+        result,
+        'fixed_preset_binding',
+        'localSettings.fixedPresetId',
+        previousValue,
+        settings.localSettings.fixedPresetId,
+        'clear_orphan_fixed_preset_id'
+    );
+}
+
+function applyFixedLockRequiresFixedPresetRule(settings, result) {
+    if (!settings?.localSettings || typeof settings.localSettings !== 'object') return;
+    if (!settings.localSettings.fixedPresetLockEnabled) return;
+    const activePresetKind = normalizeString(settings?.matchSettings?.activePresetKind);
+    if (activePresetKind === 'fixed') return;
+
+    const previousValue = settings.localSettings.fixedPresetLockEnabled;
+    settings.localSettings.fixedPresetLockEnabled = false;
+    addChangedKey(result, SETTINGS_CHANGE_KEYS.DEVELOPER_FIXED_PRESET_LOCK);
+    trackFix(
+        result,
+        'fixed_lock_requires_fixed_preset',
+        'localSettings.fixedPresetLockEnabled',
+        previousValue,
+        settings.localSettings.fixedPresetLockEnabled,
+        'fixed_lock_without_fixed_preset'
+    );
+}
+
+function applyDeveloperFeatureFlagGuardRule(settings, result) {
+    if (settings?.menuFeatureFlags?.developerModeEnabled !== false) return;
+    if (!settings?.localSettings || typeof settings.localSettings !== 'object') return;
+    if (!settings.localSettings.developerModeEnabled) return;
+
+    const previousValue = settings.localSettings.developerModeEnabled;
+    settings.localSettings.developerModeEnabled = false;
+    addChangedKey(result, SETTINGS_CHANGE_KEYS.DEVELOPER_MODE_ENABLED);
+    trackFix(
+        result,
+        'developer_feature_flag_guard',
+        'localSettings.developerModeEnabled',
+        previousValue,
+        settings.localSettings.developerModeEnabled,
+        'developer_feature_flag_disabled'
+    );
+}
+
+function applyDeveloperVisibilityGuardRule(settings, result, accessContext) {
+    if (!settings?.localSettings || typeof settings.localSettings !== 'object') return;
+    const visibilityMode = normalizeString(settings.localSettings.developerModeVisibility);
+    if (visibilityMode !== MENU_DEVELOPER_ACCESS_MODES.HIDDEN_FOR_PLAYERS) return;
+    if (accessContext?.isOwner) return;
+    if (!settings.localSettings.developerModeEnabled) return;
+
+    const previousValue = settings.localSettings.developerModeEnabled;
+    settings.localSettings.developerModeEnabled = false;
+    addChangedKey(result, SETTINGS_CHANGE_KEYS.DEVELOPER_MODE_ENABLED);
+    trackFix(
+        result,
+        'developer_visibility_guard',
+        'localSettings.developerModeEnabled',
+        previousValue,
+        settings.localSettings.developerModeEnabled,
+        'developer_hidden_for_players'
+    );
+}
+
+export function getMenuCompatibilityRuleOrder() {
+    return MENU_COMPATIBILITY_RULES
+        .slice()
+        .sort((left, right) => left.priority - right.priority)
+        .map((rule) => rule.id);
+}
+
+export function applyMenuCompatibilityRules(settings, options = {}) {
+    const source = settings && typeof settings === 'object' ? settings : null;
+    const accessContext = options.accessContext && typeof options.accessContext === 'object'
+        ? options.accessContext
+        : null;
+    const result = {
+        contractVersion: MENU_COMPATIBILITY_CONTRACT_VERSION,
+        appliedRuleIds: [],
+        fixes: [],
+        changedKeys: [],
+        _changedKeySet: new Set(),
+    };
+    if (!source) {
+        delete result._changedKeySet;
+        return result;
+    }
+
+    applyModeHuntRespawnRule(source, result);
+    applyPresetIdentityIntegrityRule(source, result);
+    applyFixedPresetExistsRule(source, result);
+    applyFixedPresetBindingRule(source, result);
+    applyFixedLockRequiresFixedPresetRule(source, result);
+    applyDeveloperFeatureFlagGuardRule(source, result);
+    applyDeveloperVisibilityGuardRule(source, result, accessContext);
+
+    result.changedKeys = Array.from(result._changedKeySet);
+    delete result._changedKeySet;
+    return result;
+}

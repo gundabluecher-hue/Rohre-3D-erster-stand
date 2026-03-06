@@ -27,6 +27,16 @@ export const SETTINGS_CHANGE_KEYS = Object.freeze({
     GAMEPLAY_PLANAR_MODE: 'gameplay.planarMode',
     GAMEPLAY_PORTAL_COUNT: 'gameplay.portalCount',
     GAMEPLAY_PLANAR_LEVEL_COUNT: 'gameplay.planarLevelCount',
+    PRESET_ACTIVE_ID: 'preset.activeId',
+    PRESET_ACTIVE_KIND: 'preset.activeKind',
+    PRESET_LIST: 'preset.list',
+    PRESET_STATUS: 'preset.status',
+    MULTIPLAYER_STATUS: 'multiplayer.status',
+    DEVELOPER_MODE_ENABLED: 'developer.modeEnabled',
+    DEVELOPER_THEME_ID: 'developer.themeId',
+    DEVELOPER_VISIBILITY_MODE: 'developer.visibilityMode',
+    DEVELOPER_FIXED_PRESET_LOCK: 'developer.fixedPresetLock',
+    DEVELOPER_ACTOR_ID: 'developer.actorId',
 });
 
 const SETTINGS_CHANGE_KEY_SET = new Set(Object.values(SETTINGS_CHANGE_KEYS));

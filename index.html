@@ -40,17 +40,23 @@
                 <!-- ======= HAUPTNAVIGATION ======= -->
                 <div id="menu-nav" class="menu-nav-grid" role="navigation" aria-label="Hauptmenue">
                     <button type="button" class="nav-btn" data-submenu="submenu-game" aria-controls="submenu-game"
-                        aria-expanded="false">🎮 Spiel starten</button>
+                        aria-expanded="false" data-menu-action="open-panel">🎮 Spiel starten</button>
+                    <button type="button" class="nav-btn" data-submenu="submenu-custom" aria-controls="submenu-custom"
+                        aria-expanded="false" data-menu-action="open-panel">🧩 Benutzerdefiniert</button>
+                    <button type="button" class="nav-btn" data-submenu="submenu-multiplayer"
+                        aria-controls="submenu-multiplayer" aria-expanded="false" data-menu-action="open-panel">🌐 Multiplayer</button>
                     <button type="button" class="nav-btn" data-submenu="submenu-settings"
-                        aria-controls="submenu-settings" aria-expanded="false">⚙️ Einstellungen</button>
+                        aria-controls="submenu-settings" aria-expanded="false" data-menu-action="open-panel">⚙️ Einstellungen</button>
                     <button type="button" class="nav-btn" data-submenu="submenu-controls"
-                        aria-controls="submenu-controls" aria-expanded="false">🎯 Steuerung</button>
+                        aria-controls="submenu-controls" aria-expanded="false" data-menu-action="open-panel">🎯 Steuerung</button>
                     <button type="button" class="nav-btn" data-submenu="submenu-profiles"
-                        aria-controls="submenu-profiles" aria-expanded="false">👤 Profile</button>
+                        aria-controls="submenu-profiles" aria-expanded="false" data-menu-action="open-panel">👤 Profile</button>
                     <button type="button" class="nav-btn" data-submenu="submenu-portals" aria-controls="submenu-portals"
-                        aria-expanded="false">🌀 Portale / Map</button>
+                        aria-expanded="false" data-menu-action="open-panel">🌀 Portale / Map</button>
+                    <button type="button" class="nav-btn" data-submenu="submenu-developer"
+                        aria-controls="submenu-developer" aria-expanded="false" data-menu-action="open-panel">🛠️ Developer</button>
                     <button type="button" class="nav-btn" data-submenu="submenu-debug" aria-controls="submenu-debug"
-                        aria-expanded="false">ℹ️ Debug / Info</button>
+                        aria-expanded="false" data-menu-action="open-panel">ℹ️ Debug / Info</button>
                     <div class="nav-help-card" role="note">
                         <div class="nav-help-title">Schnellstart</div>
                         <div class="nav-help-content">
@@ -72,9 +78,9 @@
 
                 <!-- ======= SUBMENU: SPIEL STARTEN ======= -->
                 <div id="submenu-game" class="submenu-panel hidden" role="region" aria-labelledby="submenu-game-title"
-                    aria-hidden="true">
+                    aria-hidden="true" data-menu-panel="quickstart">
                     <div class="submenu-header">
-                        <button type="button" class="back-btn" data-back aria-label="Zur Hauptnavigation">←
+                        <button type="button" class="back-btn" data-back data-menu-action="back" aria-label="Zur Hauptnavigation">←
                             Zurück</button>
                         <h2 id="submenu-game-title" class="submenu-title">🎮 Spiel starten</h2>
                     </div>
@@ -105,6 +111,16 @@
                                 <input type="checkbox" id="hunt-respawn-toggle">
                                 Respawn aktivieren
                             </label>
+                        </div>
+
+                        <div class="menu-section" data-menu-panel="quickstart-presets">
+                            <h2 class="section-title">Quickstart Presets (V6)</h2>
+                            <div class="btn-group">
+                                <button type="button" class="secondary-btn" data-preset-id="arcade">Arcade</button>
+                                <button type="button" class="secondary-btn" data-preset-id="competitive">Competitive</button>
+                                <button type="button" class="secondary-btn" data-preset-id="chaos">Chaos</button>
+                            </div>
+                            <small id="preset-status" class="menu-hint">Preset: custom</small>
                         </div>
 
                         <div class="menu-section">
@@ -148,21 +164,106 @@
                             <select id="vehicle-select-p2"></select>
                         </div>
 
-                        <button type="button" id="btn-start" class="start-btn">Spiel starten</button>
-                        <button type="button" id="btn-open-editor" class="secondary-btn secondary-btn-spaced">
+                        <div class="menu-section">
+                            <h2 class="section-title">Preset Verwaltung</h2>
+                            <label for="preset-select">Preset Katalog</label>
+                            <select id="preset-select">
+                                <option value="">Preset waehlen</option>
+                            </select>
+                        <button type="button" id="btn-preset-apply" class="secondary-btn secondary-btn-spaced" data-menu-action="preset-apply">
+                            Preset anwenden
+                        </button>
+                            <label for="preset-name">Neuer Preset-Name</label>
+                            <input type="text" id="preset-name" maxlength="40" placeholder="z. B. Team Scrim">
+                            <button type="button" id="btn-preset-save-open" class="secondary-btn secondary-btn-spaced" data-menu-action="preset-save-open">
+                                Als open preset speichern
+                            </button>
+                            <button type="button" id="btn-preset-save-fixed" class="secondary-btn secondary-btn-spaced" data-menu-action="preset-save-fixed">
+                                Als fixed preset speichern (owner)
+                            </button>
+                            <button type="button" id="btn-preset-delete" class="secondary-btn secondary-btn-spaced" data-menu-action="preset-delete">
+                                Preset loeschen
+                            </button>
+                        </div>
+
+                        <button type="button" id="btn-start" class="start-btn" data-menu-action="start-match">Spiel starten</button>
+                        <button type="button" id="btn-open-editor" class="secondary-btn secondary-btn-spaced" data-menu-action="open-map-editor">
                             3D Map-Editor öffnen
                         </button>
-                        <button type="button" id="btn-open-vehicle-editor" class="secondary-btn secondary-btn-spaced">
+                        <button type="button" id="btn-open-vehicle-editor" class="secondary-btn secondary-btn-spaced" data-menu-action="open-vehicle-editor">
                             Vehicle-Editor öffnen
                         </button>
                     </div>
                 </div>
 
+                <!-- ======= SUBMENU: BENUTZERDEFINIERT ======= -->
+                <div id="submenu-custom" class="submenu-panel hidden" role="region"
+                    aria-labelledby="submenu-custom-title" aria-hidden="true" data-menu-panel="custom">
+                    <div class="submenu-header">
+                        <button type="button" class="back-btn" data-back data-menu-action="back" aria-label="Zur Hauptnavigation">←
+                            Zurück</button>
+                        <h2 id="submenu-custom-title" class="submenu-title">🧩 Benutzerdefiniert</h2>
+                    </div>
+                    <div class="submenu-body">
+                        <div class="menu-section">
+                            <h2 class="section-title">Schrittweiser Setup</h2>
+                            <div class="btn-group">
+                                <button type="button" class="secondary-btn" data-menu-step-target="submenu-settings">1. Regeln</button>
+                                <button type="button" class="secondary-btn" data-menu-step-target="submenu-controls">2. Steuerung</button>
+                            </div>
+                            <div class="btn-group secondary-btn-spaced">
+                                <button type="button" class="secondary-btn" data-menu-step-target="submenu-profiles">3. Profile</button>
+                                <button type="button" class="secondary-btn" data-menu-step-target="submenu-portals">4. Portale/Map</button>
+                            </div>
+                            <small class="menu-hint">Stepper bleibt klickbar; du kannst in jeden Schritt direkt springen.</small>
+                        </div>
+                        <div class="menu-section">
+                            <button type="button" class="secondary-btn" data-menu-step-target="submenu-game">Zu Quickstart & Startbutton</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ======= SUBMENU: MULTIPLAYER ======= -->
+                <div id="submenu-multiplayer" class="submenu-panel hidden" role="region"
+                    aria-labelledby="submenu-multiplayer-title" aria-hidden="true" data-menu-panel="multiplayer">
+                    <div class="submenu-header">
+                        <button type="button" class="back-btn" data-back data-menu-action="back" aria-label="Zur Hauptnavigation">←
+                            Zurück</button>
+                        <h2 id="submenu-multiplayer-title" class="submenu-title">🌐 Multiplayer</h2>
+                    </div>
+
+                    <div class="submenu-body">
+                        <div class="menu-section">
+                            <h2 class="section-title">Lobby (Stub v1)</h2>
+                            <label for="multiplayer-lobby-code">Lobby Code</label>
+                            <input type="text" id="multiplayer-lobby-code" maxlength="32" placeholder="z. B. TEST-1234">
+                        </div>
+                        <div class="menu-section">
+                            <div class="btn-group">
+                                <button type="button" id="btn-multiplayer-host" class="secondary-btn" data-menu-action="multiplayer-host">Host</button>
+                                <button type="button" id="btn-multiplayer-join" class="secondary-btn" data-menu-action="multiplayer-join">Join</button>
+                            </div>
+                        </div>
+                        <div class="menu-section">
+                            <label class="toggle-row" for="multiplayer-ready-toggle">
+                                <input type="checkbox" id="multiplayer-ready-toggle">
+                                Ready setzen
+                            </label>
+                        </div>
+                        <div class="menu-section">
+                            <p id="multiplayer-status" class="menu-hint" role="status" aria-live="polite">
+                                Lobby Stub v1 | Rolle: Host
+                            </p>
+                            <p class="menu-hint">Hinweis: Netzwerk-Runtime folgt spaeter, aktuell Event-Bridge mit Fallback.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- ======= SUBMENU: EINSTELLUNGEN ======= -->
                 <div id="submenu-settings" class="submenu-panel hidden" role="region"
-                    aria-labelledby="submenu-settings-title" aria-hidden="true">
+                    aria-labelledby="submenu-settings-title" aria-hidden="true" data-menu-panel="settings">
                     <div class="submenu-header">
-                        <button type="button" class="back-btn" data-back aria-label="Zur Hauptnavigation">←
+                        <button type="button" class="back-btn" data-back data-menu-action="back" aria-label="Zur Hauptnavigation">←
                             Zurück</button>
                         <h2 id="submenu-settings-title" class="submenu-title">⚙️ Einstellungen</h2>
                     </div>
@@ -224,7 +325,7 @@
                         </div>
 
                         <div class="menu-section">
-                            <button type="button" id="btn-save-keys" class="secondary-btn secondary-btn-spaced">💾
+                            <button type="button" id="btn-save-keys" class="secondary-btn secondary-btn-spaced" data-menu-action="save-settings">💾
                                 Einstellungen explizit speichern</button>
                         </div>
                     </div>
@@ -232,9 +333,9 @@
 
                 <!-- ======= SUBMENU: STEUERUNG ======= -->
                 <div id="submenu-controls" class="submenu-panel hidden" role="region"
-                    aria-labelledby="submenu-controls-title" aria-hidden="true">
+                    aria-labelledby="submenu-controls-title" aria-hidden="true" data-menu-panel="controls">
                     <div class="submenu-header">
-                        <button type="button" class="back-btn" data-back aria-label="Zur Hauptnavigation">←
+                        <button type="button" class="back-btn" data-back data-menu-action="back" aria-label="Zur Hauptnavigation">←
                             Zurück</button>
                         <h2 id="submenu-controls-title" class="submenu-title">🎯 Steuerung</h2>
                     </div>
@@ -253,6 +354,12 @@
                                     <div id="keybind-p2" class="keybind-grid"></div>
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="menu-section">
+                            <h2 class="section-title">Globale Kamera-Taste</h2>
+                            <div id="keybind-global" class="keybind-grid"></div>
+                            <small class="menu-hint">Eine Taste fuer beide Spieler: Cinematic Kamera an/aus.</small>
                         </div>
 
                         <div class="menu-section">
@@ -292,7 +399,7 @@
                         </div>
 
                         <div class="menu-section">
-                            <button type="button" id="btn-reset-keys" class="secondary-btn">Standard-Tasten
+                            <button type="button" id="btn-reset-keys" class="secondary-btn" data-menu-action="reset-keys">Standard-Tasten
                                 wiederherstellen</button>
                         </div>
                     </div>
@@ -300,9 +407,9 @@
 
                 <!-- ======= SUBMENU: PROFILE ======= -->
                 <div id="submenu-profiles" class="submenu-panel hidden" role="region"
-                    aria-labelledby="submenu-profiles-title" aria-hidden="true">
+                    aria-labelledby="submenu-profiles-title" aria-hidden="true" data-menu-panel="profiles">
                     <div class="submenu-header">
-                        <button type="button" class="back-btn" data-back aria-label="Zur Hauptnavigation">←
+                        <button type="button" class="back-btn" data-back data-menu-action="back" aria-label="Zur Hauptnavigation">←
                             Zurück</button>
                         <h2 id="submenu-profiles-title" class="submenu-title">👤 Profile</h2>
                     </div>
@@ -312,7 +419,7 @@
                             <h2 class="section-title">Preset-Profile</h2>
                             <label for="profile-name">Profilname</label>
                             <input type="text" id="profile-name" maxlength="32" placeholder="z. B. Turnier">
-                            <button type="button" id="btn-profile-save" class="secondary-btn secondary-btn-spaced">
+                            <button type="button" id="btn-profile-save" class="secondary-btn secondary-btn-spaced" data-menu-action="profile-save">
                                 Profil unter Namen speichern</button>
                         </div>
 
@@ -321,9 +428,9 @@
                             <select id="profile-select">
                                 <option value="">Kein Profil gewaehlt</option>
                             </select>
-                            <button type="button" id="btn-profile-load" class="secondary-btn secondary-btn-spaced">
+                            <button type="button" id="btn-profile-load" class="secondary-btn secondary-btn-spaced" data-menu-action="profile-load">
                                 Profil laden</button>
-                            <button type="button" id="btn-profile-delete" class="secondary-btn secondary-btn-spaced">
+                            <button type="button" id="btn-profile-delete" class="secondary-btn secondary-btn-spaced" data-menu-action="profile-delete">
                                 Profil loeschen</button>
                         </div>
                     </div>
@@ -331,9 +438,9 @@
 
                 <!-- ======= SUBMENU: PORTALE / MAP ======= -->
                 <div id="submenu-portals" class="submenu-panel hidden" role="region"
-                    aria-labelledby="submenu-portals-title" aria-hidden="true">
+                    aria-labelledby="submenu-portals-title" aria-hidden="true" data-menu-panel="portals">
                     <div class="submenu-header">
-                        <button type="button" class="back-btn" data-back aria-label="Zur Hauptnavigation">←
+                        <button type="button" class="back-btn" data-back data-menu-action="back" aria-label="Zur Hauptnavigation">←
                             Zurück</button>
                         <h2 id="submenu-portals-title" class="submenu-title">🌀 Portale / Map</h2>
                     </div>
@@ -368,11 +475,63 @@
                     </div>
                 </div>
 
+                <!-- ======= SUBMENU: DEVELOPER ======= -->
+                <div id="submenu-developer" class="submenu-panel hidden" role="region"
+                    aria-labelledby="submenu-developer-title" aria-hidden="true" data-menu-panel="developer">
+                    <div class="submenu-header">
+                        <button type="button" class="back-btn" data-back data-menu-action="back" aria-label="Zur Hauptnavigation">←
+                            Zurück</button>
+                        <h2 id="submenu-developer-title" class="submenu-title">🛠️ Developer</h2>
+                    </div>
+                    <div class="submenu-body">
+                        <div class="menu-section">
+                            <label class="toggle-row" for="developer-mode-toggle">
+                                <input type="checkbox" id="developer-mode-toggle">
+                                Developer-Modus aktiv
+                            </label>
+                        </div>
+                        <div class="menu-section">
+                            <label for="developer-theme-select">Developer Theme</label>
+                            <select id="developer-theme-select">
+                                <option value="classic-console">Classic Console</option>
+                                <option value="sandstorm-lab">Sandstorm Lab</option>
+                                <option value="arctic-grid">Arctic Grid</option>
+                            </select>
+                        </div>
+                        <div class="menu-section">
+                            <label for="developer-visibility-select">Developer Zugriff</label>
+                            <select id="developer-visibility-select">
+                                <option value="hidden_for_players">hidden_for_players</option>
+                                <option value="owner_only" selected>owner_only</option>
+                                <option value="open">open</option>
+                            </select>
+                        </div>
+                        <div class="menu-section">
+                            <label class="toggle-row" for="developer-fixed-preset-lock-toggle">
+                                <input type="checkbox" id="developer-fixed-preset-lock-toggle">
+                                Fixed-Preset-Lock fuer Spieler erzwingen
+                            </label>
+                        </div>
+                        <div class="menu-section">
+                            <label for="developer-actor-select">Session Actor</label>
+                            <select id="developer-actor-select">
+                                <option value="owner" selected>owner</option>
+                                <option value="player">player</option>
+                            </select>
+                        </div>
+                        <div class="menu-section">
+                            <p id="developer-hint" class="menu-hint" role="status" aria-live="polite">
+                                Developer Scope: owner_only | Session: owner
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- ======= SUBMENU: DEBUG / INFO ======= -->
                 <div id="submenu-debug" class="submenu-panel hidden" role="region" aria-labelledby="submenu-debug-title"
-                    aria-hidden="true">
+                    aria-hidden="true" data-menu-panel="debug">
                     <div class="submenu-header">
-                        <button type="button" class="back-btn" data-back aria-label="Zur Hauptnavigation">←
+                        <button type="button" class="back-btn" data-back data-menu-action="back" aria-label="Zur Hauptnavigation">←
                             Zurück</button>
                         <h2 id="submenu-debug-title" class="submenu-title">ℹ️ Debug / Info</h2>
                     </div>
@@ -381,7 +540,7 @@
                         <div class="menu-section">
                             <h2 class="section-title">Build-Information</h2>
                             <div id="build-info-detail" class="build-info-detail"></div>
-                            <button type="button" id="btn-copy-build" class="secondary-btn secondary-btn-spaced">
+                            <button type="button" id="btn-copy-build" class="secondary-btn secondary-btn-spaced" data-menu-action="copy-build-info">
                                 Build-Info kopieren
                             </button>
                         </div>

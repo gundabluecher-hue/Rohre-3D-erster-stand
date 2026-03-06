@@ -14,6 +14,7 @@ import { MatchSessionRuntimeBridge } from './MatchSessionRuntimeBridge.js';
 import { HudRuntimeSystem } from '../ui/HudRuntimeSystem.js';
 import { CrosshairSystem } from '../ui/CrosshairSystem.js';
 import { BuildInfoController } from './BuildInfoController.js';
+import { MediaRecorderSystem } from './MediaRecorderSystem.js';
 
 export function createGameUiRefs() {
     return {
@@ -30,6 +31,10 @@ export function createGameUiRefs() {
         statusToast: document.getElementById('status-toast'),
         keybindWarning: document.getElementById('keybind-warning'),
         menuContext: document.getElementById('menu-context'),
+        menuNav: document.getElementById('menu-nav'),
+        menuPanels: Array.from(document.querySelectorAll('.submenu-panel, [data-menu-panel]')),
+        menuNavButtons: Array.from(document.querySelectorAll('.nav-btn')),
+        customStepperButtons: Array.from(document.querySelectorAll('[data-menu-step], [data-menu-step-target]')),
         buildInfo: document.getElementById('build-info'),
         buildInfoDetail: document.getElementById('build-info-detail'),
         copyBuildButton: document.getElementById('btn-copy-build'),
@@ -77,6 +82,7 @@ export function createGameUiRefs() {
 
         keybindP1: document.getElementById('keybind-p1'),
         keybindP2: document.getElementById('keybind-p2'),
+        keybindGlobal: document.getElementById('keybind-global'),
         resetKeysButton: document.getElementById('btn-reset-keys'),
         saveKeysButton: document.getElementById('btn-save-keys'),
         profileNameInput: document.getElementById('profile-name'),
@@ -84,6 +90,25 @@ export function createGameUiRefs() {
         profileSaveButton: document.getElementById('btn-profile-save'),
         profileLoadButton: document.getElementById('btn-profile-load'),
         profileDeleteButton: document.getElementById('btn-profile-delete'),
+        presetSelect: document.getElementById('preset-select'),
+        presetApplyButton: document.getElementById('btn-preset-apply'),
+        presetSaveOpenButton: document.getElementById('btn-preset-save-open'),
+        presetSaveFixedButton: document.getElementById('btn-preset-save-fixed'),
+        presetDeleteButton: document.getElementById('btn-preset-delete'),
+        presetNameInput: document.getElementById('preset-name'),
+        presetStatus: document.getElementById('preset-status'),
+        quickstartPresetButtons: Array.from(document.querySelectorAll('[data-preset-id]')),
+        multiplayerHostButton: document.getElementById('btn-multiplayer-host'),
+        multiplayerJoinButton: document.getElementById('btn-multiplayer-join'),
+        multiplayerReadyToggle: document.getElementById('multiplayer-ready-toggle'),
+        multiplayerStatus: document.getElementById('multiplayer-status'),
+        multiplayerLobbyCodeInput: document.getElementById('multiplayer-lobby-code'),
+        developerModeToggle: document.getElementById('developer-mode-toggle'),
+        developerThemeSelect: document.getElementById('developer-theme-select'),
+        developerVisibilitySelect: document.getElementById('developer-visibility-select'),
+        developerFixedPresetLockToggle: document.getElementById('developer-fixed-preset-lock-toggle'),
+        developerActorSelect: document.getElementById('developer-actor-select'),
+        developerHint: document.getElementById('developer-hint'),
 
         vehicleSelectP1: document.getElementById('vehicle-select-p1'),
         vehicleSelectP2: document.getElementById('vehicle-select-p2'),
@@ -98,6 +123,13 @@ export function createGameUiRefs() {
 export function bootstrapGameRuntime(game, options = {}) {
     const canvas = document.getElementById('game-canvas');
     game.renderer = new Renderer(canvas);
+    game.mediaRecorderSystem = new MediaRecorderSystem({
+        canvas,
+        autoRecordingEnabled: true,
+        autoDownload: true,
+        downloadDirectoryName: 'videos',
+        logger: console,
+    });
     game.input = new InputManager();
     game.audio = new AudioManager();
     game.particles = new ParticleSystem(game.renderer);

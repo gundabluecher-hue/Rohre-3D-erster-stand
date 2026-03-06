@@ -4,9 +4,25 @@ export async function loadGame(page) {
     await page.waitForSelector('#main-menu', { state: 'visible', timeout: 10000 });
 }
 
-async function openGameSubmenu(page) {
-    await page.locator('#menu-nav [data-submenu="submenu-game"]').click({ force: true });
-    await page.waitForSelector('#submenu-game:not(.hidden)', { timeout: 3000 });
+export async function openSubmenu(page, submenuId) {
+    await page.locator(`#menu-nav [data-submenu="${submenuId}"]`).click({ force: true });
+    await page.waitForSelector(`#${submenuId}:not(.hidden)`, { timeout: 3000 });
+}
+
+export async function openGameSubmenu(page) {
+    await openSubmenu(page, 'submenu-game');
+}
+
+export async function openCustomSubmenu(page) {
+    await openSubmenu(page, 'submenu-custom');
+}
+
+export async function openMultiplayerSubmenu(page) {
+    await openSubmenu(page, 'submenu-multiplayer');
+}
+
+export async function openDeveloperSubmenu(page) {
+    await openSubmenu(page, 'submenu-developer');
 }
 
 const BENIGN_ERROR_PATTERNS = [
@@ -58,7 +74,7 @@ export async function startGameWithBots(page, botCount = 1) {
 export async function startHuntGame(page) {
     await loadGame(page);
     await openGameSubmenu(page);
-    await page.click('#btn-mode-hunt');
+    await page.click('#submenu-game:not(.hidden) #btn-mode-hunt');
     await page.click('#submenu-game:not(.hidden) #btn-start');
     await page.waitForFunction(() => {
         const hud = document.getElementById('hud');
@@ -81,7 +97,7 @@ export async function startHuntGameWithBots(page, botCount = 1) {
         slider.value = String(count);
         slider.dispatchEvent(new Event('input', { bubbles: true }));
     }, botCount);
-    await page.click('#btn-mode-hunt');
+    await page.click('#submenu-game:not(.hidden) #btn-mode-hunt');
     await page.click('#submenu-game:not(.hidden) #btn-start');
     await page.waitForFunction(() => {
         const hud = document.getElementById('hud');
@@ -114,4 +130,3 @@ export function collectErrors(page) {
     });
     return errors;
 }
-

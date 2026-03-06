@@ -42,8 +42,9 @@ Neue Findings aus dem Analysebericht fliessen hier ein.
 - [ ] V5 Hunt-Mode Feintuning datenbasiert abschliessen
   - TTK, Overheat-Fenster, Respawn-Timer und Pickup-Spawns auf Telemetrie und Matchdaten abstimmen.
   - Zielpfade: `src/core/Config.js`, `src/hunt/HuntConfig.js`, `src/hunt/RespawnSystem.js`, `src/hunt/RocketPickupSystem.js`.
-- [ ] V6 Menue-Schnellpresets einfuehren
+- [x] V6 Menue-Schnellpresets einfuehren (abgeschlossen 2026-03-06)
   - Presets wie `Arcade`, `Competitive`, `Chaos` mit sauberem Sync in Settings/UI.
+  - Erweiterter Referenzplan (inkl. Menue-Umbau/Multiplayer-Stub/Developer-Modus): `docs/Feature_Menu_Umbau_V26_3.md`.
   - Zielpfade: `src/ui/MenuController.js`, `src/ui/UIManager.js`, `src/core/SettingsManager.js`.
 - [ ] V7 Profile-UX ausbauen
   - Profil duplizieren, Import/Export und Standardprofil-Markierung ergaenzen.
@@ -62,7 +63,7 @@ Neue Findings aus dem Analysebericht fliessen hier ein.
   - Zielpfade: `src/entities/Arena.js`, `src/core/Renderer.js`, `src/core/Config.js`.
 - [ ] V15 Telemetrie-Dashboard fuer Balancing
   - Winrate-, Survival-, Stuck- und Schadensmetriken pro Mode/Map/Bot-Level auswertbar machen.
-  - Zielpfade: `scripts/`, `data/`, `docs/Testergebnisse_*.md`.
+  - Zielpfade: `scripts/`, `data/`, `docs/archive/tests/Testergebnisse_*.md`.
 - [ ] V16 Event-Playlist/Fun-Modes
   - Rotierende Spezialregeln als zeitlich limitierte Modi fuer Abwechslung und Retention.
   - Zielpfade: `src/core/Config.js`, `src/core/main.js`, `src/ui/MenuController.js`.
@@ -74,13 +75,13 @@ Neue Findings aus dem Analysebericht fliessen hier ein.
   - Referenzplan: `docs/Feature_Modularisierung_V25_Ausserhalb_Phase24.md`.
 - [x] V18 Single-Agent-Durchlauf fuer weitere Modularisierung (ohne Stop)
   - Fokus: `OverheatGunSystem`, `ProjectileSystem`, `main.js`, `Bot.js`, `MenuController` in sequenziellen Phasen fuer einen Agenten.
-  - Referenzplan: `docs/Feature_Modularisierung_SingleAgent_Durchlauf.md`.
+  - Referenzplan: `docs/archive/Feature_Modularisierung_SingleAgent_Durchlauf.md`.
 - [x] V19 Restentkopplung Runtime-Orchestrierung (EntityManager/Lifecycle)
   - Fokus: Runtime-Contracts, Lifecycle-Phasen, Round-Outcome-Split und Abbau verbleibender Compat-Shims.
-  - Referenzplan: `docs/Feature_Modularisierung_V19_Restentkopplung.md`.
+  - Referenzplan: `docs/archive/Feature_Modularisierung_V19_Restentkopplung.md`.
 - [x] V20 Single-Agent No-Stop Tiefenmodularisierung (Assembler/Recorder/Renderer/AI/Portal/Trail) (abgeschlossen 2026-03-04)
   - Fokus: no-stop Durchlauf fuer nachgelagerte Tiefenentkopplung.
-  - Referenzplan: `docs/Feature_Modularisierung_V20_SingleAgent_NoStop.md`.
+  - Referenzplan: `docs/archive/Feature_Modularisierung_V20_SingleAgent_NoStop.md`.
 
 ---
 
@@ -225,11 +226,57 @@ Neue Findings aus dem Analysebericht fliessen hier ein.
 - [ ] 26.2 V5 Hunt-Mode Feintuning
   - [ ] 26.2.1 TTK und Overheat-Werte basierend auf Testdaten anpassen
   - [ ] 26.2.2 Respawn- und Pickup-Logik verfeinern
-- [ ] 26.3 V6 Menue-Schnellpresets ("Arcade", "Competitive", "Chaos")
+- [x] 26.3 V6 Menue-Umbau (modular, Multiplayer-ready, Developer-Modus) (abgeschlossen 2026-03-06)
+  - Referenzplan: `docs/Feature_Menu_Umbau_V26_3.md`.
+  - Produktentscheidungen fixiert (2026-03-05): Multiplayer als Hauptpunkt, Developer-Modus owner-only mit spaeterer Sperroption, Presets getrennt in `fixed` (owner) und `open` (spielerbasiert).
+  - [x] 26.3.0 Baseline, UX-Freeze und Migrationsleitplanken (abgeschlossen 2026-03-05)
+  - [x] 26.3.1 Menue-Schema und Panel-Registry einfuehren (abgeschlossen 2026-03-05)
+  - [x] 26.3.2 Navigation aus UIManager entkoppeln (abgeschlossen 2026-03-05)
+  - [x] 26.3.3 Schnellpreset-System produktiv aufbauen (`Arcade`, `Competitive`, `Chaos`) (abgeschlossen 2026-03-05)
+  - [x] 26.3.4 Multiplayer-Menuepfad als anbindbare Bridge vorbereiten (abgeschlossen 2026-03-05)
+  - [x] 26.3.5 Developer-Modus (Schrift/Themes, Fixed-Preset, Dev-Hinweise) (abgeschlossen 2026-03-05)
+  - [x] 26.3.6 MenuController-Events in Feature-Bindings weiter aufteilen (abgeschlossen 2026-03-05)
+  - [x] 26.3.7 HTML/CSS-Komposition modernisieren (anpassbar, kompatibel) (abgeschlossen 2026-03-05)
+  - [x] 26.3.8 Testausbau fuer neue Menuepfade (abgeschlossen 2026-03-06)
+  - [x] 26.3.9 Abschluss-Gate, Doku-Freeze und Restrisiken (abgeschlossen 2026-03-06)
+  - Kurznotiz 2026-03-06: Menu-Contracts (`menu-state.v1`, `menu-controller.v1`, `lifecycle.v1`, `menu-compatibility.v1`) aktiv; Access-Guards und Preset-Typtrennung (`fixed/open`) in Core+Stress abgesichert.
 - [ ] 26.4 V9 Replay/Ghost-System fuer die letzte Runde aufbauen
 - [ ] 26.5 V11 GLB-Map Loader Integration (Erweiterte Map-Varianz)
 - [ ] 26.6 V16 Event-Playlist / Fun-Modes Mechanik testen
-- [ ] 26.7 Abschluss-Gate, Playtest und Doku-Freeze (`docs:sync`, `docs:check`)
+- [x] 26.7 Cinematic Kamera & Auto-Recording Pipeline vorbereiten (Teil von V29) (abgeschlossen 2026-03-05)
+  - Referenzplan: `docs/Feature_Cinematic_Camera_V29.md`.
+  - Kann parallel oder im Nachgang zu 26.3 eingefuegt werden.
+  - Non-Overlap: V29 besitzt Kamera/Recording-Module; V26.3 besitzt Menue-/DOM-Module. Shared nur ueber Lifecycle-Events in `main.js`.
+  - Zielpfade: `src/core/MediaRecorderSystem.js`, `src/entities/systems/CinematicCameraSystem.js`.
+- [ ] 26.8 Abschluss-Gate, Playtest und Doku-Freeze (`docs:sync`, `docs:check`)
+
+---
+
+## Single-Agent Block V29 (abgeschlossen, Stand: 2026-03-05)
+
+- Rollenmodell:
+  - Ein Agent setzt die Phasen `29.x` strikt sequenziell ohne Stop um.
+  - V26.3-Guardrails gelten: keine DOM-UI/MenuController/UIManager-Aenderungen.
+
+- [x] 29.0 Baseline-Verifikation & Canvas-Probe (abgeschlossen 2026-03-05)
+- [x] 29.1 Implementierung `MediaRecorderSystem` (abgeschlossen 2026-03-05)
+- [x] 29.2 Implementierung `CinematicCameraSystem` (abgeschlossen 2026-03-05)
+- [x] 29.3 Lifecycle-Anbindung (Auto-Start/Stop) (abgeschlossen 2026-03-05)
+- [x] 29.4 Abschluss-Gate, Regression & Doku-Freeze (`docs:sync`, `docs:check`) (abgeschlossen 2026-03-05)
+
+- Kurznotiz 2026-03-05 (29.0):
+  - Runtime-Probe fuer `captureStream`/`MediaRecorder` als Support-State in `MediaRecorderSystem` verankert.
+  - Lifecycle-Contract auf `lifecycle.v1` festgelegt (`match_started`, `match_ended`, `menu_opened`, optional `recording_requested`).
+- Kurznotiz 2026-03-05 (29.1):
+  - Neues `src/core/MediaRecorderSystem.js` kapselt Stream/Recorder-Lifecycle inkl. MIME-Fallback und Export-Metadaten.
+- Kurznotiz 2026-03-05 (29.2):
+  - Neues `src/entities/systems/CinematicCameraSystem.js` implementiert blendbaren Third-Person-Cinematic-Layer.
+  - Integration isoliert in `src/core/renderer/CameraRigSystem.js`.
+- Kurznotiz 2026-03-05 (29.3):
+  - Auto-Recording an Match-Lifecycle in `src/state/MatchLifecycleSessionOrchestrator.js` gekoppelt.
+  - Menu-/DOM-Pfade unveraendert; keine Aenderung an `src/ui/UIManager.js` oder `src/ui/MenuController.js`.
+- Kurznotiz 2026-03-05 (29.4):
+  - Gates bestanden: `test:core`, `test:physics`, `test:gpu`, `smoke:roundstate`, `build`, `docs:sync`, `docs:check`.
 
 ---
 

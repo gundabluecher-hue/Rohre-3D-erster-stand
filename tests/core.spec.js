@@ -1,5 +1,13 @@
 import { test, expect } from '@playwright/test';
-import { loadGame, startGame, returnToMenu, collectErrors } from './helpers.js';
+import {
+    collectErrors,
+    loadGame,
+    openCustomSubmenu,
+    openGameSubmenu,
+    openMultiplayerSubmenu,
+    returnToMenu,
+    startGame,
+} from './helpers.js';
 
 test.describe('T1-20: Core & Infrastruktur', () => {
 
@@ -195,5 +203,259 @@ test.describe('T1-20: Core & Infrastruktur', () => {
         await page.click('#submenu-settings [data-back]');
         await page.waitForTimeout(400);
         await expect(page.locator('#menu-nav')).toBeVisible();
+    });
+
+    test('T20a: Recorder-Support-Probe liefert lifecycle.v1-Metadaten', async ({ page }) => {
+        await loadGame(page);
+        const probe = await page.evaluate(() => {
+            const recorderSystem = window.GAME_INSTANCE?.mediaRecorderSystem;
+            const support = recorderSystem?.getSupportState?.();
+            return {
+                hasSystem: !!recorderSystem,
+                contractVersion: recorderSystem?.getContractVersion?.() || null,
+                canCaptureType: typeof support?.canCapture,
+                hasRecorderType: typeof support?.hasRecorder,
+                canRecordType: typeof support?.canRecord,
+            };
+        });
+
+        expect(probe.hasSystem).toBeTruthy();
+        expect(probe.contractVersion).toBe('lifecycle.v1');
+        expect(probe.canCaptureType).toBe('boolean');
+        expect(probe.hasRecorderType).toBe('boolean');
+        expect(probe.canRecordType).toBe('boolean');
+    });
+
+    test('T20b: Lifecycle-Events markieren Match Start/Ende und Menue-Oeffnung', async ({ page }) => {
+        await startGame(page);
+        await page.waitForTimeout(300);
+
+        let eventTypes = await page.evaluate(() => (
+            window.GAME_INSTANCE?.mediaRecorderSystem?.getLifecycleEvents?.().map((entry) => entry.type) || []
+        ));
+        expect(eventTypes.includes('match_started')).toBeTruthy();
+
+        await returnToMenu(page);
+        await page.waitForTimeout(300);
+
+        eventTypes = await page.evaluate(() => (
+            window.GAME_INSTANCE?.mediaRecorderSystem?.getLifecycleEvents?.().map((entry) => entry.type) || []
+        ));
+        expect(eventTypes.includes('match_ended')).toBeTruthy();
+        expect(eventTypes.includes('menu_opened')).toBeTruthy();
+    });
+
+    test('T20c: Multiplayer ist eigener Hauptpunkt und Panel oeffnet', async ({ page }) => {
+        await loadGame(page);
+        await openMultiplayerSubmenu(page);
+        await expect(page.locator('#submenu-multiplayer')).toBeVisible();
+    });
+
+    test('T20d: Multiplayer-Bridge emittiert lifecycle.v1 Event-Contract', async ({ page }) => {
+        await loadGame(page);
+        await openMultiplayerSubmenu(page);
+        await page.fill('#multiplayer-lobby-code', 'QA-LOBBY');
+        await page.click('#btn-multiplayer-host');
+        await page.waitForTimeout(120);
+        const lifecycleEvent = await page.evaluate(() => {
+            const events = window.GAME_INSTANCE?.getMenuLifecycleEvents?.() || [];
+            return events.find((entry) => entry.type === 'multiplayer_host') || null;
+        });
+
+        expect(lifecycleEvent).toBeTruthy();
+        expect(lifecycleEvent.contractVersion).toBe('lifecycle.v1');
+        expect(lifecycleEvent.payload?.lobbyCode).toBe('QA-LOBBY');
+    });
+
+    test('T20e: Open-Preset speichert Metadatenvertrag vollstaendig', async ({ page }) => {
+        await loadGame(page);
+        await page.evaluate(() => localStorage.removeItem('aero-arena-3d.menu-presets.v1'));
+        await openGameSubmenu(page);
+        await page.fill('#preset-name', 'Open Preset QA');
+        await page.click('#btn-preset-save-open');
+        await page.waitForTimeout(120);
+
+        const contractState = await page.evaluate(() => {
+            const raw = localStorage.getItem('aero-arena-3d.menu-presets.v1');
+            const parsed = raw ? JSON.parse(raw) : {};
+            const presets = Array.isArray(parsed?.presets) ? parsed.presets : [];
+            const openPreset = presets.find((preset) => preset?.metadata?.kind === 'open');
+            if (!openPreset) return { ok: false };
+            const metadata = openPreset.metadata || {};
+            const required = ['id', 'kind', 'ownerId', 'lockedFields', 'sourcePresetId', 'createdAt', 'updatedAt'];
+            const hasAll = required.every((key) => Object.prototype.hasOwnProperty.call(metadata, key));
+            return {
+                ok: hasAll,
+                kind: metadata.kind,
+                id: metadata.id,
+            };
+        });
+
+        expect(contractState.ok).toBeTruthy();
+        expect(contractState.kind).toBe('open');
+        expect(contractState.id.length).toBeGreaterThan(0);
+    });
+
+    test('T20f: Fixed-Preset setzt Match-Contract auf fixed', async ({ page }) => {
+        await loadGame(page);
+        await openGameSubmenu(page);
+        await page.evaluate(() => {
+            const button = document.querySelector('#submenu-game [data-preset-id="competitive"]');
+            button?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        });
+        await page.waitForTimeout(120);
+
+        const matchPreset = await page.evaluate(() => ({
+            id: window.GAME_INSTANCE?.settings?.matchSettings?.activePresetId || '',
+            kind: window.GAME_INSTANCE?.settings?.matchSettings?.activePresetKind || '',
+        }));
+
+        expect(matchPreset.id).toBe('competitive');
+        expect(matchPreset.kind).toBe('fixed');
+    });
+
+    test('T20g: Runtime-Guard blockiert Developer-Events fuer non-owner', async ({ page }) => {
+        await loadGame(page);
+        const guardResult = await page.evaluate(() => {
+            const game = window.GAME_INSTANCE;
+            game.settings.localSettings.actorId = 'player';
+            game.settings.localSettings.developerModeVisibility = 'owner_only';
+            const before = game.settings.localSettings.developerThemeId;
+            game.runtimeFacade.handleMenuControllerEvent({
+                contractVersion: 'menu-controller.v1',
+                type: 'developer_theme_change',
+                themeId: 'sandstorm-lab',
+            });
+            const after = game.settings.localSettings.developerThemeId;
+            game.settings.localSettings.actorId = game.settings.localSettings.ownerId || 'owner';
+            return { before, after };
+        });
+
+        expect(guardResult.after).toBe(guardResult.before);
+    });
+
+    test('T20h: Keyboard Navigation (Arrow/Escape) funktioniert im Menue', async ({ page }) => {
+        await loadGame(page);
+        const focusIds = await page.evaluate(() => {
+            const firstButton = document.querySelector('#menu-nav .nav-btn');
+            firstButton?.focus();
+            const first = document.activeElement?.getAttribute('data-submenu');
+            return { first };
+        });
+        expect(focusIds.first).toBeTruthy();
+
+        await page.keyboard.press('ArrowRight');
+        const secondFocused = await page.evaluate(() => document.activeElement?.getAttribute('data-submenu') || '');
+        expect(secondFocused).not.toBe(focusIds.first);
+
+        await openCustomSubmenu(page);
+        await page.keyboard.press('Escape');
+        const visiblePanels = await page.evaluate(() => (
+            Array.from(document.querySelectorAll('.submenu-panel:not(.hidden)')).map((panel) => panel.id)
+        ));
+        expect(visiblePanels).toHaveLength(0);
+    });
+
+    test('T20i: ARIA-Status wird bei Panelwechsel konsistent gesetzt', async ({ page }) => {
+        await loadGame(page);
+        await openMultiplayerSubmenu(page);
+
+        const ariaState = await page.evaluate(() => ({
+            panelHidden: document.getElementById('submenu-multiplayer')?.getAttribute('aria-hidden'),
+            buttonExpanded: document.querySelector('[data-submenu="submenu-multiplayer"]')?.getAttribute('aria-expanded'),
+        }));
+
+        expect(ariaState.panelHidden).toBe('false');
+        expect(ariaState.buttonExpanded).toBe('true');
+    });
+
+    test('T20j: Menu-Compatibility-Rules fixen inkonsistente Fixed-Preset-States deterministisch', async ({ page }) => {
+        await loadGame(page);
+        const normalizedState = await page.evaluate(() => {
+            const game = window.GAME_INSTANCE;
+            game.settings.matchSettings.activePresetId = 'ghost-fixed';
+            game.settings.matchSettings.activePresetKind = 'fixed';
+            game.settings.matchSettings.activePresetSourceId = 'ghost-fixed';
+            game.settings.localSettings.fixedPresetId = 'ghost-fixed';
+            game.settings.localSettings.fixedPresetLockEnabled = true;
+
+            const result = game.settingsManager.applyMenuCompatibilityRules(game.settings, {
+                accessContext: {
+                    isOwner: true,
+                    ownerId: 'owner',
+                    actorId: 'owner',
+                },
+            });
+
+            return {
+                contractVersion: result.contractVersion,
+                ruleIds: result.appliedRuleIds,
+                changedKeys: result.changedKeys,
+                activePresetId: game.settings.matchSettings.activePresetId,
+                activePresetKind: game.settings.matchSettings.activePresetKind,
+                activePresetSourceId: game.settings.matchSettings.activePresetSourceId,
+                fixedPresetId: game.settings.localSettings.fixedPresetId,
+                fixedPresetLockEnabled: game.settings.localSettings.fixedPresetLockEnabled,
+            };
+        });
+
+        expect(normalizedState.contractVersion).toBe('menu-compatibility.v1');
+        expect(normalizedState.ruleIds.includes('fixed_preset_exists')).toBeTruthy();
+        expect(normalizedState.ruleIds.includes('fixed_preset_binding')).toBeTruthy();
+        expect(normalizedState.ruleIds.includes('fixed_lock_requires_fixed_preset')).toBeTruthy();
+        expect(normalizedState.changedKeys).toEqual(expect.arrayContaining([
+            'preset.activeId',
+            'preset.activeKind',
+            'preset.status',
+            'developer.fixedPresetLock',
+        ]));
+        expect(normalizedState.activePresetId).toBe('');
+        expect(normalizedState.activePresetKind).toBe('');
+        expect(normalizedState.activePresetSourceId).toBe('');
+        expect(normalizedState.fixedPresetId).toBe('');
+        expect(normalizedState.fixedPresetLockEnabled).toBeFalsy();
+    });
+
+    test('T20k: Globale Cinematic-Taste ist im Menue belegbar', async ({ page }) => {
+        await loadGame(page);
+        await page.click('[data-submenu="submenu-controls"]');
+        await page.waitForSelector('#submenu-controls:not(.hidden)', { timeout: 3000 });
+
+        await page.click('#keybind-global .keybind-btn[data-action="CINEMATIC_TOGGLE"]');
+        await page.keyboard.press('KeyB');
+        await page.waitForTimeout(120);
+
+        const globalBinding = await page.evaluate(() => (
+            window.GAME_INSTANCE?.settings?.controls?.GLOBAL?.CINEMATIC_TOGGLE || ''
+        ));
+        expect(globalBinding).toBe('KeyB');
+    });
+
+    test('T20l: Globale Cinematic-Taste toggelt Kamera fuer beide Spieler', async ({ page }) => {
+        await startGame(page);
+        await page.evaluate(() => {
+            const game = window.GAME_INSTANCE;
+            game.settings.controls.GLOBAL.CINEMATIC_TOGGLE = 'KeyB';
+            game.input.setBindings(game.settings.controls);
+        });
+
+        const before = await page.evaluate(() => window.GAME_INSTANCE?.renderer?.getCinematicEnabled?.());
+        await page.keyboard.press('b');
+        await page.waitForTimeout(100);
+        const after = await page.evaluate(() => window.GAME_INSTANCE?.renderer?.getCinematicEnabled?.());
+        expect(after).toBe(!before);
+    });
+
+    test('T20m: Recording-AutoDownload ist aktiv und nutzt Videos-Ordnername', async ({ page }) => {
+        await loadGame(page);
+        const recorderState = await page.evaluate(() => {
+            const recorder = window.GAME_INSTANCE?.mediaRecorderSystem;
+            return {
+                autoDownload: !!recorder?.autoDownload,
+                directoryName: String(recorder?.downloadDirectoryName || ''),
+            };
+        });
+        expect(recorderState.autoDownload).toBeTruthy();
+        expect(recorderState.directoryName).toBe('videos');
     });
 });

@@ -1,5 +1,12 @@
-import { test, expect } from '@playwright/test';
-import { loadGame, startGame, returnToMenu, collectErrors } from './helpers.js';
+﻿import { test, expect } from '@playwright/test';
+import {
+    collectErrors,
+    loadGame,
+    openGameSubmenu,
+    openMultiplayerSubmenu,
+    returnToMenu,
+    startGame,
+} from './helpers.js';
 
 test.describe('T61-125: Stress, I/O & Sicherheit', () => {
 
@@ -20,7 +27,7 @@ test.describe('T61-125: Stress, I/O & Sicherheit', () => {
         expect(after - before).toBeLessThan(100);
     });
 
-    test('T63: ESC während Spiel öffnet Menü', async ({ page }) => {
+    test('T63: ESC waehrend Spiel oeffnet Menue', async ({ page }) => {
         test.setTimeout(60000);
         await startGame(page);
         await page.waitForTimeout(1000);
@@ -28,7 +35,7 @@ test.describe('T61-125: Stress, I/O & Sicherheit', () => {
         await expect(page.locator('#main-menu')).toBeVisible();
     });
 
-    test('T64: Korrupte localStorage-Daten → kein Crash', async ({ page }) => {
+    test('T64: Korrupte localStorage-Daten -> kein Crash', async ({ page }) => {
         test.setTimeout(60000);
         await loadGame(page);
         await page.evaluate(() => {
@@ -41,7 +48,7 @@ test.describe('T61-125: Stress, I/O & Sicherheit', () => {
         await page.evaluate(() => localStorage.removeItem('aero-arena-3d.settings.v1'));
     });
 
-    test('T65: XSS in Profilname wird nicht ausgeführt', async ({ page }) => {
+    test('T65: XSS in Profilname wird nicht ausgefuehrt', async ({ page }) => {
         await loadGame(page);
         const dialogs = [];
         page.on('dialog', d => { dialogs.push(d.message()); d.dismiss(); });
@@ -57,7 +64,7 @@ test.describe('T61-125: Stress, I/O & Sicherheit', () => {
         await page.evaluate(() => localStorage.removeItem('aero-arena-3d.settings-profiles.v1'));
     });
 
-    test('T66: Ungültige Settings-Werte → kein Crash', async ({ page }) => {
+    test('T66: Ungueltige Settings-Werte -> kein Crash', async ({ page }) => {
         await page.goto('/');
         await page.evaluate(() => {
             localStorage.setItem('aero-arena-3d.settings.v1', JSON.stringify({
@@ -77,9 +84,8 @@ test.describe('T61-125: Stress, I/O & Sicherheit', () => {
         test.setTimeout(120000);
         const errors = collectErrors(page);
         await loadGame(page);
-        for (let i = 0; i < 3; i++) {
-            await page.click('[data-submenu="submenu-game"]');
-            await page.waitForSelector('#submenu-game:not(.hidden)', { timeout: 5000 });
+        for (let i = 0; i < 3; i += 1) {
+            await openGameSubmenu(page);
             await page.click('#btn-start');
             await page.waitForFunction(() => {
                 const hud = document.getElementById('hud');
@@ -121,36 +127,35 @@ test.describe('T61-125: Stress, I/O & Sicherheit', () => {
         test.setTimeout(60000);
         const errors = collectErrors(page);
         await loadGame(page);
-        for (let i = 0; i < 10; i++) {
-            await page.locator('[data-submenu="submenu-game"]').click({ force: true });
-            await page.waitForSelector('#submenu-game:not(.hidden)', { timeout: 5000 });
+        for (let i = 0; i < 10; i += 1) {
+            await openGameSubmenu(page);
             await page.locator('#submenu-game:not(.hidden) #btn-start').click({ force: true });
             await page.waitForFunction(() => {
                 const hud = document.getElementById('hud');
                 return hud && !hud.classList.contains('hidden');
             }, { timeout: 15000 });
-            await page.waitForTimeout(200); // Sehr kurz warten
+            await page.waitForTimeout(200);
             await returnToMenu(page);
             await page.waitForTimeout(200);
         }
         expect(errors).toHaveLength(0);
     });
 
-    test('T72: Resize-Spam im Menü verursacht keinen Absturz', async ({ page }) => {
+    test('T72: Resize-Spam im Menue verursacht keinen Absturz', async ({ page }) => {
         test.setTimeout(30000);
         const errors = collectErrors(page);
         await loadGame(page);
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 20; i += 1) {
             await page.setViewportSize({
                 width: Math.floor(800 + (Math.random() * 400)),
-                height: Math.floor(600 + (Math.random() * 400))
+                height: Math.floor(600 + (Math.random() * 400)),
             });
             await page.waitForTimeout(50);
         }
         expect(errors).toHaveLength(0);
     });
 
-    test('T73: Extreme Settings (100 Bots) stürzen nicht direkt ab', async ({ page }) => {
+    test('T73: Extreme Settings (100 Bots) stuerzen nicht direkt ab', async ({ page }) => {
         test.setTimeout(60000);
         await loadGame(page);
         await page.evaluate(() => {
@@ -161,10 +166,77 @@ test.describe('T61-125: Stress, I/O & Sicherheit', () => {
         const errors = collectErrors(page);
         await page.reload();
         await page.waitForSelector('#main-menu', { state: 'visible', timeout: 15000 });
-        await page.click('[data-submenu="submenu-game"]');
+        await openGameSubmenu(page);
         await page.click('#btn-start');
-        await page.waitForTimeout(3000); // 3 Sekunden laufen lassen mit 100 Bots
+        await page.waitForTimeout(3000);
         expect(errors).toHaveLength(0);
         await page.evaluate(() => localStorage.removeItem('aero-arena-3d.settings.v1'));
+    });
+
+    test('T74: Preset-Apply Burst bleibt stabil', async ({ page }) => {
+        const errors = collectErrors(page);
+        await loadGame(page);
+        await openGameSubmenu(page);
+        const presetIds = ['arcade', 'competitive', 'chaos'];
+
+        for (let i = 0; i < 18; i += 1) {
+            const presetId = presetIds[i % presetIds.length];
+            await page.evaluate((targetPresetId) => {
+                const button = document.querySelector(`#submenu-game [data-preset-id="${targetPresetId}"]`);
+                button?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            }, presetId);
+            await page.waitForTimeout(30);
+        }
+
+        const activePresetId = await page.evaluate(() => window.GAME_INSTANCE?.settings?.matchSettings?.activePresetId || '');
+        expect(presetIds.includes(activePresetId)).toBeTruthy();
+        expect(errors).toHaveLength(0);
+    });
+
+    test('T75: Host-Settings invalidieren Ready-Status per Event-Contract', async ({ page }) => {
+        await loadGame(page);
+        await openMultiplayerSubmenu(page);
+        await page.check('#multiplayer-ready-toggle');
+        await page.waitForTimeout(80);
+
+        await openGameSubmenu(page);
+        await page.evaluate(() => {
+            const slider = document.getElementById('bot-count');
+            slider.value = '4';
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        await page.waitForTimeout(150);
+
+        const hasInvalidationEvent = await page.evaluate(() => {
+            const events = window.GAME_INSTANCE?.getMenuLifecycleEvents?.() || [];
+            return events.some((entry) =>
+                entry.contractVersion === 'lifecycle.v1' && entry.type === 'multiplayer_ready_invalidated'
+            );
+        });
+        expect(hasInvalidationEvent).toBeTruthy();
+    });
+
+    test('T76: Owner-Only Guard bleibt unter Actor-Wechsel stabil', async ({ page }) => {
+        await loadGame(page);
+        const result = await page.evaluate(() => {
+            const game = window.GAME_INSTANCE;
+            game.settings.localSettings.developerModeVisibility = 'owner_only';
+            game.settings.localSettings.actorId = 'player';
+            game.uiManager.updateContext();
+            const navHidden = document.querySelector('[data-submenu="submenu-developer"]')?.classList.contains('hidden');
+            const before = game.settings.localSettings.developerModeEnabled;
+            game.runtimeFacade.handleMenuControllerEvent({
+                contractVersion: 'menu-controller.v1',
+                type: 'developer_mode_toggle',
+                enabled: !before,
+            });
+            const after = game.settings.localSettings.developerModeEnabled;
+            game.settings.localSettings.actorId = game.settings.localSettings.ownerId || 'owner';
+            game.uiManager.updateContext();
+            return { navHidden, before, after };
+        });
+
+        expect(result.navHidden).toBeTruthy();
+        expect(result.after).toBe(result.before);
     });
 });

@@ -7,16 +7,39 @@ import { VEHICLE_DEFINITIONS } from '../entities/vehicle-registry.js';
 import { GAME_MODE_TYPES, resolveActiveGameMode } from '../hunt/HuntMode.js';
 import { isSettingsChangeKey, normalizeSettingsChangeKeys } from './SettingsChangeKeys.js';
 import { resolveSyncMethodNamesForChangeKeys } from './UISettingsSyncMap.js';
+import { createMenuSchema } from './menu/MenuSchema.js';
+import { MenuPanelRegistry } from './menu/MenuPanelRegistry.js';
+import { resolveMenuAccessContext } from './menu/MenuAccessPolicy.js';
+import { ensureMenuContractState } from './menu/MenuStateContracts.js';
+import { MenuNavigationRuntime } from './menu/MenuNavigationRuntime.js';
+import { MenuStateMachine, MENU_STATE_IDS } from './menu/MenuStateMachine.js';
+import { applyDeveloperThemeToDocument } from './menu/MenuDeveloperModeOps.js';
 
 export class UIManager {
     constructor(game) {
         this.game = game;
         this.ui = game.ui;
         this.settings = game.settings;
+        ensureMenuContractState(this.settings);
 
         this._navButtons = game._navButtons || [];
         this._menuButtonByPanel = game._menuButtonByPanel || new Map();
         this._lastMenuTrigger = game._lastMenuTrigger || null;
+        this._submenuPanels = [];
+        this._accessContext = resolveMenuAccessContext(this.settings);
+        this.menuSchema = game.menuSchema && typeof game.menuSchema === 'object'
+            ? game.menuSchema
+            : createMenuSchema({ featureFlags: this.settings?.menuFeatureFlags });
+        this.menuPanelRegistry = game.menuPanelRegistry instanceof MenuPanelRegistry
+            ? game.menuPanelRegistry
+            : new MenuPanelRegistry(this.menuSchema);
+        this.menuStateMachine = game.menuStateMachine instanceof MenuStateMachine
+            ? game.menuStateMachine
+            : new MenuStateMachine({ initialState: MENU_STATE_IDS.MAIN });
+        this.menuNavigationRuntime = null;
+        game.menuSchema = this.menuSchema;
+        game.menuPanelRegistry = this.menuPanelRegistry;
+        game.menuStateMachine = this.menuStateMachine;
     }
 
     init() {
@@ -64,38 +87,48 @@ export class UIManager {
     }
 
     _setupMenuNavigation() {
-        this._navButtons = Array.from(document.querySelectorAll('.nav-btn'));
-        const submenus = Array.from(document.querySelectorAll('.submenu-panel'));
+        this._navButtons = Array.isArray(this.ui.menuNavButtons) && this.ui.menuNavButtons.length > 0
+            ? this.ui.menuNavButtons
+            : Array.from(document.querySelectorAll('.nav-btn'));
+        this._submenuPanels = Array.isArray(this.ui.menuPanels) && this.ui.menuPanels.length > 0
+            ? this.ui.menuPanels
+            : Array.from(document.querySelectorAll('.submenu-panel'));
 
+        this._menuButtonByPanel.clear();
         this._navButtons.forEach(btn => {
-            const targetId = btn.dataset.submenu;
+            const rawTargetId = btn.dataset.submenu || btn.dataset.menuTarget;
+            const targetId = this.menuPanelRegistry.resolvePanelId(rawTargetId) || rawTargetId;
             if (targetId) this._menuButtonByPanel.set(targetId, btn);
+        });
 
-            btn.addEventListener('click', () => {
-                const targetPanel = document.getElementById(targetId);
-                if (!targetPanel) return;
+        if (this.menuNavigationRuntime?.dispose) {
+            this.menuNavigationRuntime.dispose();
+        }
 
-                submenus.forEach(p => p.classList.add('hidden'));
-                this._navButtons.forEach(b => b.classList.remove('active'));
-
-                targetPanel.classList.remove('hidden');
-                btn.classList.add('active');
-
-                this.game._activeSubmenu = targetId;
+        this.menuNavigationRuntime = new MenuNavigationRuntime({
+            ui: this.ui,
+            panelRegistry: this.menuPanelRegistry,
+            stateMachine: this.menuStateMachine,
+            accessContext: this._accessContext,
+            onPanelChanged: (panelId) => {
+                this.game._activeSubmenu = panelId || null;
                 this.updateContext();
-            });
+            },
+            onMenuStateChanged: () => {
+                this.game._menuState = this.menuStateMachine.getState();
+            },
         });
-
-        const backButtons = Array.from(document.querySelectorAll('[data-back]'));
-        backButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.showMainNav();
-            });
-        });
+        this.menuNavigationRuntime.init();
     }
 
     showMainNav() {
-        const submenus = Array.from(document.querySelectorAll('.submenu-panel'));
+        if (this.menuNavigationRuntime) {
+            this.menuNavigationRuntime.showMainNav({ trigger: 'ui_manager' });
+            return;
+        }
+        const submenus = this._submenuPanels.length > 0
+            ? this._submenuPanels
+            : Array.from(document.querySelectorAll('.submenu-panel'));
         submenus.forEach(p => p.classList.add('hidden'));
         this._navButtons.forEach(b => b.classList.remove('active'));
         this.game._activeSubmenu = null;
@@ -110,6 +143,9 @@ export class UIManager {
         this.syncRules(settings);
         this.syncGameplay(settings);
         this.syncVehicles(settings);
+        this.syncPresetState(settings);
+        this.syncMultiplayerState(settings);
+        this.syncDeveloperState(settings);
     }
 
     syncByChangeKeys(changedKeys) {
@@ -248,8 +284,96 @@ export class UIManager {
         if (ui.vehicleSelectP2) ui.vehicleSelectP2.value = settings.vehicles.PLAYER_2;
     }
 
+    syncPresetState(settings = this.game.settings) {
+        const ui = this.ui;
+        const activePresetId = String(settings?.matchSettings?.activePresetId || '');
+        const activePresetKind = String(settings?.matchSettings?.activePresetKind || '');
+
+        if (ui.presetSelect) {
+            const presets = this.game.settingsManager?.listMenuPresets?.() || [];
+            const previousValue = String(ui.presetSelect.value || '');
+            ui.presetSelect.innerHTML = '';
+
+            const placeholderOption = document.createElement('option');
+            placeholderOption.value = '';
+            placeholderOption.textContent = 'Preset waehlen';
+            ui.presetSelect.appendChild(placeholderOption);
+
+            presets.forEach((preset) => {
+                const option = document.createElement('option');
+                const presetId = String(preset?.id || '').trim();
+                const presetKind = String(preset?.metadata?.kind || '').trim();
+                option.value = presetId;
+                option.textContent = presetKind === 'fixed'
+                    ? `${preset.name} (fixed)`
+                    : `${preset.name} (open)`;
+                ui.presetSelect.appendChild(option);
+            });
+
+            const preferredValue = activePresetId || previousValue;
+            if (preferredValue) {
+                const hasOption = Array.from(ui.presetSelect.options).some((option) => option.value === preferredValue);
+                ui.presetSelect.value = hasOption ? preferredValue : '';
+            }
+        }
+
+        if (Array.isArray(ui.quickstartPresetButtons)) {
+            ui.quickstartPresetButtons.forEach((button) => {
+                const buttonPresetId = String(button?.dataset?.presetId || '').trim();
+                const isActive = !!buttonPresetId && buttonPresetId === activePresetId;
+                button.classList.toggle('active', isActive);
+                button.setAttribute('aria-pressed', String(isActive));
+            });
+        }
+
+        if (ui.presetStatus) {
+            if (!activePresetId) {
+                ui.presetStatus.textContent = 'Preset: custom';
+            } else {
+                ui.presetStatus.textContent = `Preset: ${activePresetId} (${activePresetKind || 'open'})`;
+            }
+        }
+    }
+
+    syncMultiplayerState(settings = this.game.settings) {
+        if (!this.ui.multiplayerStatus) return;
+        const role = this._accessContext?.isOwner ? 'Host' : 'Client';
+        const activePresetId = String(settings?.matchSettings?.activePresetId || '');
+        const presetText = activePresetId ? ` | Preset: ${activePresetId}` : '';
+        this.ui.multiplayerStatus.textContent = `Lobby Stub v1 | Rolle: ${role}${presetText}`;
+    }
+
+    syncDeveloperState(settings = this.game.settings) {
+        const ui = this.ui;
+        const localSettings = settings?.localSettings || {};
+        applyDeveloperThemeToDocument(localSettings.developerThemeId || 'classic-console');
+
+        if (ui.developerModeToggle) {
+            ui.developerModeToggle.checked = !!localSettings.developerModeEnabled;
+        }
+        if (ui.developerThemeSelect && localSettings.developerThemeId) {
+            ui.developerThemeSelect.value = String(localSettings.developerThemeId);
+        }
+        if (ui.developerVisibilitySelect && localSettings.developerModeVisibility) {
+            ui.developerVisibilitySelect.value = String(localSettings.developerModeVisibility);
+        }
+        if (ui.developerFixedPresetLockToggle) {
+            ui.developerFixedPresetLockToggle.checked = !!localSettings.fixedPresetLockEnabled;
+        }
+        if (ui.developerActorSelect && localSettings.actorId) {
+            ui.developerActorSelect.value = String(localSettings.actorId);
+        }
+        if (ui.developerHint) {
+            const mode = String(localSettings.developerModeVisibility || 'owner_only');
+            const ownerState = this._accessContext?.isOwner ? 'owner' : 'player';
+            ui.developerHint.textContent = `Developer Scope: ${mode} | Session: ${ownerState}`;
+        }
+    }
+
     updateContext() {
         if (!this.ui.menuContext) return;
+        this._accessContext = resolveMenuAccessContext(this.settings);
+        this.menuNavigationRuntime?.setAccessContext?.(this._accessContext);
         const section = this._getMenuSectionLabel(this.game._activeSubmenu);
         const activeProfile = this._resolveActiveProfileName();
         const dirtyState = this.game.settingsDirty ? 'ungespeicherte Aenderungen' : 'alles gespeichert';
@@ -267,6 +391,10 @@ export class UIManager {
 
     _getMenuSectionLabel(panelId) {
         if (!panelId) return 'Hauptmenue';
+        const registeredPanel = this.menuPanelRegistry.getPanelById(panelId);
+        if (registeredPanel?.label) {
+            return String(registeredPanel.label).replace(/\s+/g, ' ').trim();
+        }
         const linkedButton = this._menuButtonByPanel.get(panelId);
         if (linkedButton) {
             return (linkedButton.textContent || '').replace(/\s+/g, ' ').trim();

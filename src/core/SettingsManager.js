@@ -15,8 +15,27 @@ import {
     clampSettingValue,
     createControlBindingsSnapshot,
     normalizeControlBindings,
+    normalizeGlobalControlBindings,
     SETTINGS_LIMITS,
 } from './config/SettingsRuntimeContract.js';
+import { ensureMenuContractState } from '../ui/menu/MenuStateContracts.js';
+import { resolveMenuAccessContext } from '../ui/menu/MenuAccessPolicy.js';
+import {
+    applyPresetToSettings,
+    capturePresetValuesFromSettings,
+    createPresetMetadata,
+} from '../ui/menu/MenuPresetApplyOps.js';
+import { MenuPresetStore } from '../ui/menu/MenuPresetStore.js';
+import { getFixedMenuPresetCatalog } from '../ui/menu/MenuPresetCatalog.js';
+import {
+    applyDeveloperThemeToDocument,
+    setDeveloperActorId,
+    setDeveloperFixedPresetLock,
+    setDeveloperModeEnabled,
+    setDeveloperTheme,
+    setDeveloperVisibilityMode,
+} from '../ui/menu/MenuDeveloperModeOps.js';
+import { applyMenuCompatibilityRules as applyMenuCompatibilityRuleSet } from '../ui/menu/MenuCompatibilityRules.js';
 
 function deepClone(obj) {
     return JSON.parse(JSON.stringify(obj));
@@ -37,16 +56,34 @@ export const KEY_BIND_ACTIONS = [
     { label: 'Kamera', key: 'CAMERA' },
 ];
 
+export const GLOBAL_KEY_BIND_ACTIONS = [
+    { label: 'Cinematic Kamera (beide Spieler)', key: 'CINEMATIC_TOGGLE' },
+];
+
+function normalizePresetId(rawValue) {
+    const base = String(rawValue || '')
+        .trim()
+        .toLocaleLowerCase()
+        .replace(/[^a-z0-9\-_]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 40);
+    return base || '';
+}
+
 export class SettingsManager {
     constructor() {
         this.store = new SettingsStore({
             sanitizeSettings: (settings) => this.sanitizeSettings(settings),
             createDefaultSettings: () => this.createDefaultSettings(),
         });
+        this.menuPresetStore = new MenuPresetStore({
+            fixedCatalog: getFixedMenuPresetCatalog(),
+        });
     }
 
     createDefaultSettings() {
-        return {
+        const defaults = {
             mode: '1p',
             gameMode: resolveActiveGameMode(CONFIG.HUNT?.DEFAULT_MODE, CONFIG.HUNT?.ENABLED !== false),
             mapKey: 'standard',
@@ -93,6 +130,7 @@ export class SettingsManager {
             },
             controls: this.cloneDefaultControls(),
         };
+        return ensureMenuContractState(defaults);
     }
 
     cloneDefaultControls() {
@@ -164,7 +202,26 @@ export class SettingsManager {
 
         merged.controls.PLAYER_1 = normalizeControlBindings(src?.controls?.PLAYER_1, defaults.controls.PLAYER_1, { guardCombatConflicts: true });
         merged.controls.PLAYER_2 = normalizeControlBindings(src?.controls?.PLAYER_2, defaults.controls.PLAYER_2, { guardCombatConflicts: true });
+        merged.controls.GLOBAL = normalizeGlobalControlBindings(src?.controls?.GLOBAL, defaults.controls.GLOBAL);
 
+        if (src?.menuFeatureFlags && typeof src.menuFeatureFlags === 'object') {
+            merged.menuFeatureFlags = { ...src.menuFeatureFlags };
+        }
+        if (src?.menuContracts && typeof src.menuContracts === 'object') {
+            merged.menuContracts = { ...src.menuContracts };
+        }
+        if (src?.matchSettings && typeof src.matchSettings === 'object') {
+            merged.matchSettings = { ...src.matchSettings };
+        }
+        if (src?.playerLoadout && typeof src.playerLoadout === 'object') {
+            merged.playerLoadout = { ...src.playerLoadout };
+        }
+        if (src?.localSettings && typeof src.localSettings === 'object') {
+            merged.localSettings = { ...src.localSettings };
+        }
+
+        ensureMenuContractState(merged);
+        applyMenuCompatibilityRuleSet(merged);
         return merged;
     }
 
@@ -174,6 +231,119 @@ export class SettingsManager {
 
     saveSettings(settings) {
         return this.store.saveSettings(settings);
+    }
+
+    listMenuPresets() {
+        return this.menuPresetStore.listPresets();
+    }
+
+    applyMenuCompatibilityRules(settings, options = {}) {
+        ensureMenuContractState(settings);
+        return applyMenuCompatibilityRuleSet(settings, options);
+    }
+
+    applyMenuPreset(settings, presetId, accessContext = null) {
+        const normalizedPresetId = String(presetId || '').trim();
+        if (!normalizedPresetId) {
+            return { success: false, reason: 'invalid_preset_id' };
+        }
+        const preset = this.menuPresetStore.getPresetById(normalizedPresetId);
+        if (!preset) {
+            return { success: false, reason: 'preset_not_found' };
+        }
+
+        ensureMenuContractState(settings);
+        const resolvedContext = accessContext && typeof accessContext === 'object'
+            ? accessContext
+            : resolveMenuAccessContext(settings);
+        const result = applyPresetToSettings({
+            settings,
+            preset,
+            accessContext: resolvedContext,
+            allowOpenPresetEditing: settings?.menuFeatureFlags?.allowOpenPresetEditing !== false,
+        });
+        const compatibilityResult = this.applyMenuCompatibilityRules(settings, { accessContext: resolvedContext });
+        ensureMenuContractState(settings);
+        const changedKeys = Array.from(new Set([
+            ...(Array.isArray(result.changedKeys) ? result.changedKeys : []),
+            ...(Array.isArray(compatibilityResult.changedKeys) ? compatibilityResult.changedKeys : []),
+        ]));
+
+        return {
+            success: result.reason !== 'invalid_payload',
+            preset,
+            ...result,
+            changedKeys,
+            compatibilityResult,
+        };
+    }
+
+    saveMenuPreset(settings, options = {}, accessContext = null) {
+        ensureMenuContractState(settings);
+        const resolvedContext = accessContext && typeof accessContext === 'object'
+            ? accessContext
+            : resolveMenuAccessContext(settings);
+        const kind = options.kind === 'fixed' ? 'fixed' : 'open';
+        if (kind === 'fixed' && !resolvedContext.isOwner) {
+            return { success: false, reason: 'owner_required' };
+        }
+
+        const requestedName = String(options.name || '').trim();
+        const requestedId = String(options.id || '').trim();
+        const derivedId = normalizePresetId(requestedId || requestedName || `preset-${Date.now()}`);
+        if (!derivedId) {
+            return { success: false, reason: 'invalid_preset_id' };
+        }
+
+        const metadata = createPresetMetadata({
+            id: derivedId,
+            kind,
+            ownerId: resolvedContext.ownerId || 'owner',
+            lockedFields: Array.isArray(options.lockedFields) ? options.lockedFields : [],
+            sourcePresetId: options.sourcePresetId || settings?.matchSettings?.activePresetId || '',
+            createdAt: options.createdAt,
+            updatedAt: options.updatedAt,
+            timestamp: options.timestamp,
+        });
+        const preset = {
+            id: metadata.id,
+            name: requestedName || metadata.id,
+            description: String(options.description || '').trim(),
+            metadata,
+            values: capturePresetValuesFromSettings(settings),
+        };
+        return this.menuPresetStore.upsertPreset(preset, resolvedContext);
+    }
+
+    deleteMenuPreset(presetId, settings, accessContext = null) {
+        ensureMenuContractState(settings);
+        const resolvedContext = accessContext && typeof accessContext === 'object'
+            ? accessContext
+            : resolveMenuAccessContext(settings);
+        return this.menuPresetStore.deletePreset(presetId, resolvedContext);
+    }
+
+    setDeveloperMode(settings, enabled, accessContext = null) {
+        return setDeveloperModeEnabled(settings, enabled, accessContext);
+    }
+
+    setDeveloperTheme(settings, themeId, accessContext = null) {
+        const result = setDeveloperTheme(settings, themeId, accessContext);
+        if (!result.success) return result;
+        applyDeveloperThemeToDocument(settings?.localSettings?.developerThemeId);
+        return result;
+    }
+
+    setDeveloperFixedPresetLock(settings, enabled, accessContext = null) {
+        return setDeveloperFixedPresetLock(settings, enabled, accessContext);
+    }
+
+    setDeveloperActor(settings, actorId, accessContext = null) {
+        return setDeveloperActorId(settings, actorId, accessContext);
+    }
+
+    setDeveloperVisibility(settings, mode, accessContext = null) {
+        return setDeveloperVisibilityMode(settings, mode, accessContext);
     }
 
     createRuntimeConfig(settings) {

@@ -39,6 +39,8 @@ export class Game {
         this.config = CONFIG;
         this.runtimeConfig = null;
         this.activeGameMode = GAME_MODE_TYPES.CLASSIC;
+        this.menuLifecycleContractVersion = 'lifecycle.v1';
+        this.menuLifecycleEvents = [];
         this.huntState = {
             overheatByPlayer: {},
             killFeed: [],
@@ -76,6 +78,7 @@ export class Game {
 
         this.uiManager = new UIManager(this);
         this.uiManager.init();
+        this.keybindEditorController.renderEditor();
 
         this._setupMenuListeners();
         this._syncProfileControls();
@@ -311,6 +314,78 @@ export class Game {
         this.uiManager.showToast(message, durationMs, tone);
     }
 
+    _toggleCinematicCameraFromGlobalHotkey() {
+        const renderer = this.renderer;
+        if (!renderer || typeof renderer.getCinematicEnabled !== 'function' || typeof renderer.setCinematicEnabled !== 'function') {
+            return;
+        }
+        const currentlyEnabled = !!renderer.getCinematicEnabled();
+        const nextEnabled = !currentlyEnabled;
+        renderer.setCinematicEnabled(nextEnabled);
+        this._showStatusToast(
+            nextEnabled ? 'Cinematic Kamera: aktiv' : 'Cinematic Kamera: deaktiviert',
+            1400,
+            'info'
+        );
+    }
+
+    _handleGlobalInputHotkeys() {
+        if (this.keyCapture) return;
+        if (this.input?.wasGlobalActionPressed?.('CINEMATIC_TOGGLE')) {
+            this._toggleCinematicCameraFromGlobalHotkey();
+        }
+    }
+
+    _handleMenuLifecycleEvent(event) {
+        const sourceEvent = event && typeof event === 'object' ? event : {};
+        const contractVersion = String(sourceEvent.contractVersion || sourceEvent.version || '').trim();
+        const type = String(sourceEvent.eventType || sourceEvent.type || '').trim();
+        if (!type) return;
+
+        const payload = sourceEvent.payload && typeof sourceEvent.payload === 'object'
+            ? { ...sourceEvent.payload }
+            : (sourceEvent.context && typeof sourceEvent.context === 'object' ? { ...sourceEvent.context } : {});
+        const normalizedEvent = {
+            contractVersion: contractVersion || this.menuLifecycleContractVersion,
+            type,
+            timestampMs: Number(sourceEvent.timestampMs || Date.now()),
+            payload,
+        };
+
+        this.menuLifecycleEvents.push(normalizedEvent);
+        if (this.menuLifecycleEvents.length > 60) {
+            this.menuLifecycleEvents.shift();
+        }
+
+        if (normalizedEvent.contractVersion !== this.menuLifecycleContractVersion) {
+            this._showStatusToast(`Lifecycle-Contract mismatch: ${normalizedEvent.contractVersion}`, 1800, 'error');
+            return;
+        }
+
+        if (normalizedEvent.type === 'multiplayer_host') {
+            const lobbyCode = String(normalizedEvent.payload?.lobbyCode || 'local-lobby');
+            this._showStatusToast(`Lobby erstellt (Stub): ${lobbyCode}`, 1200, 'info');
+            return;
+        }
+        if (normalizedEvent.type === 'multiplayer_join') {
+            const lobbyCode = String(normalizedEvent.payload?.lobbyCode || 'local-lobby');
+            this._showStatusToast(`Lobby beitreten (Stub): ${lobbyCode}`, 1200, 'info');
+            return;
+        }
+        if (normalizedEvent.type === 'multiplayer_ready_toggle') {
+            const ready = !!normalizedEvent.payload?.ready;
+            this._showStatusToast(ready ? 'Ready gesetzt (Stub)' : 'Ready entfernt (Stub)', 1000, 'info');
+            return;
+        }
+        if (normalizedEvent.type === 'multiplayer_ready_invalidated') {
+            this._showStatusToast('Ready zurueckgesetzt: Host-Settings geaendert', 1500, 'info');
+        }
+    }
+
+    getMenuLifecycleEvents() {
+        return this.menuLifecycleEvents.slice();
+    }
+
     _showPlayerFeedback(player, message) {
         if (!player) return;
         const prefix = player.isBot ? `Bot ${player.index + 1}` : `P${player.index + 1}`;
@@ -359,6 +434,7 @@ export class Game {
 
     update(dt) {
         this.runtimeDiagnosticsSystem.update(dt);
+        this._handleGlobalInputHotkeys();
 
         // Debug Recording
         if (this._recorderFrameCaptureEnabled && this.state === 'PLAYING' && this.entityManager) {

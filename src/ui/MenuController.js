@@ -3,10 +3,25 @@ import { addChangedKeys, changedKeySetToArray } from './SettingsChangeSetOps.js'
 import { setupMenuGameplayBindings } from './menu/MenuGameplayBindings.js';
 import { setupMenuProfileBindings } from './menu/MenuProfileBindings.js';
 import { setupMenuControlBindings } from './menu/MenuControlBindings.js';
+import { setupMenuDevPanelBindings } from './menu/MenuDevPanelBindings.js';
+
+export const MENU_CONTROLLER_EVENT_CONTRACT_VERSION = 'menu-controller.v1';
 
 export const MENU_CONTROLLER_EVENT_TYPES = Object.freeze({
     SETTINGS_CHANGED: 'settings_changed',
     START_MATCH: 'start_match',
+    PRESET_APPLY: 'preset_apply',
+    PRESET_SAVE_OPEN: 'preset_save_open',
+    PRESET_SAVE_FIXED: 'preset_save_fixed',
+    PRESET_DELETE: 'preset_delete',
+    MULTIPLAYER_HOST: 'multiplayer_host',
+    MULTIPLAYER_JOIN: 'multiplayer_join',
+    MULTIPLAYER_READY_TOGGLE: 'multiplayer_ready_toggle',
+    DEVELOPER_MODE_TOGGLE: 'developer_mode_toggle',
+    DEVELOPER_THEME_CHANGE: 'developer_theme_change',
+    DEVELOPER_VISIBILITY_CHANGE: 'developer_visibility_change',
+    DEVELOPER_FIXED_PRESET_LOCK_TOGGLE: 'developer_fixed_preset_lock_toggle',
+    DEVELOPER_ACTOR_CHANGE: 'developer_actor_change',
     START_KEY_CAPTURE: 'start_key_capture',
     SAVE_PROFILE: 'save_profile',
     LOAD_PROFILE: 'load_profile',
@@ -37,7 +52,7 @@ export class MenuController {
             this._flushQueuedInputSettingsChangedNow();
         }
         if (!this.onEvent) return;
-        this.onEvent({ type, ...payload });
+        this.onEvent({ contractVersion: MENU_CONTROLLER_EVENT_CONTRACT_VERSION, type, ...payload });
     }
 
     _emitSettingsChanged(changedKeys) {
@@ -125,5 +140,6 @@ export class MenuController {
         setupMenuGameplayBindings(bindingContext);
         setupMenuProfileBindings(bindingContext);
         setupMenuControlBindings(bindingContext);
+        setupMenuDevPanelBindings(bindingContext);
     }
 }

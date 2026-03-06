@@ -19,6 +19,10 @@ const ACTION_KEYS = [
     'CAMERA',
 ];
 
+const GLOBAL_ACTION_KEYS = [
+    'CINEMATIC_TOGGLE',
+];
+
 function deepClone(obj) {
     return JSON.parse(JSON.stringify(obj));
 }
@@ -69,6 +73,7 @@ export class InputManager {
         this.bindings = {
             PLAYER_1: this._normalizePlayerBindings(bindingsByPlayer?.PLAYER_1, CONFIG.KEYS.PLAYER_1),
             PLAYER_2: this._normalizePlayerBindings(bindingsByPlayer?.PLAYER_2, CONFIG.KEYS.PLAYER_2),
+            GLOBAL: this._normalizeGlobalBindings(bindingsByPlayer?.GLOBAL, CONFIG.KEYS.GLOBAL),
         };
         this._rebuildPreventDefaultCodes();
     }
@@ -88,12 +93,24 @@ export class InputManager {
         return normalized;
     }
 
+    _normalizeGlobalBindings(source, fallback) {
+        const fromSource = source || {};
+        const base = fallback || {};
+        const normalized = {};
+
+        for (const key of GLOBAL_ACTION_KEYS) {
+            normalized[key] = fromSource[key] || base[key];
+        }
+
+        return normalized;
+    }
+
     _rebuildPreventDefaultCodes() {
         const codes = new Set(['Escape', 'Enter']);
 
-        const addBindingCodes = (bindingSet) => {
+        const addBindingCodes = (bindingSet, actionKeys) => {
             if (!bindingSet) return;
-            for (const action of ACTION_KEYS) {
+            for (const action of actionKeys) {
                 const code = bindingSet[action];
                 if (typeof code === 'string' && code.length > 0) {
                     codes.add(code);
@@ -101,8 +118,9 @@ export class InputManager {
             }
         };
 
-        addBindingCodes(this.bindings?.PLAYER_1);
-        addBindingCodes(this.bindings?.PLAYER_2);
+        addBindingCodes(this.bindings?.PLAYER_1, ACTION_KEYS);
+        addBindingCodes(this.bindings?.PLAYER_2, ACTION_KEYS);
+        addBindingCodes(this.bindings?.GLOBAL, GLOBAL_ACTION_KEYS);
         this._preventDefaultCodes = codes;
     }
 
@@ -154,6 +172,14 @@ export class InputManager {
             pressed = this.wasPressed(secondaryCode) || pressed;
         }
         return pressed;
+    }
+
+    wasGlobalActionPressed(actionKey) {
+        const keyMap = this.bindings?.GLOBAL;
+        if (!keyMap) return false;
+        const code = keyMap[actionKey];
+        if (!code) return false;
+        return this._wasActionPressed(code);
     }
 
     getPlayerInput(playerIndex, options = {}) {

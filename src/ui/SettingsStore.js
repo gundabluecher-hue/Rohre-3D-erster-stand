@@ -5,6 +5,7 @@
 const SETTINGS_STORAGE_KEY = 'aero-arena-3d.settings.v1';
 const SETTINGS_STORAGE_LEGACY_KEYS = ['mini-curve-fever-3d.settings.v4', 'mini-curve-fever-3d.settings.v3'];
 const SETTINGS_PROFILES_STORAGE_KEY = 'aero-arena-3d.settings-profiles.v1';
+const MENU_PRESETS_STORAGE_KEY = 'aero-arena-3d.menu-presets.v1';
 
 function getDefaultStorage() {
     try {
@@ -29,6 +30,7 @@ export class SettingsStore {
             ? [...options.settingsStorageLegacyKeys]
             : [...SETTINGS_STORAGE_LEGACY_KEYS];
         this.settingsProfilesStorageKey = options.settingsProfilesStorageKey || SETTINGS_PROFILES_STORAGE_KEY;
+        this.menuPresetsStorageKey = options.menuPresetsStorageKey || MENU_PRESETS_STORAGE_KEY;
     }
 
     loadSettings() {
@@ -105,6 +107,37 @@ export class SettingsStore {
             return true;
         } catch {
             // Ignore persistence errors.
+            return false;
+        }
+    }
+
+    loadJsonRecord(storageKey, fallbackValue = null) {
+        const key = String(storageKey || '').trim();
+        if (!key) return fallbackValue;
+        if (!this.storage || typeof this.storage.getItem !== 'function') {
+            return fallbackValue;
+        }
+
+        try {
+            const raw = this.storage.getItem(key);
+            if (!raw) return fallbackValue;
+            return JSON.parse(raw);
+        } catch {
+            return fallbackValue;
+        }
+    }
+
+    saveJsonRecord(storageKey, value) {
+        const key = String(storageKey || '').trim();
+        if (!key) return false;
+        if (!this.storage || typeof this.storage.setItem !== 'function') {
+            return false;
+        }
+
+        try {
+            this.storage.setItem(key, JSON.stringify(value));
+            return true;
+        } catch {
             return false;
         }
     }

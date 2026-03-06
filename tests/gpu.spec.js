@@ -154,4 +154,42 @@ test.describe('T21-40: Rendering & GPU', () => {
         });
         expect(hasRoots).toBeTruthy();
     });
+
+    test('T33: Cinematic Camera blend reagiert auf Camera-Mode-Wechsel', async ({ page }) => {
+        await startGame(page);
+        const probe = await page.evaluate(() => {
+            const g = window.GAME_INSTANCE;
+            const rig = g?.renderer?.cameraRigSystem;
+            const cinematic = rig?.cinematicCameraSystem;
+            if (!g || !rig || !cinematic || !g.entityManager) return null;
+
+            const tickCameras = (steps) => {
+                for (let i = 0; i < steps; i++) {
+                    g.entityManager.updateCameras(1 / 60);
+                }
+            };
+
+            const initialBlend = cinematic.getPlayerBlend?.(0) || 0;
+            tickCameras(36);
+            const thirdPersonBlend = cinematic.getPlayerBlend?.(0) || 0;
+
+            g.renderer.cycleCamera(0);
+            tickCameras(36);
+            const firstPersonBlend = cinematic.getPlayerBlend?.(0) || 0;
+
+            return {
+                enabled: cinematic.isEnabled?.() === true,
+                initialBlend,
+                thirdPersonBlend,
+                firstPersonBlend,
+                activeMode: g.renderer.getCameraMode(0),
+            };
+        });
+
+        expect(probe).not.toBeNull();
+        expect(probe.enabled).toBeTruthy();
+        expect(probe.thirdPersonBlend).toBeGreaterThan(probe.initialBlend);
+        expect(probe.firstPersonBlend).toBeLessThanOrEqual(probe.thirdPersonBlend);
+        expect(probe.activeMode).toBe('FIRST_PERSON');
+    });
 });

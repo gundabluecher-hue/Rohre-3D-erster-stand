@@ -35,7 +35,9 @@ export class Renderer {
         this.matchRoot = this.sceneRootManager.matchRoot;
         this.debugRoot = this.sceneRootManager.debugRoot;
 
-        this.cameraRigSystem = new CameraRigSystem();
+        this.cameraRigSystem = new CameraRigSystem({
+            cinematicEnabled: CONFIG?.CAMERA?.CINEMATIC_ENABLED !== false,
+        });
         this.cameras = this.cameraRigSystem.cameras;
         this.cameraTargets = this.cameraRigSystem.cameraTargets;
         this.cameraModes = this.cameraRigSystem.cameraModes;
@@ -98,6 +100,14 @@ export class Renderer {
 
     triggerCameraShake(playerIndex, intensity = 0.2, duration = 0.2) {
         this.cameraRigSystem.triggerCameraShake(playerIndex, intensity, duration);
+    }
+
+    setCinematicEnabled(enabled) {
+        this.cameraRigSystem.setCinematicEnabled(enabled);
+    }
+
+    getCinematicEnabled() {
+        return this.cameraRigSystem.getCinematicEnabled();
     }
 
     updateCamera(

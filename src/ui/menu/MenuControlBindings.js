@@ -21,6 +21,17 @@ export function setupMenuControlBindings(ctx) {
         });
     });
 
+    if (ui.keybindGlobal) {
+        ui.keybindGlobal.addEventListener('click', (e) => {
+            const btn = e.target.closest('button.keybind-btn');
+            if (!btn) return;
+            emit(eventTypes.START_KEY_CAPTURE, {
+                player: 'GLOBAL',
+                action: btn.dataset.action,
+            });
+        });
+    }
+
     ui.resetKeysButton.addEventListener('click', () => {
         emit(eventTypes.RESET_KEYS);
     });
