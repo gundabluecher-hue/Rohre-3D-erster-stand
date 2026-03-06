@@ -1,0 +1,49 @@
+{
+  "generatedAt": "2026-03-02",
+  "baseUrl": "http://127.0.0.1:4273",
+  "roundsPerScenario": 4,
+  "scenarios": [
+    {
+      "scenario": {
+        "id": "V3",
+        "mode": "1p",
+        "bots": 3,
+        "mapKey": "complex",
+        "planarMode": true,
+        "portalCount": 4,
+        "rounds": 10
+      },
+      "metrics": {
+        "rounds": 4,
+        "botWinRate": 1,
+        "stuckEvents": 0,
+        "wallHits": 0,
+        "trailHits": 0,
+        "averageBotSurvival": 31.618958541106622,
+        "stuckPerMinute": 0,
+        "totalDuration": 131.95940000000223
+      },
+      "runner": {
+        "forcedRounds": 3,
+        "timeoutRounds": 3,
+        "elapsedMs": 140877
+      }
+    }
+  ],
+  "overall": {
+    "rounds": 4,
+    "botWinRate": 1,
+    "stuckEvents": 0,
+    "wallHits": 0,
+    "trailHits": 0,
+    "averageBotSurvival": 31.618958541106622,
+    "stuckPerMinute": 0,
+    "totalDuration": 131.95940000000223
+  },
+  "runner": {
+    "forcedRounds": 12,
+    "timeoutRounds": 12,
+    "failOnForcedRound": false,
+    "maxForcedRounds": 9007199254740991
+  }
+}

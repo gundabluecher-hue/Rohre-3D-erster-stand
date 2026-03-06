@@ -240,6 +240,21 @@ Neue Findings aus dem Analysebericht fliessen hier ein.
   - [x] 26.3.8 Testausbau fuer neue Menuepfade (abgeschlossen 2026-03-06)
   - [x] 26.3.9 Abschluss-Gate, Doku-Freeze und Restrisiken (abgeschlossen 2026-03-06)
   - Kurznotiz 2026-03-06: Menu-Contracts (`menu-state.v1`, `menu-controller.v1`, `lifecycle.v1`, `menu-compatibility.v1`) aktiv; Access-Guards und Preset-Typtrennung (`fixed/open`) in Core+Stress abgesichert.
+- [ ] 26.3b Menu-Ebenen-Follow-up (geplant, Stand 2026-03-06)
+  - Referenzplan: `docs/Feature_Menu_Ebenen_Followup_V26_3b.md`.
+  - Ziel: Menue auf 4 Ebenen fuer `Session-Typ -> Spielweg -> Start-Setup -> Feineinstellungen` ausrichten, mit schnellem Start auf Ebene 3.
+  - Zusatz: Alle bisherigen Menuepunkte bleiben erhalten, werden aber in `Tools`, `Erweiterte Map-Einstellungen` oder `Developer` umsortiert; UI-Texte werden ueber einen abschaltbaren Developer-Textkatalog planbar.
+  - UX-Zusaetze: feste Auswahl-Zusammenfassung, `Zuletzt benutzt`/`Favoriten`, Suche und Mini-Vorschau, Splitscreen-Loadout in Ebene 3, Multiplayer-Zustandsbilder, Start-Hilfe mit Direktsprung, Keyboard-/Controller-Navigation.
+  - Zusatzfunktionen: per-Ebene-Reset, getrennte Entwuerfe pro Session-Typ, Feldkonflikthinweise, Presets als Standard-Kombinationen, Config-Import/Export, Release-Vorschau und Entwicklungs-Telemetrie.
+  - [ ] 26.3b.0 Baseline und UX-Freeze
+  - [ ] 26.3b.1 Session-Level (Ebene 1)
+  - [ ] 26.3b.2 Spielweg-Level (Ebene 2)
+  - [ ] 26.3b.3 Start-Setup-Level (Ebene 3)
+  - [ ] 26.3b.4 Feineinstellungen-Level (Ebene 4)
+  - [ ] 26.3b.5 Developer-Modus und Textkatalog
+  - [ ] 26.3b.6 Startlogik, Defaults und Kompatibilitaet
+  - [ ] 26.3b.7 Tests fuer neuen Menuefluss
+  - [ ] 26.3b.8 Abschluss-Gate und Doku-Freeze (`docs:sync`, `docs:check`)
 - [ ] 26.4 V9 Replay/Ghost-System fuer die letzte Runde aufbauen
 - [ ] 26.5 V11 GLB-Map Loader Integration (Erweiterte Map-Varianz)
 - [ ] 26.6 V16 Event-Playlist / Fun-Modes Mechanik testen

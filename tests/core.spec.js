@@ -458,4 +458,39 @@ test.describe('T1-20: Core & Infrastruktur', () => {
         expect(recorderState.autoDownload).toBeTruthy();
         expect(recorderState.directoryName).toBe('videos');
     });
+
+    test('T20n: Escape-Return finalisiert Recording-Export trotz doppeltem Lifecycle-Stop', async ({ page }) => {
+        await startGame(page);
+        await page.waitForTimeout(1400);
+        await returnToMenu(page);
+        await page.waitForTimeout(800);
+
+        const recorderState = await page.evaluate(async () => {
+            const recorder = window.GAME_INSTANCE?.mediaRecorderSystem;
+            const support = recorder?.getSupportState?.() || {};
+            if (!support.canRecord) {
+                return {
+                    canRecord: false,
+                    exportMeta: null,
+                };
+            }
+
+            const deadline = Date.now() + 4500;
+            let exportMeta = recorder?.getLastExportMeta?.() || null;
+            while (!exportMeta && Date.now() < deadline) {
+                await new Promise((resolve) => setTimeout(resolve, 80));
+                exportMeta = recorder?.getLastExportMeta?.() || null;
+            }
+            return {
+                canRecord: true,
+                exportMeta,
+            };
+        });
+
+        if (!recorderState.canRecord) {
+            test.skip(true, 'MediaRecorder/captureStream im Runtime nicht verfuegbar.');
+        }
+        expect(recorderState.exportMeta).toBeTruthy();
+        expect(String(recorderState.exportMeta.fileName || '')).toContain('.webm');
+    });
 });

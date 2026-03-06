@@ -263,13 +263,13 @@ export class MediaRecorderSystem {
             return { stopped: false, reason: 'not_recording' };
         }
 
+        if (this._pendingStop) {
+            return this._pendingStop;
+        }
+
         if (this._recorder.state === 'inactive') {
             this._cleanupRuntimeRecorder();
             return { stopped: false, reason: 'already_inactive' };
-        }
-
-        if (this._pendingStop) {
-            return this._pendingStop;
         }
 
         this._pendingStop = new Promise((resolve) => {

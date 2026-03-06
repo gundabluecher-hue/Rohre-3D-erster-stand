@@ -1,0 +1,81 @@
+{
+  "generatedAt": "2026-03-05",
+  "baseline": {
+    "sourceReportPath": "tmp/bot_validation_report_v3.json",
+    "sourceGeneratedAt": "2026-03-02",
+    "roundsPerScenario": 4,
+    "matrix": [
+      {
+        "id": "V3",
+        "mode": "1p",
+        "bots": 3,
+        "mapKey": "complex",
+        "planarMode": true,
+        "portalCount": 4,
+        "rounds": 10
+      }
+    ],
+    "sampleDurationMs": 2500,
+    "sampleIntervalMs": 300,
+    "sampleWarmupMs": 400,
+    "seedMode": "none",
+    "seedNote": "No explicit RNG seed hook available; reproducibility is driven by fixed matrix and runner parameters."
+  },
+  "scenarios": [
+    {
+      "scenario": {
+        "id": "V3",
+        "mode": "1p",
+        "bots": 3,
+        "mapKey": "complex",
+        "planarMode": true,
+        "portalCount": 4,
+        "rounds": 10
+      },
+      "metrics": {
+        "rounds": 4,
+        "botWinRate": 1,
+        "stuckEvents": 0,
+        "averageBotSurvival": 31.618958541106622,
+        "fpsAverage": 56.8810095504008,
+        "drawCallsAverage": 21.714285714285715,
+        "performanceSamples": 7
+      },
+      "performance": {
+        "sampleCount": 7,
+        "fpsAverage": 56.8810095504008,
+        "drawCallsAverage": 21.714285714285715,
+        "fpsMin": 53.83694150161215,
+        "fpsMax": 58.36490284736649,
+        "drawCallsMin": 15,
+        "drawCallsMax": 27,
+        "observedDurationMs": 2771
+      },
+      "sourceRunner": {
+        "forcedRounds": 3,
+        "timeoutRounds": 3,
+        "elapsedMs": 140877
+      }
+    }
+  ],
+  "overall": {
+    "rounds": 4,
+    "botWinRate": 1,
+    "stuckEvents": 0,
+    "averageBotSurvival": 31.618958541106622,
+    "fpsAverage": 56.8810095504008,
+    "drawCallsAverage": 21.714285714285715,
+    "performanceSamples": 7
+  },
+  "sourceRunner": {
+    "forcedRounds": 12,
+    "timeoutRounds": 12,
+    "failOnForcedRound": false,
+    "maxForcedRounds": 9007199254740991
+  },
+  "paths": {
+    "json": "tmp/perf_phase24_5_trend_v3.json",
+    "sourceJson": "tmp/bot_validation_report_v3.json",
+    "doc": "docs/Testergebnisse_2026-03-05.md"
+  }
+}
