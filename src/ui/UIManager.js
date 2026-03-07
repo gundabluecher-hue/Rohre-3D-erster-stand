@@ -14,7 +14,7 @@ import {
     resolveDeveloperAccessPolicy,
     resolveMenuAccessContext,
 } from './menu/MenuAccessPolicy.js';
-import { ensureMenuContractState, MENU_SESSION_TYPES } from './menu/MenuStateContracts.js';
+import { ensureMenuContractState, LEVEL4_SECTION_IDS, MENU_SESSION_TYPES } from './menu/MenuStateContracts.js';
 import { MenuNavigationRuntime } from './menu/MenuNavigationRuntime.js';
 import { MenuStateMachine, MENU_STATE_IDS } from './menu/MenuStateMachine.js';
 import { applyDeveloperThemeToDocument } from './menu/MenuDeveloperModeOps.js';
@@ -74,6 +74,7 @@ export class UIManager {
         this._setupVehicleSelects();
         this._setupMapSelect();
         this._setupStartSetupControls();
+        this._setupLevel4SectionControls();
         this._setupDeveloperTextCatalog();
         this._setupMenuNavigation();
         this.syncAll();
@@ -175,6 +176,141 @@ export class UIManager {
             button.dataset[dataKey] = String(value);
             container.appendChild(button);
         });
+    }
+
+    _humanizePreviewCategory(value) {
+        const normalized = String(value || '').trim().toLowerCase();
+        if (normalized === 'small') return 'Kompakt';
+        if (normalized === 'medium') return 'Mittel';
+        if (normalized === 'large') return 'Gross';
+        if (normalized === 'light') return 'Leicht';
+        if (normalized === 'heavy') return 'Schwer';
+        return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : 'Standard';
+    }
+
+    _renderSummaryBlocks(container, blocks) {
+        if (!container) return;
+        const normalizedBlocks = Array.isArray(blocks) ? blocks.filter(Boolean) : [];
+        if (normalizedBlocks.length === 0) {
+            container.textContent = 'Keine Auswahl vorhanden.';
+            return;
+        }
+        container.innerHTML = normalizedBlocks.map((block) => {
+            const label = String(block.label || '').trim();
+            const value = String(block.value || '').trim();
+            const toneClass = block.muted ? ' is-muted' : '';
+            return `
+                <div class="start-summary-block">
+                    <span class="start-summary-label">${label}</span>
+                    <span class="start-summary-value${toneClass}">${value}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    _renderPreviewCard(container, payload = {}) {
+        if (!container) return;
+        const title = String(payload.title || '').trim() || 'Vorschau';
+        const badges = Array.isArray(payload.badges) ? payload.badges.filter(Boolean) : [];
+        const facts = Array.isArray(payload.facts) ? payload.facts.filter(Boolean) : [];
+        const badgesMarkup = badges.map((badge) => `<span class="preview-badge">${String(badge)}</span>`).join('');
+        const factsMarkup = facts.map((fact) => `
+            <div class="preview-kv">
+                <span class="preview-kv-label">${String(fact.label || '')}</span>
+                <span class="preview-kv-value">${String(fact.value || '')}</span>
+            </div>
+        `).join('');
+        container.innerHTML = `
+            <div class="preview-card-title">${title}</div>
+            <div class="preview-card-meta">${badgesMarkup}</div>
+            <div class="preview-kv-grid">${factsMarkup}</div>
+        `;
+    }
+
+    _setStartSectionOpen(sectionId, shouldOpen = true) {
+        const normalizedSectionId = String(sectionId || '').trim();
+        if (!normalizedSectionId) return;
+        const section = document.querySelector(`[data-start-section="${normalizedSectionId}"]`);
+        if (!(section instanceof HTMLDetailsElement)) return;
+        section.open = !!shouldOpen;
+    }
+
+    _resolveLevel4Section(sectionId, fallback = LEVEL4_SECTION_IDS.CONTROLS) {
+        const normalizedSectionId = String(sectionId || '').trim();
+        const validIds = Object.values(LEVEL4_SECTION_IDS);
+        return validIds.includes(normalizedSectionId) ? normalizedSectionId : fallback;
+    }
+
+    _setupLevel4SectionControls() {
+        if (!Array.isArray(this.ui.level4SectionTabs)) return;
+        this.ui.level4SectionTabs.forEach((button) => {
+            button.addEventListener('click', () => {
+                const sectionId = this._resolveLevel4Section(button?.dataset?.level4SectionTarget);
+                this.setLevel4Section(sectionId, { persist: true, focus: true });
+            });
+            button.addEventListener('keydown', (event) => {
+                if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+                event.preventDefault();
+                const tabs = this.ui.level4SectionTabs.filter(Boolean);
+                const currentIndex = tabs.indexOf(button);
+                if (currentIndex < 0 || tabs.length === 0) return;
+                const delta = event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 1;
+                const nextIndex = (currentIndex + delta + tabs.length) % tabs.length;
+                tabs[nextIndex]?.focus?.();
+            });
+        });
+    }
+
+    setLevel4Section(sectionId, options = {}) {
+        const resolvedSectionId = this._resolveLevel4Section(sectionId);
+        if (!this.settings?.localSettings?.toolsState || typeof this.settings.localSettings.toolsState !== 'object') {
+            this.settings.localSettings.toolsState = {};
+        }
+        if (options.persist !== false) {
+            this.settings.localSettings.toolsState.activeSection = resolvedSectionId;
+        }
+        this._syncLevel4SectionState(resolvedSectionId, options);
+        if (this.settings.localSettings.toolsState.level4Open) {
+            this.updateContext();
+        }
+    }
+
+    _syncLevel4SectionState(sectionId, options = {}) {
+        const resolvedSectionId = this._resolveLevel4Section(sectionId);
+        const tabs = Array.isArray(this.ui.level4SectionTabs) ? this.ui.level4SectionTabs : [];
+        const panels = Array.isArray(this.ui.level4SectionPanels) ? this.ui.level4SectionPanels : [];
+        tabs.forEach((button) => {
+            const isActive = this._resolveLevel4Section(button?.dataset?.level4SectionTarget, '') === resolvedSectionId;
+            button.setAttribute('aria-selected', String(isActive));
+            button.classList.toggle('active', isActive);
+            button.tabIndex = isActive ? 0 : -1;
+        });
+        panels.forEach((panel) => {
+            const panelSectionId = this._resolveLevel4Section(panel?.dataset?.level4Section, '');
+            const isActive = panelSectionId === resolvedSectionId;
+            panel.classList.toggle('is-active', isActive);
+            panel.setAttribute('aria-hidden', String(!isActive));
+        });
+        if (options.focus) {
+            const activePanel = panels.find((panel) => this._resolveLevel4Section(panel?.dataset?.level4Section, '') === resolvedSectionId);
+            const focusTarget = activePanel?.querySelector('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')
+                || tabs.find((button) => this._resolveLevel4Section(button?.dataset?.level4SectionTarget, '') === resolvedSectionId);
+            focusTarget?.focus?.();
+        }
+    }
+
+    _syncMenuChromeState(panelId = this.game._activeSubmenu) {
+        const root = this.ui.mainMenu;
+        if (!root) return;
+        const normalizedPanelId = String(panelId || '').trim();
+        const level4Open = !!this.settings?.localSettings?.toolsState?.level4Open;
+        let depth = 1;
+        if (normalizedPanelId === 'submenu-custom') depth = 2;
+        if (normalizedPanelId === 'submenu-game') depth = level4Open ? 4 : 3;
+        if (normalizedPanelId === 'submenu-developer' || normalizedPanelId === 'submenu-debug') depth = 5;
+        root.setAttribute('data-menu-depth', String(depth));
+        root.setAttribute('data-menu-panel', normalizedPanelId || 'main');
+        root.setAttribute('data-level4-open', String(level4Open));
     }
 
     _setupStartSetupControls() {
@@ -287,14 +423,14 @@ export class UIManager {
         const dimensionModeButton = Array.isArray(this.ui.dimensionModeButtons) ? this.ui.dimensionModeButtons[0] : null;
         const gameModeButton = Array.isArray(this.ui.gameModeButtons) ? this.ui.gameModeButtons[0] : null;
         const bindings = {
-            map: { control: this.ui.mapSelect, hint: this.ui.mapFieldHint },
-            vehicleP1: { control: this.ui.vehicleSelectP1, hint: this.ui.vehicleP1FieldHint },
-            vehicleP2: { control: this.ui.vehicleSelectP2, hint: this.ui.vehicleP2FieldHint },
-            theme: { control: this.ui.themeModeSelect, hint: this.ui.themeFieldHint },
-            match: { control: dimensionModeButton || gameModeButton || this.ui.huntRespawnToggle, hint: this.ui.matchFieldHint },
-            multiplayer: { control: this.ui.multiplayerLobbyCodeInput, hint: this.ui.matchFieldHint },
+            map: { control: this.ui.mapSelect, hint: this.ui.mapFieldHint, sectionId: 'map' },
+            vehicleP1: { control: this.ui.vehicleSelectP1, hint: this.ui.vehicleP1FieldHint, sectionId: 'vehicle' },
+            vehicleP2: { control: this.ui.vehicleSelectP2, hint: this.ui.vehicleP2FieldHint, sectionId: 'vehicle' },
+            theme: { control: this.ui.themeModeSelect, hint: this.ui.themeFieldHint, sectionId: 'match' },
+            match: { control: dimensionModeButton || gameModeButton || this.ui.huntRespawnToggle, hint: this.ui.matchFieldHint, sectionId: 'match' },
+            multiplayer: { control: this.ui.multiplayerLobbyCodeInput, hint: this.ui.matchFieldHint, sectionId: 'multiplayer' },
         };
-        return bindings[fieldKey] || { control: null, hint: null };
+        return bindings[fieldKey] || { control: null, hint: null, sectionId: '' };
     }
 
     _setFieldHint(hintElement, message, tone = 'info') {
@@ -357,7 +493,7 @@ export class UIManager {
         Object.entries(lockMessagesByField).forEach(([fieldKey, labels]) => {
             if (!Array.isArray(labels) || labels.length === 0) return;
             const uniqueLabels = Array.from(new Set(labels));
-            lockHints.set(fieldKey, `Preset-Lock aktiv: ${uniqueLabels.join(', ')}`);
+            lockHints.set(fieldKey, `Verbindliches Preset aktiv: ${uniqueLabels.join(', ')}`);
         });
         return lockHints;
     }
@@ -387,6 +523,9 @@ export class UIManager {
             this._setFieldHint(binding.hint, String(issue.fieldMessage || issue.message || ''), 'error');
         }
         if (binding.control) {
+            if (binding.sectionId) {
+                this._setStartSectionOpen(binding.sectionId, true);
+            }
             binding.control.classList.add('menu-field-error');
             if (options.focusField) {
                 binding.control.focus();
@@ -468,6 +607,7 @@ export class UIManager {
             panelRegistry: this.menuPanelRegistry,
             stateMachine: this.menuStateMachine,
             accessContext: this._accessContext,
+            onLevel4CloseRequested: () => this.setLevel4Open(false),
             onPanelChanged: (panelId, _panelConfig, _transition, transitionMetadata) => {
                 const previousPanelId = this.game._activeSubmenu || null;
                 this.game._activeSubmenu = panelId || null;
@@ -476,6 +616,7 @@ export class UIManager {
                     this.setLevel4Open(false);
                 }
                 this.game.runtimeFacade?.handleMenuPanelChanged?.(previousPanelId, panelId || null, transitionMetadata || null);
+                this._syncMenuChromeState(panelId || null);
                 this.updateContext();
             },
             onMenuStateChanged: (transition) => {
@@ -484,6 +625,7 @@ export class UIManager {
             },
         });
         this.menuNavigationRuntime.init();
+        this._syncMenuChromeState(this.game._activeSubmenu || null);
     }
 
     showMainNav() {
@@ -506,12 +648,29 @@ export class UIManager {
         const drawer = this.ui.level4Drawer;
         if (!drawer) return;
         const open = !!isOpen;
+        if (!this.settings?.localSettings?.toolsState || typeof this.settings.localSettings.toolsState !== 'object') {
+            this.settings.localSettings.toolsState = {};
+        }
+        this.settings.localSettings.toolsState.level4Open = open;
         drawer.classList.toggle('hidden', !open);
         drawer.setAttribute('aria-hidden', String(!open));
+        const activeSection = this._resolveLevel4Section(
+            this.settings?.localSettings?.toolsState?.activeSection,
+            LEVEL4_SECTION_IDS.CONTROLS
+        );
+        this._syncLevel4SectionState(activeSection, { focus: false });
+        this._syncMenuChromeState(this.game._activeSubmenu || null);
         if (open) {
-            const firstFocusable = drawer.querySelector('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            const activePanel = Array.isArray(this.ui.level4SectionPanels)
+                ? this.ui.level4SectionPanels.find((panel) => this._resolveLevel4Section(panel?.dataset?.level4Section, '') === activeSection)
+                : null;
+            const firstFocusable = activePanel?.querySelector('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')
+                || drawer.querySelector('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
             firstFocusable?.focus();
+        } else if (this.game._activeSubmenu === 'submenu-game') {
+            this.ui.openLevel4Button?.focus?.();
         }
+        this.updateContext();
     }
 
     _resolveDeveloperReleaseState(settings = this.game.settings) {
@@ -863,39 +1022,84 @@ export class UIManager {
         this._renderQuickList(this.ui.vehicleFavoritesList, startSetup.favoriteVehicles, 'vehicleId');
         this._renderQuickList(this.ui.vehicleRecentList, startSetup.recentVehicles, 'vehicleId');
 
+        const sessionType = String(settings?.localSettings?.sessionType || MENU_SESSION_TYPES.SINGLE).toLowerCase();
+        const modePath = String(settings?.localSettings?.modePath || 'normal').toLowerCase();
+        const sessionLabel = sessionType === MENU_SESSION_TYPES.SPLITSCREEN
+            ? 'Splitscreen'
+            : (sessionType === MENU_SESSION_TYPES.MULTIPLAYER ? 'Multiplayer' : 'Single Player');
+        const modeLabel = modePath === 'fight'
+            ? 'Fight'
+            : (modePath === 'arcade' ? 'Arcade' : (modePath === 'quick_action' ? 'Schnellstart' : 'Normal'));
+        const themeLabel = String(settings?.localSettings?.themeMode || 'dunkel').toLowerCase() === 'hell' ? 'Hell' : 'Dunkel';
+        const mapPreview = resolveMapPreview(settings.mapKey);
+        const vehiclePreviewP1 = resolveVehiclePreview(settings?.vehicles?.PLAYER_1);
+        const vehiclePreviewP2 = resolveVehiclePreview(settings?.vehicles?.PLAYER_2);
+
         if (this.ui.menuSummary) {
-            const sessionLabel = settings?.localSettings?.sessionType === 'splitscreen'
-                ? 'Splitscreen'
-                : (settings?.localSettings?.sessionType === 'multiplayer' ? 'Multiplayer' : 'Single Player');
-            const modePath = String(settings?.localSettings?.modePath || 'normal').toLowerCase();
-            const modeLabel = modePath === 'fight' ? 'Fight' : (modePath === 'arcade' ? 'Arcade' : (modePath === 'quick_action' ? 'Schnellstart' : 'Normal'));
-            const themeLabel = String(settings?.localSettings?.themeMode || 'dunkel').toLowerCase() === 'hell' ? 'Hell' : 'Dunkel';
-            const mapPreview = resolveMapPreview(settings.mapKey);
-            this.ui.menuSummary.textContent = `${sessionLabel} | ${modeLabel} | ${mapPreview.name} | ${settings?.vehicles?.PLAYER_1 || 'ship5'} | ${themeLabel}`;
+            const summaryBlocks = [
+                { label: 'Session', value: sessionLabel },
+                { label: 'Spielstil', value: modeLabel },
+                { label: 'Map', value: mapPreview.name },
+                { label: 'P1', value: vehiclePreviewP1.label },
+                { label: 'Ansicht', value: themeLabel },
+            ];
+            if (sessionType === MENU_SESSION_TYPES.SPLITSCREEN) {
+                summaryBlocks.push({ label: 'P2', value: vehiclePreviewP2.label });
+            }
+            if (sessionType === MENU_SESSION_TYPES.MULTIPLAYER) {
+                const hasCode = String(this.ui.multiplayerLobbyCodeInput?.value || '').trim();
+                summaryBlocks.push({
+                    label: 'Lobby',
+                    value: hasCode || 'Code offen',
+                    muted: !hasCode,
+                });
+            }
+            this._renderSummaryBlocks(this.ui.menuSummary, summaryBlocks);
         }
 
         if (this.ui.mapPreview) {
-            const mapPreview = resolveMapPreview(settings.mapKey);
-            this.ui.mapPreview.textContent = `${mapPreview.name} | ${mapPreview.sizeText} | Hindernisse ${mapPreview.obstacleCount} | Portale ${mapPreview.portalCount}`;
+            this._renderPreviewCard(this.ui.mapPreview, {
+                title: mapPreview.name,
+                badges: [this._humanizePreviewCategory(mapPreview.category), mapPreview.sizeText],
+                facts: [
+                    { label: 'Groesse', value: mapPreview.sizeText },
+                    { label: 'Hindernisse', value: String(mapPreview.obstacleCount) },
+                    { label: 'Portale', value: String(mapPreview.portalCount) },
+                ],
+            });
         }
         if (this.ui.vehiclePreviewP1) {
-            const vehiclePreview = resolveVehiclePreview(settings?.vehicles?.PLAYER_1);
-            this.ui.vehiclePreviewP1.textContent = `${vehiclePreview.label} | Hitbox ${vehiclePreview.hitboxRadius.toFixed(2)} | ${vehiclePreview.category}`;
+            this._renderPreviewCard(this.ui.vehiclePreviewP1, {
+                title: vehiclePreviewP1.label,
+                badges: ['Pilot 1', this._humanizePreviewCategory(vehiclePreviewP1.category)],
+                facts: [
+                    { label: 'Klasse', value: this._humanizePreviewCategory(vehiclePreviewP1.category) },
+                    { label: 'Hitbox', value: vehiclePreviewP1.hitboxRadius.toFixed(2) },
+                ],
+            });
         }
         if (this.ui.vehiclePreviewP2) {
-            const vehiclePreview = resolveVehiclePreview(settings?.vehicles?.PLAYER_2);
-            this.ui.vehiclePreviewP2.textContent = `${vehiclePreview.label} | Hitbox ${vehiclePreview.hitboxRadius.toFixed(2)} | ${vehiclePreview.category}`;
+            this._renderPreviewCard(this.ui.vehiclePreviewP2, {
+                title: vehiclePreviewP2.label,
+                badges: ['Pilot 2', this._humanizePreviewCategory(vehiclePreviewP2.category)],
+                facts: [
+                    { label: 'Klasse', value: this._humanizePreviewCategory(vehiclePreviewP2.category) },
+                    { label: 'Hitbox', value: vehiclePreviewP2.hitboxRadius.toFixed(2) },
+                ],
+            });
         }
 
-        const sessionType = String(settings?.localSettings?.sessionType || MENU_SESSION_TYPES.SINGLE).toLowerCase();
         if (this.ui.multiplayerInlineState) {
             this.ui.multiplayerInlineState.classList.toggle('hidden', sessionType !== MENU_SESSION_TYPES.MULTIPLAYER);
+            if (this.ui.multiplayerInlineState instanceof HTMLDetailsElement) {
+                this.ui.multiplayerInlineState.open = sessionType === MENU_SESSION_TYPES.MULTIPLAYER;
+            }
         }
         if (this.ui.multiplayerLobbyState) {
             const hasCode = String(this.ui.multiplayerLobbyCodeInput?.value || '').trim().length > 0;
             const ready = !!this.ui.multiplayerReadyToggle?.checked;
-            const state = hasCode || ready ? 'in Lobby' : 'nicht in Lobby';
-            this.ui.multiplayerLobbyState.textContent = `Multiplayer-Stub: ${state}`;
+            const state = hasCode || ready ? 'verbunden' : 'nicht verbunden';
+            this.ui.multiplayerLobbyState.textContent = `Lobbystatus: ${state}`;
         }
 
         if (this.ui.themeModeSelect) {
@@ -929,8 +1133,8 @@ export class UIManager {
                 const presetKind = String(preset?.metadata?.kind || '').trim();
                 option.value = presetId;
                 option.textContent = presetKind === 'fixed'
-                    ? `${preset.name} (fixed)`
-                    : `${preset.name} (open)`;
+                    ? `${preset.name} (verbindlich)`
+                    : `${preset.name} (frei)`;
                 ui.presetSelect.appendChild(option);
             });
 
@@ -952,9 +1156,10 @@ export class UIManager {
 
         if (ui.presetStatus) {
             if (!activePresetId) {
-                ui.presetStatus.textContent = 'Preset: custom';
+                ui.presetStatus.textContent = 'Preset: individuell';
             } else {
-                ui.presetStatus.textContent = `Preset: ${activePresetId} (${activePresetKind || 'open'})`;
+                const presetKindLabel = activePresetKind === 'fixed' ? 'verbindlich' : 'frei';
+                ui.presetStatus.textContent = `Preset: ${activePresetId} (${presetKindLabel})`;
             }
         }
     }
@@ -1058,10 +1263,36 @@ export class UIManager {
         if (!this.ui.menuContext) return;
         this._accessContext = resolveMenuAccessContext(this.settings);
         this.menuNavigationRuntime?.setAccessContext?.(this._accessContext);
+        this._syncMenuChromeState(this.game._activeSubmenu || null);
         const section = this._getMenuSectionLabel(this.game._activeSubmenu);
         const activeProfile = this._resolveActiveProfileName();
         const dirtyState = this.game.settingsDirty ? 'ungespeicherte Aenderungen' : 'alles gespeichert';
-        this.ui.menuContext.textContent = `${section} | Profil: ${activeProfile} | ${dirtyState}`;
+        const sessionType = String(this.settings?.localSettings?.sessionType || MENU_SESSION_TYPES.SINGLE).toLowerCase();
+        const sessionLabel = sessionType === MENU_SESSION_TYPES.SPLITSCREEN
+            ? 'Splitscreen'
+            : (sessionType === MENU_SESSION_TYPES.MULTIPLAYER ? 'Multiplayer' : 'Single Player');
+        const modePath = String(this.settings?.localSettings?.modePath || 'normal').toLowerCase();
+        const modeLabel = modePath === 'fight'
+            ? 'Fight'
+            : (modePath === 'arcade' ? 'Arcade' : (modePath === 'quick_action' ? 'Schnellstart' : 'Normal'));
+        const mapLabel = resolveMapPreview(this.settings?.mapKey).name;
+        const activeSection = this._resolveLevel4Section(this.settings?.localSettings?.toolsState?.activeSection);
+        const activeSectionLabel = {
+            [LEVEL4_SECTION_IDS.CONTROLS]: 'Steuerung',
+            [LEVEL4_SECTION_IDS.GAMEPLAY]: 'Gameplay',
+            [LEVEL4_SECTION_IDS.ADVANCED_MAP]: 'Map-Details',
+            [LEVEL4_SECTION_IDS.TOOLS]: 'Tools',
+        }[activeSection] || 'Tools';
+
+        let contextText = `${section} | Profil: ${activeProfile} | ${dirtyState}`;
+        if (this.settings?.localSettings?.toolsState?.level4Open) {
+            contextText = `Ebene 4 | ${activeSectionLabel} | ${sessionLabel} | ${dirtyState}`;
+        } else if (this.game._activeSubmenu === 'submenu-game') {
+            contextText = `${section} | ${sessionLabel} | ${modeLabel} | ${mapLabel}`;
+        } else if (this.game._activeSubmenu === 'submenu-custom') {
+            contextText = `${section} | ${sessionLabel} | Sofortstart oder Setup | ${dirtyState}`;
+        }
+        this.ui.menuContext.textContent = contextText;
     }
 
     _resolveActiveProfileName() {

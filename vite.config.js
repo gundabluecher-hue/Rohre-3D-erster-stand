@@ -60,6 +60,29 @@ function readRequestBody(req, maxBytes = 5 * 1024 * 1024) {
     });
 }
 
+function readVideoBody(req, maxBytes = 500 * 1024 * 1024) {
+    return new Promise((resolve, reject) => {
+        let total = 0;
+        const chunks = [];
+
+        req.on('data', (chunk) => {
+            total += chunk.length;
+            if (total > maxBytes) {
+                reject(new Error('Video too large.'));
+                req.destroy();
+                return;
+            }
+            chunks.push(chunk);
+        });
+
+        req.on('end', () => {
+            resolve(Buffer.concat(chunks));
+        });
+
+        req.on('error', reject);
+    });
+}
+
 function getEditorDiskConversionScale(mapDocument) {
     const width = Number(mapDocument?.arenaSize?.width);
     const height = Number(mapDocument?.arenaSize?.height);
@@ -453,6 +476,7 @@ function editorDiskSaveApiPlugin() {
     const getVehicleRoutePath = '/api/editor/get-vehicle-disk';
     const renameVehicleRoutePath = '/api/editor/rename-vehicle-disk';
     const deleteVehicleRoutePath = '/api/editor/delete-vehicle-disk';
+    const videoRoutePath = '/api/editor/save-video-disk';
 
     const registerMiddleware = (middlewares) => {
         middlewares.use(async (req, res, next) => {
@@ -463,12 +487,33 @@ function editorDiskSaveApiPlugin() {
             const isVehicleGet = req.method === 'GET' && reqPath === getVehicleRoutePath;
             const isVehicleRename = req.method === 'POST' && reqPath === renameVehicleRoutePath;
             const isVehicleDelete = req.method === 'POST' && reqPath === deleteVehicleRoutePath;
-            if (!isMapSave && !isVehicleSave && !isVehicleList && !isVehicleGet && !isVehicleRename && !isVehicleDelete) {
+            const isVideoSave = req.method === 'POST' && reqPath === videoRoutePath;
+
+            if (!isMapSave && !isVehicleSave && !isVehicleList && !isVehicleGet && !isVehicleRename && !isVehicleDelete && !isVideoSave) {
                 next();
                 return;
             }
 
             try {
+                if (isVideoSave) {
+                    const fileNameHeader = req.headers['x-file-name'];
+                    if (!fileNameHeader) {
+                        createJsonResponse(res, 400, { ok: false, error: 'x-file-name header required' });
+                        return;
+                    }
+                    const safeName = String(fileNameHeader).replace(/[^a-zA-Z0-9.\-_/]/g, '');
+                    const videoDir = path.resolve(__dirname, path.dirname(safeName));
+                    const outPath = path.resolve(__dirname, safeName);
+
+                    if (!existsSync(videoDir)) {
+                        mkdirSync(videoDir, { recursive: true });
+                    }
+
+                    const buffer = await readVideoBody(req);
+                    writeFileSync(outPath, buffer);
+                    createJsonResponse(res, 200, { ok: true, file: safeName });
+                    return;
+                }
                 if (isVehicleList) {
                     createJsonResponse(res, 200, {
                         ok: true,

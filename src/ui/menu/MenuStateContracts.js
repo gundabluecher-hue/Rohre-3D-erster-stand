@@ -33,6 +33,13 @@ export const MENU_MODE_PATHS = Object.freeze({
 const VALID_DEVELOPER_ACCESS_MODE_SET = new Set(Object.values(MENU_DEVELOPER_ACCESS_MODES));
 const VALID_SESSION_TYPE_SET = new Set(Object.values(MENU_SESSION_TYPES));
 const VALID_MODE_PATH_SET = new Set(Object.values(MENU_MODE_PATHS));
+export const LEVEL4_SECTION_IDS = Object.freeze({
+    CONTROLS: 'controls',
+    GAMEPLAY: 'gameplay',
+    ADVANCED_MAP: 'advanced_map',
+    TOOLS: 'tools',
+});
+const VALID_LEVEL4_SECTION_SET = new Set(Object.values(LEVEL4_SECTION_IDS));
 
 function normalizeBoolean(value, fallback) {
     return typeof value === 'boolean' ? value : fallback;
@@ -97,8 +104,11 @@ function normalizeLocalSettingsState(localSettings = null) {
     });
     const toolsState = cloneObject(source.toolsState, {
         level4Open: false,
-        activeSection: 'controls',
+        activeSection: LEVEL4_SECTION_IDS.CONTROLS,
     });
+    toolsState.activeSection = VALID_LEVEL4_SECTION_SET.has(String(toolsState.activeSection || '').trim())
+        ? String(toolsState.activeSection || '').trim()
+        : LEVEL4_SECTION_IDS.CONTROLS;
     const draftStateBySessionType = cloneObject(source.draftStateBySessionType, {});
     const telemetryState = cloneObject(source.telemetryState, {
         abortCount: 0,

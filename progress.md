@@ -164,3 +164,74 @@
   - Preview-Check bestaetigt erneut `document.title = CuviosClash` und Menue-Header `CuviosClash`.
 - Restrisiko / offener Punkt:
   - Der physische Ordner-Rename des Workspace auf Desktop wurde versucht, aber durch einen noch am aktiven Projektpfad haengenden Prozess blockiert; inhaltlich sind die Pfadreferenzen bereits auf `CuviosClash` aktualisiert.
+
+2026-03-06 (Menu UX Follow-up V26.3c gestarteter No-Stop-Block)
+- Skill `develop-web-game` aktiv; Ziel ist die vollstaendige Abarbeitung von `docs/Feature_Menu_UX_Followup_V26_3c.md` ohne Zwischenstopp.
+- Workflow/Regeln geladen: `.agents/workflows/fix-planung.md`, `.agents/workflows/code.md`, `.agents/test_mapping.md`, relevante `.agents/rules/*`.
+- Baseline-Freeze fuer Phase `26.3c.0` erstellt:
+  - echter Desktop-/Mobil-Browser-Check per Playwright mit Screenshots nach `tmp/menu-baseline-*.png`
+  - Metriken nach `tmp/menu-baseline-review.json`
+  - Hauptbefunde: Header ausserhalb Ebene 1 zu hoch, Ebene 3 nicht startfokussiert genug, mobile Kopfzone verliert zu viel Nutzhoehe.
+- Implementierungsplan in `implementation_plan.md` angelegt.
+
+2026-03-07 (Menu UX Follow-up V26.3c abgeschlossen)
+- Phasen `26.3c.1` bis `26.3c.9` umgesetzt und in `docs/Feature_Menu_UX_Followup_V26_3c.md` abgehakt.
+- Menue-UX fertiggestellt:
+  - kompakter Header ausserhalb Ebene 1
+  - Ebene 2 als Karten-/Direktpfad
+  - sticky Startleiste und strukturierte Vorschaukarten auf Ebene 3
+  - sektionierte Ebene 4 mit lokal persistierter aktiver Sektion
+  - bereinigter Release-Textpfad bei stabilen Text-IDs
+- Test- und Visual-Verifikation:
+  - `npm run test:core` PASS (`48 passed`, `1 skipped`)
+  - `npm run test:stress` PASS
+  - `npm run build` PASS; bekannter Warnhinweis kommt aus bereits fremd veraenderter `src/core/MediaRecorderSystem.js`
+  - Desktop-/Mobil-Screenshots unter `tmp/menu-visual-*.png`
+
+2026-03-07 (Launcher-Startfehler Diagnose)
+- Nutzerproblem reproduziert: Spiel startet ueber den statischen Launcher/`server.ps1` nicht mehr, waehrend der Vite-Pfad (`npm run dev`, Playwright) weiter funktioniert.
+- Root Cause verifiziert im Browser auf `http://localhost:9999/`: `Failed to resolve module specifier "mp4-muxer"`; dadurch bricht `src/core/main.js` vor Menu-Initialisierung ab.
+- Fix umgesetzt:
+  - `index.html`: Importmap um `mp4-muxer -> ./node_modules/mp4-muxer/build/mp4-muxer.mjs` erweitert.
+  - `server.ps1`: `.mjs` MIME-Type als `application/javascript` ergaenzt.
+- Zusatzbereinigung:
+  - `src/core/MediaRecorderSystem.js`: unnoetigen `default`-Fallback fuer `mp4-muxer` entfernt; Build-Warnung verschwindet.
+- Verifikation:
+  - Statischer Launcher-Smoke mit `server.ps1` + Chromium: keine Console/Page-Errors, Menu sichtbar, `GAME_INSTANCE`/Renderer vorhanden.
+  - Visual-Check: `tmp/launcher-start-ok.png`.
+  - `npm run build` PASS
+  - `npm run test:core` PASS (`48 passed`, `1 skipped`)
+- Ausstehend bei diesem Eintrag: `docs:sync` und `docs:check`.
+
+2026-03-07 (Cinematic Camera Bugfix gestartet)
+- Nutzerproblem "Cinematic Camera funktioniert nicht" analysiert (Skill `develop-web-game`).
+- Repro gefunden: Mit `cockpitCamera=true` fuer PLAYER_1 und aktivem `THIRD_PERSON` bleibt `cinematicCameraSystem.getPlayerBlend(0)` bei `0`.
+- Root Cause eingegrenzt:
+  - `CameraRigSystem.updateCamera()` springt bei Cockpit in einen Early-Return-Pfad.
+  - `CinematicCameraSystem.apply()` blockiert Cinematic zusaetzlich bei `cockpitCamera`.
+- Geplanter Fix: Cinematic auch im Cockpit-Third-Person-Pfad anwenden + Regressionstest in `tests/gpu.spec.js`.
+2026-03-07 (Cinematic Camera Bugfix abgeschlossen)
+- Root Cause behoben:
+  - `src/core/renderer/CameraRigSystem.js`: Cinematic-Apply wird nun auch im Cockpit-Updatepfad ausgefuehrt.
+  - `src/entities/systems/CinematicCameraSystem.js`: Third-Person-Cinematic blockiert nicht mehr allein wegen `cockpitCamera`.
+- Regressionstest hinzugefuegt:
+  - `tests/gpu.spec.js` -> `T33b: Cinematic Camera bleibt in Third-Person mit Cockpit aktiv`.
+- Manuelle Repro-Verifikation (Launcherpfad `http://localhost:9999`):
+  - Vor Fix reproduzierbar `blend=0` bei `cockpitCamera=true` + `THIRD_PERSON`.
+  - Nach Fix bestaetigt `blend>0` (gemessen `0.423...`).
+- Teststatus:
+  - `npm run test:gpu -- -g "T33|T33b"` PASS
+  - `npm run test:core` PASS (48 passed, 1 skipped)
+  - `npm run build` PASS
+  - `npm run test:physics` FAIL bei bestehendem Test `T82` (Policy-Wiring erwartet `hunt-bridge`, bekommt `classic-bridge`), nicht im Kamera-Diff betroffen.
+  - `npm run docs:sync` PASS
+  - `npm run docs:check` PASS
+- Doku-Updates:
+  - `docs/Analysebericht.md` um Cinematic-Cockpit-Fix + Testnachweis erweitert.
+  - `docs/Umsetzungsplan.md` Statuszeile zu Cinematic-Fix ergaenzt.
+- TODO fuer naechsten Agenten:
+  - Separat `tests/physics-policy.spec.js` T82-Divergenz analysieren und zu aktuellem Bot-Policy-Wiring abgleichen.
+2026-03-07 (Planung: Cinematic Follow-up ohne Punkt 5)
+- Neuer Plan erstellt: `docs/Feature_Cinematic_Camera_Followup_V29b.md` (enthaelt Vorschlaege 1/2/3/4/6 in granularen Phasen).
+- Punkt 5 explizit separat im Masterplan geparkt: `docs/Umsetzungsplan.md` -> `N3 T82 Policy-Wiring isolieren und spaeter separat beheben`.
+- Plan-Eingang im Masterplan um `PX Cinematic Camera Follow-up V29b` erweitert.

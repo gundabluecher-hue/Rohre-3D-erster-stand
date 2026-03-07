@@ -136,6 +136,17 @@ export class CameraRigSystem {
                 this.modeStrategies.applyCockpitTopDown(target, playerPosition, playerQuaternion, this._tmpVec);
             }
 
+            this.cinematicCameraSystem.apply({
+                playerIndex,
+                mode,
+                target,
+                playerDirection,
+                playerPosition,
+                dt,
+                isBoosting,
+                cockpitCamera,
+            });
+
             if (hasShake) {
                 target.position.add(shakeOffset);
             }

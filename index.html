@@ -10,7 +10,8 @@
     {
         "imports": {
             "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+            "mp4-muxer": "./node_modules/mp4-muxer/build/mp4-muxer.mjs"
         }
     }
     </script>
@@ -32,230 +33,272 @@
     </div>
 
     <div id="ui-layer">
-        <div id="main-menu" role="dialog" aria-modal="true" aria-labelledby="main-menu-title" style="visibility:hidden">
+        <div id="main-menu" role="dialog" aria-modal="true" aria-labelledby="main-menu-title" style="visibility:hidden"
+            data-menu-depth="1" data-menu-panel="main" data-level4-open="false">
             <div class="menu-content" role="document">
-                <h1 id="main-menu-title">CuviosClash</h1>
-                <p class="subtitle">Multiplayer Luftkampf Arena</p>
+                <div class="menu-shell">
+                    <div class="menu-hero-shell">
+                        <div class="menu-brand-copy">
+                            <h1 id="main-menu-title">CuviosClash</h1>
+                            <p class="subtitle">Multiplayer Luftkampf Arena</p>
+                        </div>
+                        <div id="build-info" class="build-info"></div>
+                    </div>
 
-                <!-- ======= HAUPTNAVIGATION ======= -->
-                <div id="menu-nav" class="menu-nav-grid" role="navigation" aria-label="Hauptmenue">
-                    <button type="button" class="nav-btn" data-session-type="single" data-submenu="submenu-custom"
-                        aria-controls="submenu-custom" aria-expanded="false" data-menu-action="session-select"
-                        data-menu-text-id="menu.level1.single.label">
-                        Single Player
-                    </button>
-                    <button type="button" class="nav-btn" data-session-type="multiplayer" data-submenu="submenu-custom"
-                        aria-controls="submenu-custom" aria-expanded="false" data-menu-action="session-select"
-                        data-menu-text-id="menu.level1.multiplayer.label">
-                        Multiplayer
-                    </button>
-                    <button type="button" class="nav-btn" data-session-type="splitscreen" data-submenu="submenu-custom"
-                        aria-controls="submenu-custom" aria-expanded="false" data-menu-action="session-select"
-                        data-menu-text-id="menu.level1.splitscreen.label">
-                        Splitscreen
-                    </button>
-                    <div class="nav-help-card" role="note">
-                        <div class="nav-help-title" data-menu-text-id="menu.level1.help.title">Ebene 1: Session-Typ</div>
-                        <div class="nav-help-content">
-                            <span data-menu-text-id="menu.level1.help.next">Danach folgt Ebene 2 (Spielweg)</span>
-                            <span><kbd>ESC</kbd> zurueck</span>
-                            <span><kbd>←/→</kbd> Fokus</span>
+                    <!-- ======= HAUPTNAVIGATION ======= -->
+                    <div id="menu-nav" class="menu-nav-grid" role="navigation" aria-label="Hauptmenue">
+                        <button type="button" class="nav-btn" data-session-type="single" data-submenu="submenu-custom"
+                            aria-controls="submenu-custom" aria-expanded="false" data-menu-action="session-select">
+                            <span class="nav-btn-label" data-menu-text-id="menu.level1.single.label">Single Player</span>
+                            <span class="nav-btn-meta">Solo gegen Bots oder eigene Routinen</span>
+                        </button>
+                        <button type="button" class="nav-btn" data-session-type="multiplayer" data-submenu="submenu-custom"
+                            aria-controls="submenu-custom" aria-expanded="false" data-menu-action="session-select">
+                            <span class="nav-btn-label" data-menu-text-id="menu.level1.multiplayer.label">Multiplayer</span>
+                            <span class="nav-btn-meta">Lobby vorbereiten und bereit melden</span>
+                        </button>
+                        <button type="button" class="nav-btn" data-session-type="splitscreen" data-submenu="submenu-custom"
+                            aria-controls="submenu-custom" aria-expanded="false" data-menu-action="session-select">
+                            <span class="nav-btn-label" data-menu-text-id="menu.level1.splitscreen.label">Splitscreen</span>
+                            <span class="nav-btn-meta">Direkt zu zweit am selben Bildschirm</span>
+                        </button>
+                        <div class="nav-help-card" role="note">
+                            <div class="nav-help-title" data-menu-text-id="menu.level1.help.title">Ebene 1: Session-Typ</div>
+                            <div class="nav-help-content">
+                                <span data-menu-text-id="menu.level1.help.next">Danach folgt Ebene 2 (Spielweg)</span>
+                                <span><kbd>ESC</kbd> zurueck</span>
+                                <span><kbd>←/→</kbd> Fokus</span>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="menu-footer">
-                    <div id="build-info" class="build-info"></div>
-                    <p id="menu-context" class="menu-context" role="status" aria-live="polite" aria-atomic="true">
-                        Hauptmenue · Profil: kein Profil · alles gespeichert
-                    </p>
-                    <div id="keybind-warning" class="keybind-warning hidden" role="status" aria-live="polite"
-                        aria-atomic="true"></div>
+                    <div class="menu-footer">
+                        <p id="menu-context" class="menu-context" role="status" aria-live="polite" aria-atomic="true">
+                            Hauptmenue · Profil: kein Profil · alles gespeichert
+                        </p>
+                        <div id="keybind-warning" class="keybind-warning hidden" role="status" aria-live="polite"
+                            aria-atomic="true"></div>
+                    </div>
                 </div>
 
                 <!-- ======= SUBMENU: SPIEL STARTEN ======= -->
                 <div id="submenu-game" class="submenu-panel hidden" role="region" aria-labelledby="submenu-game-title"
                     aria-hidden="true" data-menu-panel="quickstart">
                     <div class="submenu-header">
-                        <button type="button" class="back-btn" data-back data-menu-action="back" aria-label="Zur Hauptnavigation">←
+                        <button type="button" class="back-btn" data-back data-back-target="submenu-custom"
+                            data-menu-action="back" aria-label="Zur Moduswahl">←
                             Zurück</button>
                         <h2 id="submenu-game-title" class="submenu-title" data-menu-text-id="menu.level3.title">Ebene 3: Start-Setup</h2>
                     </div>
 
-                    <div class="submenu-body">
-                        <div class="menu-section setup-summary-section">
-                            <h2 class="section-title" data-menu-text-id="menu.level3.summary.title">Aktuelle Auswahl</h2>
-                            <p id="menu-selection-summary" class="menu-summary" role="status" aria-live="polite">
-                                Single Player | Normal | Standard Arena | ship5 | Dunkel
-                            </p>
+                    <div class="submenu-body level3-body">
+                        <div class="menu-section setup-summary-section start-rail">
+                            <div class="start-rail-copy">
+                                <h2 class="section-title" data-menu-text-id="menu.level3.summary.title">Aktuelle Auswahl</h2>
+                                <div id="menu-selection-summary" class="menu-summary start-summary-grid" role="status" aria-live="polite">
+                                    Single Player | Normal | Standard Arena | ship5 | Dunkel
+                                </div>
+                            </div>
                             <p id="start-validation-status" class="menu-field-hint hidden" role="status" aria-live="polite"></p>
-                            <div class="btn-group">
+                            <div class="start-rail-actions">
                                 <button type="button" id="btn-level3-reset" class="secondary-btn"
                                     data-menu-text-id="menu.level3.reset.label">Ebene 3 reset</button>
-                                <button type="button" id="btn-open-level4" class="secondary-btn"
+                                <button type="button" id="btn-open-level4" class="secondary-btn" data-level4-section="gameplay"
                                     data-menu-text-id="menu.level3.open_level4.label">Ebene 4 oeffnen</button>
+                                <button type="button" id="btn-start" class="start-btn" data-menu-action="start-match"
+                                    data-menu-text-id="menu.level3.start.label">Starten</button>
                             </div>
                         </div>
 
-                        <div class="menu-section">
-                            <h2 class="section-title" data-menu-text-id="menu.level3.map.title">Map</h2>
-                            <div class="setup-search-grid">
-                                <input type="text" id="map-search-input" placeholder="Map suchen">
-                                <select id="map-filter-select">
-                                    <option value="all">Alle Groessen</option>
-                                    <option value="small">Small</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="large">Large</option>
+                        <details class="menu-section menu-accordion start-section-card" data-start-section="map" open>
+                            <summary class="menu-accordion-summary">
+                                <span class="section-title" data-menu-text-id="menu.level3.map.title">Map</span>
+                                <span class="menu-accordion-copy">Groesse, Favoriten und Vorschau fuer den Start</span>
+                            </summary>
+                            <div class="menu-accordion-body">
+                                <div class="setup-search-grid">
+                                    <input type="text" id="map-search-input" placeholder="Map suchen">
+                                    <select id="map-filter-select">
+                                        <option value="all">Alle Groessen</option>
+                                        <option value="small">Small</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="large">Large</option>
+                                    </select>
+                                </div>
+                                <select id="map-select">
+                                    <option value="standard">Standard Arena</option>
+                                    <option value="custom">Custom (Editor gespeichert)</option>
+                                    <option value="empty">Leer</option>
+                                    <option value="maze">Labyrinth</option>
+                                    <option value="complex">Komplex</option>
+                                    <option value="pyramid">Pyramide</option>
                                 </select>
-                            </div>
-                            <select id="map-select">
-                                <option value="standard">Standard Arena</option>
-                                <option value="custom">Custom (Editor gespeichert)</option>
-                                <option value="empty">Leer</option>
-                                <option value="maze">Labyrinth</option>
-                                <option value="complex">Komplex</option>
-                                <option value="pyramid">Pyramide</option>
-                            </select>
-                            <p id="map-field-hint" class="menu-field-hint hidden" role="status" aria-live="polite"></p>
-                            <button type="button" id="btn-map-favorite-toggle" class="secondary-btn secondary-btn-spaced">
-                                Map Favorit umschalten
-                            </button>
-                            <div class="setup-chip-grid">
-                                <div>
-                                    <label class="setup-chip-label">Favoriten</label>
-                                    <div id="map-favorites-list" class="quick-pill-list"></div>
-                                </div>
-                                <div>
-                                    <label class="setup-chip-label">Zuletzt benutzt</label>
-                                    <div id="map-recent-list" class="quick-pill-list"></div>
+                                <p id="map-field-hint" class="menu-field-hint hidden" role="status" aria-live="polite"></p>
+                                <div id="map-preview" class="menu-preview menu-preview-card">Map-Vorschau</div>
+                                <button type="button" id="btn-map-favorite-toggle" class="secondary-btn secondary-btn-spaced">
+                                    Map Favorit umschalten
+                                </button>
+                                <div class="setup-chip-grid">
+                                    <div>
+                                        <label class="setup-chip-label">Favoriten</label>
+                                        <div id="map-favorites-list" class="quick-pill-list"></div>
+                                    </div>
+                                    <div>
+                                        <label class="setup-chip-label">Zuletzt benutzt</label>
+                                        <div id="map-recent-list" class="quick-pill-list"></div>
+                                    </div>
                                 </div>
                             </div>
-                            <p id="map-preview" class="menu-preview">Map-Vorschau</p>
-                        </div>
+                        </details>
 
-                        <div class="menu-section">
-                            <h2 class="section-title" data-menu-text-id="menu.level3.vehicle.title">Flugzeug</h2>
-                            <div class="setup-search-grid">
-                                <input type="text" id="vehicle-search-input" placeholder="Flugzeug suchen">
-                                <select id="vehicle-filter-select">
-                                    <option value="all">Alle Klassen</option>
-                                    <option value="light">Light</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="heavy">Heavy</option>
-                                </select>
-                            </div>
-                            <label for="vehicle-select-p1">Flugzeug P1</label>
-                            <select id="vehicle-select-p1"></select>
-                            <p id="vehicle-p1-field-hint" class="menu-field-hint hidden" role="status" aria-live="polite"></p>
-                            <p id="vehicle-preview-p1" class="menu-preview">P1 Vorschau</p>
-                            <div id="vehicle-p2-container" class="menu-section hidden">
-                                <label for="vehicle-select-p2">Flugzeug P2</label>
-                                <select id="vehicle-select-p2"></select>
-                                <p id="vehicle-p2-field-hint" class="menu-field-hint hidden" role="status" aria-live="polite"></p>
-                                <p id="vehicle-preview-p2" class="menu-preview">P2 Vorschau</p>
-                            </div>
-                            <button type="button" id="btn-vehicle-favorite-toggle" class="secondary-btn secondary-btn-spaced">
-                                Flugzeug Favorit umschalten
-                            </button>
-                            <div class="setup-chip-grid">
-                                <div>
-                                    <label class="setup-chip-label">Favoriten</label>
-                                    <div id="vehicle-favorites-list" class="quick-pill-list"></div>
+                        <details class="menu-section menu-accordion start-section-card" data-start-section="vehicle" open>
+                            <summary class="menu-accordion-summary">
+                                <span class="section-title" data-menu-text-id="menu.level3.vehicle.title">Flugzeug</span>
+                                <span class="menu-accordion-copy">Lieblingsmaschinen und aktuelle Rollen schnell wechseln</span>
+                            </summary>
+                            <div class="menu-accordion-body">
+                                <div class="setup-search-grid">
+                                    <input type="text" id="vehicle-search-input" placeholder="Flugzeug suchen">
+                                    <select id="vehicle-filter-select">
+                                        <option value="all">Alle Klassen</option>
+                                        <option value="light">Light</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="heavy">Heavy</option>
+                                    </select>
                                 </div>
-                                <div>
-                                    <label class="setup-chip-label">Zuletzt benutzt</label>
-                                    <div id="vehicle-recent-list" class="quick-pill-list"></div>
+                                <label for="vehicle-select-p1">Flugzeug P1</label>
+                                <select id="vehicle-select-p1"></select>
+                                <p id="vehicle-p1-field-hint" class="menu-field-hint hidden" role="status" aria-live="polite"></p>
+                                <div id="vehicle-preview-p1" class="menu-preview menu-preview-card">P1 Vorschau</div>
+                                <div id="vehicle-p2-container" class="menu-section hidden">
+                                    <label for="vehicle-select-p2">Flugzeug P2</label>
+                                    <select id="vehicle-select-p2"></select>
+                                    <p id="vehicle-p2-field-hint" class="menu-field-hint hidden" role="status" aria-live="polite"></p>
+                                    <div id="vehicle-preview-p2" class="menu-preview menu-preview-card">P2 Vorschau</div>
+                                </div>
+                                <button type="button" id="btn-vehicle-favorite-toggle" class="secondary-btn secondary-btn-spaced">
+                                    Flugzeug Favorit umschalten
+                                </button>
+                                <div class="setup-chip-grid">
+                                    <div>
+                                        <label class="setup-chip-label">Favoriten</label>
+                                        <div id="vehicle-favorites-list" class="quick-pill-list"></div>
+                                    </div>
+                                    <div>
+                                        <label class="setup-chip-label">Zuletzt benutzt</label>
+                                        <div id="vehicle-recent-list" class="quick-pill-list"></div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        </details>
 
-                        <div class="menu-section">
-                            <h2 class="section-title" data-menu-text-id="menu.level3.theme.title">Hell / Dunkel (lokal)</h2>
-                            <label for="theme-mode-select">Theme (nur lokal, nicht match-relevant)</label>
-                            <select id="theme-mode-select">
-                                <option value="dunkel">Dunkel</option>
-                                <option value="hell">Hell</option>
-                            </select>
-                            <p id="theme-field-hint" class="menu-field-hint hidden" role="status" aria-live="polite"></p>
-                        </div>
+                        <details class="menu-section menu-accordion start-section-card" data-start-section="match" open>
+                            <summary class="menu-accordion-summary">
+                                <span class="section-title" data-menu-text-id="menu.level3.matchfields.title">Ebenen-Modus</span>
+                                <span class="menu-accordion-copy">Match-Regeln, Ansicht und Teamtempo festziehen</span>
+                            </summary>
+                            <div class="menu-accordion-body">
+                                <div class="match-settings-grid">
+                                    <div class="menu-section">
+                                        <h3 class="section-title" data-menu-text-id="menu.level3.theme.title">Hell / Dunkel (lokal)</h3>
+                                        <label for="theme-mode-select">Theme (nur lokal, nicht match-relevant)</label>
+                                        <select id="theme-mode-select">
+                                            <option value="dunkel">Dunkel</option>
+                                            <option value="hell">Hell</option>
+                                        </select>
+                                        <p id="theme-field-hint" class="menu-field-hint hidden" role="status" aria-live="polite"></p>
+                                    </div>
+                                    <div class="menu-section">
+                                        <h3 class="section-title">Flugstil</h3>
+                                        <div class="btn-group">
+                                            <button id="btn-dimension-classic-3d" class="mode-btn dimension-mode-btn active"
+                                                data-planar-mode="false">Freier Flug</button>
+                                            <button id="btn-dimension-planar" class="mode-btn dimension-mode-btn"
+                                                data-planar-mode="true">Ebenenflug</button>
+                                        </div>
+                                        <small id="hunt-mode-hint" class="menu-hint" data-menu-text-id="menu.level3.matchfields.hint">Spielweg (Fight/Normal) kommt aus Ebene 2.
+                                            Hier nur Classic 3D oder Planar waehlen.</small>
+                                        <p id="match-field-hint" class="menu-field-hint hidden" role="status" aria-live="polite"></p>
+                                    </div>
+                                </div>
 
-                        <div class="menu-section">
-                            <h2 class="section-title" data-menu-text-id="menu.level3.matchfields.title">Ebenen-Modus</h2>
-                            <div class="btn-group">
-                                <button id="btn-dimension-classic-3d" class="mode-btn dimension-mode-btn active"
-                                    data-planar-mode="false">Classic 3D</button>
-                                <button id="btn-dimension-planar" class="mode-btn dimension-mode-btn"
-                                    data-planar-mode="true">Planar</button>
+                                <div id="hunt-respawn-row" class="menu-section hidden">
+                                    <label class="toggle-row" for="hunt-respawn-toggle">
+                                        <input type="checkbox" id="hunt-respawn-toggle">
+                                        Respawn aktivieren
+                                    </label>
+                                </div>
+
+                                <div class="match-settings-grid">
+                                    <div class="menu-section">
+                                        <label for="bot-count">Bots: <span id="bot-count-label">1</span></label>
+                                        <input type="range" id="bot-count" min="0" max="8" value="1">
+                                    </div>
+                                    <div class="menu-section">
+                                        <label for="bot-difficulty">Bot-Schwierigkeit</label>
+                                        <select id="bot-difficulty">
+                                            <option value="EASY">Easy</option>
+                                            <option value="NORMAL" selected>Normal</option>
+                                            <option value="HARD">Hard</option>
+                                        </select>
+                                    </div>
+                                    <div class="menu-section">
+                                        <label for="win-count">Siege zum Gewinn: <span id="win-count-label">5</span></label>
+                                        <input type="range" id="win-count" min="1" max="15" value="5">
+                                    </div>
+                                </div>
                             </div>
-                            <small id="hunt-mode-hint" class="menu-hint" data-menu-text-id="menu.level3.matchfields.hint">Spielweg (Fight/Normal) kommt aus Ebene 2.
-                                Hier nur Classic 3D oder Planar waehlen.</small>
-                            <p id="match-field-hint" class="menu-field-hint hidden" role="status" aria-live="polite"></p>
-                        </div>
+                        </details>
 
-                        <div id="hunt-respawn-row" class="menu-section hidden">
-                            <label class="toggle-row" for="hunt-respawn-toggle">
-                                <input type="checkbox" id="hunt-respawn-toggle">
-                                Respawn aktivieren
-                            </label>
-                        </div>
-
-                        <div class="menu-section" data-menu-panel="quickstart-presets">
-                            <h2 class="section-title">Preset-Standardkombinationen</h2>
-                            <div class="btn-group">
-                                <button type="button" class="secondary-btn" data-preset-id="arcade">Arcade</button>
-                                <button type="button" class="secondary-btn" data-preset-id="competitive">Competitive</button>
-                                <button type="button" class="secondary-btn" data-preset-id="chaos">Chaos</button>
-                                <button type="button" class="secondary-btn" data-preset-id="fight-standard">Fight Standard</button>
-                                <button type="button" class="secondary-btn" data-preset-id="normal-standard">Normal Standard</button>
+                        <details class="menu-section menu-accordion start-section-card" data-start-section="presets">
+                            <summary class="menu-accordion-summary">
+                                <span class="section-title">Preset-Standardkombinationen</span>
+                                <span class="menu-accordion-copy">Vorgefertigte Starts fuer Training, Arcade und Kampf</span>
+                            </summary>
+                            <div class="menu-accordion-body" data-menu-panel="quickstart-presets">
+                                <div class="preset-chip-grid">
+                                    <button type="button" class="secondary-btn" data-preset-id="arcade">Arcade</button>
+                                    <button type="button" class="secondary-btn" data-preset-id="competitive">Competitive</button>
+                                    <button type="button" class="secondary-btn" data-preset-id="chaos">Chaos</button>
+                                    <button type="button" class="secondary-btn" data-preset-id="fight-standard">Fight Standard</button>
+                                    <button type="button" class="secondary-btn" data-preset-id="normal-standard">Normal Standard</button>
+                                </div>
+                                <small id="preset-status" class="menu-hint">Preset: custom</small>
                             </div>
-                            <small id="preset-status" class="menu-hint">Preset: custom</small>
-                        </div>
+                        </details>
 
-                        <div class="menu-section">
-                            <label for="bot-count">Bots: <span id="bot-count-label">1</span></label>
-                            <input type="range" id="bot-count" min="0" max="8" value="1">
-                        </div>
-
-                        <div class="menu-section">
-                            <label for="bot-difficulty">Bot-Schwierigkeit</label>
-                            <select id="bot-difficulty">
-                                <option value="EASY">Easy</option>
-                                <option value="NORMAL" selected>Normal</option>
-                                <option value="HARD">Hard</option>
-                            </select>
-                        </div>
-
-                        <div class="menu-section">
-                            <label for="win-count">Siege zum Gewinn: <span id="win-count-label">5</span></label>
-                            <input type="range" id="win-count" min="1" max="15" value="5">
-                        </div>
-
-                        <div id="multiplayer-inline-stub" class="menu-section hidden">
-                            <h2 class="section-title">Multiplayer Stub (Ebene 3)</h2>
-                            <p id="multiplayer-lobby-state" class="menu-hint">Multiplayer-Stub: nicht in Lobby</p>
-                            <label for="multiplayer-lobby-code">Lobby Code</label>
-                            <input type="text" id="multiplayer-lobby-code" maxlength="32" placeholder="z. B. TEST-1234">
-                            <div class="btn-group secondary-btn-spaced">
-                                <button type="button" id="btn-multiplayer-host" class="secondary-btn" data-menu-action="multiplayer-host">Host</button>
-                                <button type="button" id="btn-multiplayer-join" class="secondary-btn" data-menu-action="multiplayer-join">Join</button>
+                        <details id="multiplayer-inline-stub" class="menu-section menu-accordion start-section-card hidden"
+                            data-start-section="multiplayer">
+                            <summary class="menu-accordion-summary">
+                                <span class="section-title">Lobby & Bereitschaft</span>
+                                <span class="menu-accordion-copy">Session-Code, Host/Join und Ready-Status</span>
+                            </summary>
+                            <div class="menu-accordion-body">
+                                <p id="multiplayer-lobby-state" class="menu-hint">Multiplayer-Stub: nicht in Lobby</p>
+                                <label for="multiplayer-lobby-code">Lobby Code</label>
+                                <input type="text" id="multiplayer-lobby-code" maxlength="32" placeholder="z. B. TEST-1234">
+                                <div class="btn-group secondary-btn-spaced">
+                                    <button type="button" id="btn-multiplayer-host" class="secondary-btn" data-menu-action="multiplayer-host">Host</button>
+                                    <button type="button" id="btn-multiplayer-join" class="secondary-btn" data-menu-action="multiplayer-join">Join</button>
+                                </div>
+                                <label class="toggle-row secondary-btn-spaced" for="multiplayer-ready-toggle">
+                                    <input type="checkbox" id="multiplayer-ready-toggle">
+                                    Ready setzen
+                                </label>
+                                <p id="multiplayer-status" class="menu-hint" role="status" aria-live="polite">
+                                    Lobby Stub v1 | Rolle: Host
+                                </p>
                             </div>
-                            <label class="toggle-row secondary-btn-spaced" for="multiplayer-ready-toggle">
-                                <input type="checkbox" id="multiplayer-ready-toggle">
-                                Ready setzen
-                            </label>
-                            <p id="multiplayer-status" class="menu-hint" role="status" aria-live="polite">
-                                Lobby Stub v1 | Rolle: Host
-                            </p>
-                        </div>
-
-                        <button type="button" id="btn-start" class="start-btn" data-menu-action="start-match"
-                            data-menu-text-id="menu.level3.start.label">Starten</button>
+                        </details>
                     </div>
                 </div>
 
                 <div id="submenu-level4" class="level4-drawer hidden" aria-hidden="true">
                     <div class="level4-header">
-                        <h3 class="submenu-title" data-menu-text-id="menu.level4.title">Ebene 4: Feineinstellungen & Tools</h3>
+                        <div>
+                            <h3 class="submenu-title" data-menu-text-id="menu.level4.title">Ebene 4: Feineinstellungen & Tools</h3>
+                            <p class="menu-hint">Detailbereiche bleiben lokal erhalten und oeffnen ohne horizontalen Scroll.</p>
+                        </div>
                         <div class="btn-group">
                             <button type="button" id="btn-level4-reset" class="secondary-btn"
                                 data-menu-text-id="menu.level4.reset.label">Ebene 4 reset</button>
@@ -263,10 +306,28 @@
                                 data-menu-text-id="menu.level4.close.label">Schliessen</button>
                         </div>
                     </div>
-                    <div class="submenu-body">
+                    <div class="submenu-body level4-body">
+                        <div class="level4-layout">
+                            <div class="level4-section-nav" role="tablist" aria-label="Ebene 4 Bereiche">
+                                <button type="button" id="level4-tab-controls" class="level4-section-tab"
+                                    data-level4-section-target="controls" role="tab" aria-controls="level4-section-controls"
+                                    aria-selected="true">Steuerung</button>
+                                <button type="button" id="level4-tab-gameplay" class="level4-section-tab"
+                                    data-level4-section-target="gameplay" role="tab" aria-controls="level4-section-gameplay"
+                                    aria-selected="false">Gameplay</button>
+                                <button type="button" id="level4-tab-advanced-map" class="level4-section-tab"
+                                    data-level4-section-target="advanced_map" role="tab" aria-controls="level4-section-advanced-map"
+                                    aria-selected="false">Erweiterte Map</button>
+                                <button type="button" id="level4-tab-tools" class="level4-section-tab"
+                                    data-level4-section-target="tools" role="tab" aria-controls="level4-section-tools"
+                                    aria-selected="false">Tools</button>
+                            </div>
+                            <div class="level4-section-stack">
+                        <section id="level4-section-controls" class="level4-section-panel" data-level4-section="controls"
+                            role="tabpanel" aria-labelledby="level4-tab-controls">
                         <div class="menu-section">
                             <h2 class="section-title" data-menu-text-id="menu.level4.controls.title">Steuerung</h2>
-                            <div class="submenu-columns">
+                            <div class="submenu-columns level4-keybind-columns">
                                 <div>
                                     <label>Tasten Spieler 1</label>
                                     <div id="keybind-p1" class="keybind-grid"></div>
@@ -283,7 +344,10 @@
                                 Standard-Tasten wiederherstellen
                             </button>
                         </div>
+                        </section>
 
+                        <section id="level4-section-gameplay" class="level4-section-panel" data-level4-section="gameplay"
+                            role="tabpanel" aria-labelledby="level4-tab-gameplay" aria-hidden="true">
                         <div class="menu-section">
                             <h2 class="section-title" data-menu-text-id="menu.level4.gameplay.title">Gameplay-Feineinstellungen</h2>
                             <label for="speed-slider">Geschwindigkeit: <span id="speed-label">18.0</span></label>
@@ -330,7 +394,10 @@
                                 </label>
                             </div>
                         </div>
+                        </section>
 
+                        <section id="level4-section-advanced-map" class="level4-section-panel" data-level4-section="advanced_map"
+                            role="tabpanel" aria-labelledby="level4-tab-advanced-map" aria-hidden="true">
                         <div class="menu-section">
                             <h2 class="section-title" data-menu-text-id="menu.level4.advanced_map.title">Erweiterte Map-Einstellungen</h2>
                             <label class="toggle-row">
@@ -346,7 +413,10 @@
                                 <span>Planar Modus (kein Pitch)</span>
                             </label>
                         </div>
+                        </section>
 
+                        <section id="level4-section-tools" class="level4-section-panel" data-level4-section="tools"
+                            role="tabpanel" aria-labelledby="level4-tab-tools" aria-hidden="true">
                         <div class="menu-section">
                             <h2 class="section-title" data-menu-text-id="menu.level4.tools.title">Tools</h2>
                             <label for="profile-name" data-menu-text-id="menu.level4.tools.profile_name.label">Profilname</label>
@@ -422,6 +492,9 @@
                                 💾 Einstellungen explizit speichern
                             </button>
                         </div>
+                        </section>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -437,35 +510,39 @@
                         <div class="menu-section">
                             <h2 class="section-title" data-menu-text-id="menu.level2.quick.title">Schnellaktionen</h2>
                             <p class="menu-hint" data-menu-text-id="menu.level2.quick.hint">Diese Aktionen starten direkt ohne weiteren Menueschritt.</p>
-                            <div class="btn-group">
-                                <button type="button" id="btn-quick-last-settings" class="secondary-btn"
-                                    data-menu-action="quickstart-last" data-menu-text-id="menu.level2.quick_last.label">
-                                    Letzte Einstellungen starten
+                            <div class="level2-action-grid">
+                                <button type="button" id="btn-quick-last-settings" class="secondary-btn menu-choice-card"
+                                    data-menu-action="quickstart-last">
+                                    <span class="menu-choice-eyebrow">Direkt</span>
+                                    <span class="menu-choice-title" data-menu-text-id="menu.level2.quick_last.label">Letzte Einstellungen starten</span>
+                                    <span class="menu-choice-copy">Nimmt Session, Map und Flugzeug aus deinem letzten Start.</span>
                                 </button>
-                                <button type="button" id="btn-quick-random-map" class="secondary-btn"
-                                    data-menu-action="quickstart-random" data-menu-text-id="menu.level2.quick_random.label">
-                                    Random Map starten
+                                <button type="button" id="btn-quick-random-map" class="secondary-btn menu-choice-card"
+                                    data-menu-action="quickstart-random">
+                                    <span class="menu-choice-eyebrow">Direkt</span>
+                                    <span class="menu-choice-title" data-menu-text-id="menu.level2.quick_random.label">Random Map starten</span>
+                                    <span class="menu-choice-copy">Waehlt sofort eine Karte und springt direkt in die Runde.</span>
                                 </button>
                             </div>
                         </div>
                         <div class="menu-section">
                             <h2 class="section-title" data-menu-text-id="menu.level2.mode.title">Modi</h2>
                             <p class="menu-hint" data-menu-text-id="menu.level2.mode.hint">Moduswahl befuellt Ebene 3 direkt mit sinnvollen Defaults.</p>
-                            <div class="btn-group">
-                                <button type="button" class="mode-btn mode-path-btn" data-mode-path="arcade"
-                                    data-menu-text-id="menu.level2.arcade.label">
-                                    Arcade
-                                    <small class="menu-hint">Preset: arcade</small>
+                            <div class="level2-mode-grid">
+                                <button type="button" class="mode-btn mode-path-btn menu-choice-card" data-mode-path="arcade">
+                                    <span class="menu-choice-eyebrow">Setup mit Vorgabe</span>
+                                    <span class="menu-choice-title" data-menu-text-id="menu.level2.arcade.label">Arcade</span>
+                                    <span class="menu-choice-copy">Schneller Einstieg mit lockerer Balance und kurzer Lernkurve.</span>
                                 </button>
-                                <button type="button" class="mode-btn mode-path-btn" data-mode-path="fight"
-                                    data-menu-text-id="menu.level2.fight.label">
-                                    Fight
-                                    <small class="menu-hint">intern: HUNT</small>
+                                <button type="button" class="mode-btn mode-path-btn menu-choice-card" data-mode-path="fight">
+                                    <span class="menu-choice-eyebrow">Setup mit Vorgabe</span>
+                                    <span class="menu-choice-title" data-menu-text-id="menu.level2.fight.label">Fight</span>
+                                    <span class="menu-choice-copy">Direkter Schlagabtausch mit Jagdmodus-Defaults und engerem Tempo.</span>
                                 </button>
-                                <button type="button" class="mode-btn mode-path-btn" data-mode-path="normal"
-                                    data-menu-text-id="menu.level2.normal.label">
-                                    Normal
-                                    <small class="menu-hint">Classic ohne Zwangspfad</small>
+                                <button type="button" class="mode-btn mode-path-btn menu-choice-card" data-mode-path="normal">
+                                    <span class="menu-choice-eyebrow">Setup mit Vorgabe</span>
+                                    <span class="menu-choice-title" data-menu-text-id="menu.level2.normal.label">Normal</span>
+                                    <span class="menu-choice-copy">Klassischer Startpfad mit vollem Zugriff auf Map, Flugzeug und Regeln.</span>
                                 </button>
                             </div>
                         </div>
@@ -512,7 +589,8 @@
                             <p class="menu-hint">
                                 Einstellungen wurden in Ebene 4 als Slide-in unter `Gameplay-Feineinstellungen` konsolidiert.
                             </p>
-                            <button type="button" class="secondary-btn" data-menu-action="level4-open">Ebene 4 oeffnen</button>
+                            <button type="button" class="secondary-btn" data-menu-action="level4-open"
+                                data-level4-section="gameplay">Ebene 4 oeffnen</button>
                         </div>
                     </div>
                 </div>
@@ -531,7 +609,8 @@
                             <p class="menu-hint">
                                 Steuerung liegt jetzt in Ebene 4 im Bereich `Steuerung`.
                             </p>
-                            <button type="button" class="secondary-btn" data-menu-action="level4-open">Ebene 4 oeffnen</button>
+                            <button type="button" class="secondary-btn" data-menu-action="level4-open"
+                                data-level4-section="controls">Ebene 4 oeffnen</button>
                         </div>
                     </div>
                 </div>
@@ -550,7 +629,8 @@
                             <p class="menu-hint">
                                 Profile liegen jetzt in Ebene 4 im Bereich `Tools`.
                             </p>
-                            <button type="button" class="secondary-btn" data-menu-action="level4-open">Ebene 4 oeffnen</button>
+                            <button type="button" class="secondary-btn" data-menu-action="level4-open"
+                                data-level4-section="tools">Ebene 4 oeffnen</button>
                         </div>
                     </div>
                 </div>
@@ -569,7 +649,8 @@
                             <p class="menu-hint">
                                 Erweiterte Map-Optionen liegen jetzt in Ebene 4 im Bereich `Erweiterte Map-Einstellungen`.
                             </p>
-                            <button type="button" class="secondary-btn" data-menu-action="level4-open">Ebene 4 oeffnen</button>
+                            <button type="button" class="secondary-btn" data-menu-action="level4-open"
+                                data-level4-section="advanced_map">Ebene 4 oeffnen</button>
                         </div>
                     </div>
                 </div>
@@ -578,7 +659,8 @@
                 <div id="submenu-developer" class="submenu-panel hidden" role="region"
                     aria-labelledby="submenu-developer-title" aria-hidden="true" data-menu-panel="developer">
                     <div class="submenu-header">
-                        <button type="button" class="back-btn" data-back data-menu-action="back" aria-label="Zur Hauptnavigation">←
+                        <button type="button" class="back-btn" data-back data-back-target="submenu-developer"
+                            data-menu-action="back" aria-label="Zurueck zum Developer-Bereich">←
                             Zurück</button>
                         <h2 id="submenu-developer-title" class="submenu-title" data-menu-text-id="menu.developer.title">🛠️ Developer</h2>
                     </div>

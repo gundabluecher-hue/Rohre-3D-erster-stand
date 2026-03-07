@@ -22,7 +22,7 @@ function createPanelSchema(featureFlags) {
         {
             id: 'submenu-game',
             semanticId: 'start_setup',
-            label: 'Start-Setup',
+            label: 'Match vorbereiten',
             icon: '🎮',
             order: 10,
             level: 'level3',
@@ -34,7 +34,7 @@ function createPanelSchema(featureFlags) {
         {
             id: 'submenu-custom',
             semanticId: 'path',
-            label: 'Spielweg',
+            label: 'Spielstil',
             icon: '🧩',
             order: 15,
             level: 'level2',
@@ -43,8 +43,8 @@ function createPanelSchema(featureFlags) {
             legacyIds: [],
             settingsDomain: 'matchSettings',
             stepper: [
-                { id: 'path-step-select', label: 'Spielweg', panelId: 'submenu-custom' },
-                { id: 'path-step-start', label: 'Start-Setup', panelId: 'submenu-game' },
+                { id: 'path-step-select', label: 'Spielstil', panelId: 'submenu-custom' },
+                { id: 'path-step-start', label: 'Match vorbereiten', panelId: 'submenu-game' },
             ],
         },
         {

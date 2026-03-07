@@ -23,6 +23,9 @@ export class MenuNavigationRuntime {
         this.onPanelChanged = typeof options.onPanelChanged === 'function'
             ? options.onPanelChanged
             : null;
+        this.onLevel4CloseRequested = typeof options.onLevel4CloseRequested === 'function'
+            ? options.onLevel4CloseRequested
+            : null;
         this.accessContext = options.accessContext && typeof options.accessContext === 'object'
             ? options.accessContext
             : { isOwner: true };
@@ -82,7 +85,10 @@ export class MenuNavigationRuntime {
 
         const backButtons = Array.from(document.querySelectorAll('[data-back]'));
         backButtons.forEach((button) => {
-            const onClick = () => this.showMainNav({ trigger: 'back_button' });
+            const onClick = () => {
+                const targetId = normalizeId(button.dataset.backTarget);
+                this._goBackFromCurrent('back_button', targetId);
+            };
             button.addEventListener('click', onClick);
             this._disposers.push(() => button.removeEventListener('click', onClick));
         });
@@ -243,7 +249,7 @@ export class MenuNavigationRuntime {
         if (!event) return;
         if (event.key === 'Escape' && this.stateMachine?.getState?.() !== MENU_STATE_IDS.MAIN) {
             event.preventDefault();
-            this.showMainNav({ trigger: 'escape' });
+            this._goBackFromCurrent('escape');
             return;
         }
 
@@ -329,6 +335,33 @@ export class MenuNavigationRuntime {
         return true;
     }
 
+    _isLevel4Open() {
+        const drawer = this.ui.level4Drawer || document.getElementById('submenu-level4');
+        return !!drawer && !drawer.classList.contains('hidden') && drawer.getAttribute('aria-hidden') !== 'true';
+    }
+
+    _goBackFromCurrent(trigger = 'back_button', explicitTargetId = '') {
+        if (this._isLevel4Open()) {
+            this.onLevel4CloseRequested?.({ trigger });
+            return true;
+        }
+
+        const normalizedExplicitTarget = normalizeId(explicitTargetId);
+        if (normalizedExplicitTarget) {
+            return this.showPanel(normalizedExplicitTarget, { trigger, backNavigation: true });
+        }
+
+        const visiblePanel = this._getVisiblePanelElement();
+        const backButton = visiblePanel?.querySelector?.('[data-back]');
+        const backTargetId = normalizeId(backButton?.dataset?.backTarget);
+        if (backTargetId) {
+            return this.showPanel(backTargetId, { trigger, backNavigation: true });
+        }
+
+        this.showMainNav({ trigger });
+        return true;
+    }
+
     _pollGamepadButtons() {
         if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') return;
         const gamepads = navigator.getGamepads();
@@ -352,7 +385,7 @@ export class MenuNavigationRuntime {
         if (consumePress(13)) this._moveFocusByDirection('down');
         if (consumePress(0)) this._activateFocusedElement();
         if (consumePress(1) && this.stateMachine?.getState?.() !== MENU_STATE_IDS.MAIN) {
-            this.showMainNav({ trigger: 'controller_back' });
+            this._goBackFromCurrent('controller_back');
         }
         if (consumePress(4)) this._moveFocusByDirection('left');
         if (consumePress(5)) this._moveFocusByDirection('right');

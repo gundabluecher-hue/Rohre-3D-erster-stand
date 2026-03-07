@@ -192,4 +192,38 @@ test.describe('T21-40: Rendering & GPU', () => {
         expect(probe.firstPersonBlend).toBeLessThanOrEqual(probe.thirdPersonBlend);
         expect(probe.activeMode).toBe('FIRST_PERSON');
     });
+
+    test('T33b: Cinematic Camera bleibt in Third-Person mit Cockpit aktiv', async ({ page }) => {
+        await startGame(page);
+        const probe = await page.evaluate(() => {
+            const g = window.GAME_INSTANCE;
+            const rig = g?.renderer?.cameraRigSystem;
+            const cinematic = rig?.cinematicCameraSystem;
+            const player = g?.entityManager?.players?.[0];
+            if (!g || !rig || !cinematic || !player || !g.entityManager) return null;
+
+            const tickCameras = (steps) => {
+                for (let i = 0; i < steps; i++) {
+                    g.entityManager.updateCameras(1 / 60);
+                }
+            };
+
+            cinematic.reset?.();
+            g.renderer.setCinematicEnabled(true);
+            rig.cameraModes[0] = 0; // THIRD_PERSON
+            player.cockpitCamera = true;
+            tickCameras(36);
+
+            return {
+                mode: g.renderer.getCameraMode(0),
+                cockpit: !!player.cockpitCamera,
+                blend: cinematic.getPlayerBlend?.(0) || 0,
+            };
+        });
+
+        expect(probe).not.toBeNull();
+        expect(probe.mode).toBe('THIRD_PERSON');
+        expect(probe.cockpit).toBeTruthy();
+        expect(probe.blend).toBeGreaterThan(0);
+    });
 });

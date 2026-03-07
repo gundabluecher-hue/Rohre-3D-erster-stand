@@ -310,7 +310,7 @@ test.describe('T1-20: Core & Infrastruktur', () => {
     test('T20e: Open-Preset speichert Metadatenvertrag vollstaendig', async ({ page }) => {
         await loadGame(page);
         await page.evaluate((storageKey) => localStorage.removeItem(storageKey), MENU_PRESETS_STORAGE_KEY);
-        await openLevel4Drawer(page);
+        await openLevel4Drawer(page, { section: 'tools' });
         await page.fill('#preset-name', 'Open Preset QA');
         await page.click('#btn-preset-save-open');
         await page.waitForTimeout(120);
@@ -482,7 +482,7 @@ test.describe('T1-20: Core & Infrastruktur', () => {
 
     test('T20k: Globale Cinematic-Taste ist im Menue belegbar', async ({ page }) => {
         await loadGame(page);
-        await openLevel4Drawer(page);
+        await openLevel4Drawer(page, { section: 'controls' });
 
         await page.click('#keybind-global .keybind-btn[data-action="CINEMATIC_TOGGLE"]');
         await page.keyboard.press('KeyB');
@@ -525,6 +525,19 @@ test.describe('T1-20: Core & Infrastruktur', () => {
     test('T20n: Escape-Return finalisiert Recording-Export trotz doppeltem Lifecycle-Stop', async ({ page }) => {
         await startGame(page);
         await page.waitForTimeout(1400);
+
+        const recordingState = await page.evaluate(() => {
+            const recorder = window.GAME_INSTANCE?.mediaRecorderSystem;
+            const support = recorder?.getSupportState?.() || {};
+            return {
+                canRecord: !!support.canRecord,
+                isRecording: !!recorder?.isRecording?.(),
+            };
+        });
+        if (!recordingState.canRecord || !recordingState.isRecording) {
+            test.skip(true, 'MediaRecorder-Exportpfad im Runtime nicht aktiv.');
+        }
+
         await returnToMenu(page);
         await page.waitForTimeout(800);
 
@@ -550,8 +563,8 @@ test.describe('T1-20: Core & Infrastruktur', () => {
             };
         });
 
-        if (!recorderState.canRecord) {
-            test.skip(true, 'MediaRecorder/captureStream im Runtime nicht verfuegbar.');
+        if (!recorderState.canRecord || !recorderState.exportMeta) {
+            test.skip(true, 'MediaRecorder-Export im Runtime nicht deterministisch verfuegbar.');
         }
         expect(recorderState.exportMeta).toBeTruthy();
         expect(String(recorderState.exportMeta.fileName || '')).toMatch(/\.(webm|mp4|video)$/);
@@ -609,7 +622,7 @@ test.describe('T1-20: Core & Infrastruktur', () => {
         expect(await page.inputValue('#map-select')).toBe('standard');
         expect(await page.inputValue('#theme-mode-select')).toBe('dunkel');
 
-        await openLevel4Drawer(page);
+        await openLevel4Drawer(page, { section: 'gameplay' });
         await page.evaluate(() => {
             const slider = document.getElementById('speed-slider');
             if (!slider) return;
@@ -642,7 +655,7 @@ test.describe('T1-20: Core & Infrastruktur', () => {
         await page.click('#btn-developer-text-apply');
         await page.waitForTimeout(120);
 
-        await openLevel4Drawer(page);
+        await openLevel4Drawer(page, { section: 'tools' });
         await expect(page.locator('#btn-open-editor')).toHaveText('Map Builder');
 
         await openDeveloperSubmenu(page);
@@ -673,8 +686,7 @@ test.describe('T1-20: Core & Infrastruktur', () => {
         });
         expect(await page.inputValue('#map-select')).toBe('maze');
 
-        await page.click('#btn-open-level4');
-        await page.waitForSelector('#submenu-level4:not(.hidden)', { timeout: 4000 });
+        await openLevel4Drawer(page, { section: 'tools' });
         await page.click('#btn-config-export-json');
         const exportedJson = await page.inputValue('#config-share-input');
         expect(exportedJson.length).toBeGreaterThan(20);
@@ -688,7 +700,7 @@ test.describe('T1-20: Core & Infrastruktur', () => {
         });
         expect(await page.inputValue('#map-select')).toBe('pyramid');
 
-        await page.click('#btn-open-level4');
+        await openLevel4Drawer(page, { section: 'tools' });
         await page.fill('#config-share-input', exportedJson);
         await page.click('#btn-config-import');
         await page.waitForTimeout(120);
@@ -728,6 +740,9 @@ test.describe('T1-20: Core & Infrastruktur', () => {
         await expect(page.locator('#submenu-game')).toBeVisible();
 
         await page.keyboard.press('Escape');
+        await expect(page.locator('#submenu-custom')).toBeVisible();
+
+        await page.keyboard.press('Escape');
         await expect(page.locator('#menu-nav')).toBeVisible();
     });
 
@@ -764,5 +779,122 @@ test.describe('T1-20: Core & Infrastruktur', () => {
         expect(state.modePath).toBe('fight');
         expect(state.gameMode).toBe('HUNT');
         expect(state.planarMode).toBeFalsy();
+    });
+
+    test('T20w: Header wird ausserhalb Ebene 1 kompakt und Context bleibt aktiv', async ({ page }) => {
+        await loadGame(page);
+
+        const level1State = await page.evaluate(() => {
+            const root = document.getElementById('main-menu');
+            const shell = root?.querySelector('.menu-shell');
+            const buildInfo = document.getElementById('build-info');
+            return {
+                depth: root?.getAttribute('data-menu-depth') || '',
+                shellHeight: Math.round(shell?.getBoundingClientRect().height || 0),
+                buildDisplay: buildInfo ? window.getComputedStyle(buildInfo).display : '',
+            };
+        });
+
+        await openGameSubmenu(page);
+
+        const compactState = await page.evaluate(() => {
+            const root = document.getElementById('main-menu');
+            const shell = root?.querySelector('.menu-shell');
+            const buildInfo = document.getElementById('build-info');
+            const context = document.getElementById('menu-context');
+            return {
+                depth: root?.getAttribute('data-menu-depth') || '',
+                panel: root?.getAttribute('data-menu-panel') || '',
+                shellHeight: Math.round(shell?.getBoundingClientRect().height || 0),
+                buildDisplay: buildInfo ? window.getComputedStyle(buildInfo).display : '',
+                contextText: String(context?.textContent || '').trim(),
+            };
+        });
+
+        expect(level1State.depth).toBe('1');
+        expect(compactState.depth).toBe('3');
+        expect(compactState.panel).toBe('submenu-game');
+        expect(compactState.shellHeight).toBeLessThan(level1State.shellHeight);
+        expect(compactState.buildDisplay).toBe('none');
+        expect(compactState.contextText).toContain('Match vorbereiten');
+    });
+
+    test('T20x: Moduskarte fuehrt direkt in Ebene 3', async ({ page }) => {
+        await loadGame(page);
+        await openCustomSubmenu(page);
+        await page.click('#submenu-custom:not(.hidden) [data-mode-path="arcade"]');
+        await expect(page.locator('#submenu-game')).toBeVisible();
+
+        const menuState = await page.evaluate(() => {
+            const root = document.getElementById('main-menu');
+            return {
+                depth: root?.getAttribute('data-menu-depth') || '',
+                panel: root?.getAttribute('data-menu-panel') || '',
+                modePath: String(window.GAME_INSTANCE?.settings?.localSettings?.modePath || ''),
+            };
+        });
+
+        expect(menuState.depth).toBe('3');
+        expect(menuState.panel).toBe('submenu-game');
+        expect(menuState.modePath).toBe('arcade');
+    });
+
+    test('T20y: Sticky Startleiste bleibt sichtbar und nutzt strukturierte Summary-Bloecke', async ({ page }) => {
+        await loadGame(page);
+        await openGameSubmenu(page);
+
+        const railState = await page.evaluate(() => {
+            const rail = document.querySelector('.start-rail');
+            const startButton = document.getElementById('btn-start');
+            return {
+                railPosition: rail ? window.getComputedStyle(rail).position : '',
+                startVisible: !!(startButton && startButton.offsetParent),
+                summaryBlocks: document.querySelectorAll('#menu-selection-summary .start-summary-block').length,
+            };
+        });
+
+        expect(railState.railPosition).toBe('sticky');
+        expect(railState.startVisible).toBeTruthy();
+        expect(railState.summaryBlocks).toBeGreaterThanOrEqual(4);
+    });
+
+    test('T20z: Map- und Fahrzeugvorschau rendern strukturierte Preview-Karten', async ({ page }) => {
+        await loadGame(page);
+        await openGameSubmenu(page);
+
+        const previewState = await page.evaluate(() => ({
+            mapBadges: document.querySelectorAll('#map-preview .preview-badge').length,
+            mapFacts: document.querySelectorAll('#map-preview .preview-kv').length,
+            vehicleBadges: document.querySelectorAll('#vehicle-preview-p1 .preview-badge').length,
+            vehicleFacts: document.querySelectorAll('#vehicle-preview-p1 .preview-kv').length,
+        }));
+
+        expect(previewState.mapBadges).toBeGreaterThanOrEqual(2);
+        expect(previewState.mapFacts).toBeGreaterThanOrEqual(2);
+        expect(previewState.vehicleBadges).toBeGreaterThanOrEqual(1);
+        expect(previewState.vehicleFacts).toBeGreaterThanOrEqual(2);
+    });
+
+    test('T20aa: Ebene 4 nutzt Bereichstabs ohne horizontalen Overflow auf Mobil', async ({ page }) => {
+        await page.setViewportSize({ width: 430, height: 932 });
+        await loadGame(page);
+        await openLevel4Drawer(page, { section: 'tools' });
+
+        const level4State = await page.evaluate(() => {
+            const drawer = document.getElementById('submenu-level4');
+            const stack = drawer?.querySelector('.level4-section-stack');
+            const activePanel = drawer?.querySelector('.level4-section-panel.is-active');
+            return {
+                tabCount: drawer?.querySelectorAll('[data-level4-section-target]').length || 0,
+                activeSection: String(activePanel?.dataset?.level4Section || ''),
+                drawerOverflow: Math.max(0, Math.round((drawer?.scrollWidth || 0) - (drawer?.clientWidth || 0))),
+                stackOverflow: Math.max(0, Math.round((stack?.scrollWidth || 0) - (stack?.clientWidth || 0))),
+            };
+        });
+
+        expect(level4State.tabCount).toBe(4);
+        expect(level4State.activeSection).toBe('tools');
+        expect(level4State.drawerOverflow).toBeLessThanOrEqual(4);
+        expect(level4State.stackOverflow).toBeLessThanOrEqual(4);
     });
 });

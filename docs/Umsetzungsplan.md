@@ -1,6 +1,6 @@
 # Umsetzungsplan (Aktiver Master)
 
-Stand: 2026-03-06
+Stand: 2026-03-07
 
 Dieser Masterplan ist die einzige aktive Planquelle fuer offene Arbeit.
 Abgeschlossene oder abgeloeste Planstaende liegen unter `docs/archive/plans/`.
@@ -32,7 +32,7 @@ Abgeschlossene oder abgeloeste Planstaende liegen unter `docs/archive/plans/`.
 - `V26 Gameplay & Features`: `V4`, `V5`, `V9`, `V11`, `V16`
 - `V27 Profile, Statistiken & UI`: `V7`, `V8`, `V15`
 - `V28 Architektur & Performance`: `V13`, Player-/Bot-God-Class-Refactoring
-- `Nachlauf / Technik`: `N1` Multiplayer-Runtime, `N2` Recording-UI, `T1` Testersatz, `T2` Bundle-Groesse
+- `Nachlauf / Technik`: `N1` Multiplayer-Runtime, `N2` Recording-UI, `N3` T82-Policy-Fix (geparkt), `T1` Testersatz, `T2` Bundle-Groesse
 
 ## Prioritaeten (stabil, nur bei Bedarf anpassen)
 
@@ -110,6 +110,16 @@ Abgeschlossene oder abgeloeste Planstaende liegen unter `docs/archive/plans/`.
   - [ ] 28.2.2 Sensing/Probing-Logik fuer kuenftiges ML-Training abstrahieren
 - [ ] 28.3 V13 Performance-Hotspot `maze` (Draw-Calls / Batching optimieren)
 - [ ] 28.4 Abschluss-Gate, Performance-Metrics pruefen und Doku-Freeze (`docs:sync`, `docs:check`)
+- [ ] 28.5 Performance-Offensive (CPU/GPU/Startup)
+  - [ ] 28.5.0 Baseline-Refresh und Messharness absichern
+  - [ ] 28.5.1 GPU-Hotspot `maze`/Portale weiter reduzieren
+  - [ ] 28.5.2 Renderer-/Kamera-Hotpath budgetieren
+  - [ ] 28.5.3 Bot-/Trail-CPU-Hotpaths nachziehen
+  - [ ] 28.5.4 Allocation-/GC-Budget im Hotpath erzwingen
+  - [ ] 28.5.5 Start-/Transition-Latenz reduzieren
+  - [ ] 28.5.6 Recording-Overhead isolieren
+  - [ ] 28.5.7 HUD/UI-Hotpath nachziehen
+  - [ ] 28.5.8 Abschluss-Gate und Doku-Freeze (`docs:sync`, `docs:check`)
 
 ## Nachlauf / Technik-Backlog
 
@@ -119,8 +129,16 @@ Abgeschlossene oder abgeloeste Planstaende liegen unter `docs/archive/plans/`.
 - [ ] N2 Recording-UI / manueller Trigger fuer V29
   - Ziel: optionalen UI-Toggle bzw. manuellen Recording-Trigger produktiv anbinden.
   - Zielpfade: `index.html`, `src/ui/KeybindEditorController.js`, `src/ui/menu/MenuControlBindings.js`, `src/core/MediaRecorderSystem.js`.
+  - Status 2026-03-07: statischer Launcherpfad wieder kompatibel; Bare-Import `mp4-muxer` wird im Browserpfad ueber die Importmap aufgeloest und `server.ps1` liefert `.mjs` korrekt aus.
+  - Status 2026-03-07: Cinematic-Kamera funktioniert wieder konsistent in `THIRD_PERSON`, auch wenn `cockpitCamera` aktiv ist (GPU-Regressionstest `T33b`).
+- [ ] N3 T82 Policy-Wiring isolieren und spaeter separat beheben (Punkt 5 geparkt)
+  - Ziel: Divergenz in `tests/physics-policy.spec.js` (`T82`: erwartet `hunt-bridge`, erhaelt `classic-bridge`) isolieren und minimal fixen.
+  - Status: bewusst separat vom Cinematic-Follow-up geparkt; nicht Teil von `docs/Feature_Cinematic_Camera_Followup_V29b.md`.
+  - Verifikation (bei Abarbeitung): `npm run test:physics -- -g "T81|T82"` plus `npm run docs:sync` und `npm run docs:check`.
 - [ ] T1 Dummy-Tests schrittweise durch echte Integritaetstests ersetzen
   - Ziel: bestehende Platzhaltertests entlang des geaenderten Codes ersetzen.
+  - Status 2026-03-07: Playwright-Menuecheck erfolgreich (`npm run test:core` = 48 passed / 1 skipped, `npm run test:stress` = 19 passed).
+  - Offene Befunde 2026-03-07: `Profil speichern` bleibt nach Eingabe deaktiviert; `Build-Info kopieren` hat kein Runtime-Binding.
 - [ ] T2 Bundle-Groesse weiter optimieren
   - Ziel: Code-Splitting und Ladepfade nur dann vertiefen, wenn der Nutzen messbar bleibt.
 
@@ -148,6 +166,18 @@ Template:
   - Plan-Datei: `docs/Feature_Menu_UX_Followup_V26_3c.md`
   - Datei-Scope: `index.html`, `style.css`, `src/ui/**`, `tests/**`
   - Konfliktregel: nur append-only Intake-Eintrag; keine Umsortierung bestehender Masterplan-Bloecke waehrend paralleler Restrukturierung
+- [ ] PX Performance-Offensive V28.5
+  - Erstellt am: `2026-03-07`
+  - Agent: `A`
+  - Plan-Datei: `docs/Feature_Performance_Offensive_V28_5.md`
+  - Datei-Scope: `src/core/**`, `src/entities/**`, `src/hunt/**`, `src/ui/**`, `scripts/**`, `tests/**`
+  - Konfliktregel: Performance-Hotpaths nur innerhalb V28.5-Phasen aendern; keine Umsortierung bestehender Bloecke
+- [ ] PX Cinematic Camera Follow-up V29b
+  - Erstellt am: `2026-03-07`
+  - Agent: `A`
+  - Plan-Datei: `docs/Feature_Cinematic_Camera_Followup_V29b.md`
+  - Datei-Scope: `src/core/**`, `src/entities/systems/CinematicCameraSystem.js`, `src/ui/**`, `tests/gpu.spec.js`, `tests/core.spec.js`, `tests/physics-policy.spec.js`, `docs/**`
+  - Konfliktregel: beinhaltet Vorschlaege 1/2/3/4/6; Vorschlag 5 bleibt separat als `N3` geparkt
 <!-- PLAN-INTAKE-END -->
 
 ## Archivierte Referenzen

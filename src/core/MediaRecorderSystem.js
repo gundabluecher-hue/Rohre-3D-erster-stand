@@ -1,5 +1,5 @@
 import * as Mp4MuxerModule from 'mp4-muxer';
-const Mp4Muxer = Mp4MuxerModule.default || Mp4MuxerModule;
+const Mp4Muxer = Mp4MuxerModule;
 
 if (typeof window !== 'undefined' && !window.VideoEncoder) {
     window.VideoEncoder = class {
@@ -407,4 +407,3 @@ export class MediaRecorderSystem {
         this._pendingStop = null;
     }
 }
-

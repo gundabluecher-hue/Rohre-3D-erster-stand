@@ -261,14 +261,18 @@ export function setupMenuGameplayBindings(ctx) {
 
     if (ui.openLevel4Button) {
         ui.openLevel4Button.addEventListener('click', () => {
-            emit(eventTypes.LEVEL4_OPEN);
+            emit(eventTypes.LEVEL4_OPEN, {
+                sectionId: String(ui.openLevel4Button?.dataset?.level4Section || '').trim(),
+            });
         });
     }
 
     const legacyLevel4OpenButtons = Array.from(document.querySelectorAll('[data-menu-action="level4-open"]'));
     legacyLevel4OpenButtons.forEach((button) => {
         button.addEventListener('click', () => {
-            emit(eventTypes.LEVEL4_OPEN);
+            emit(eventTypes.LEVEL4_OPEN, {
+                sectionId: String(button?.dataset?.level4Section || '').trim(),
+            });
         });
     });
 

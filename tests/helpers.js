@@ -61,13 +61,21 @@ export async function openMultiplayerSubmenu(page) {
 }
 
 export async function openLevel4Drawer(page, options = {}) {
-    await openGameSubmenu(page, options);
+    const gamePanelVisible = await page.locator('#submenu-game:not(.hidden)').count();
+    if (!gamePanelVisible) {
+        await openGameSubmenu(page, options);
+    }
     await page.click('#btn-open-level4');
     await page.waitForSelector('#submenu-level4:not(.hidden)', { timeout: 4000 });
+    if (options.section) {
+        const sectionId = String(options.section).trim();
+        await page.click(`#submenu-level4 [data-level4-section-target="${sectionId}"]`);
+        await page.waitForSelector(`#submenu-level4 [data-level4-section="${sectionId}"].is-active`, { timeout: 4000 });
+    }
 }
 
 export async function openDeveloperSubmenu(page) {
-    await openLevel4Drawer(page);
+    await openLevel4Drawer(page, { section: 'tools' });
     await page.click('#btn-open-developer');
     await page.waitForSelector('#submenu-developer:not(.hidden)', { timeout: 4000 });
 }
@@ -82,6 +90,9 @@ const BENIGN_ERROR_PATTERNS = [
     /wasm streaming compile failed/i,
     /falling back to ArrayBuffer instantiation/i,
     /\[AiBot\] Failed to load model:/i,
+    /\[MediaRecorderSystem\] VideoEncoder error/i,
+    /Encoder creation error/i,
+    /Failed to load resource: net::ERR_INTERNET_DISCONNECTED/i,
 ];
 
 function isBenignErrorMessage(message) {

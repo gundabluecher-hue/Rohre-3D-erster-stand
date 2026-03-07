@@ -1,16 +1,19 @@
 # Analysebericht (Delta)
 
 Vergleichsbasis: Bericht vom 2026-02-27.
-Aktueller Stand: 2026-03-03.
-Nachvalidierung: 2026-03-03 (`npx playwright test tests/physics.spec.js -g "T61|T63|T64|T83|T84|T85|T86|T87"`, `npm run test:physics`, `npm run test:core`, `npm run build`).
+Aktueller Stand: 2026-03-07.
+Nachvalidierung: 2026-03-07 (`server.ps1` + Chromium-Smoke auf statischem Launcherpfad, `npm run build`, `npm run test:core`).
 
 ## Neue Issues / Warnungen
 
 - Keine neuen offenen Warnungen nach dem aktuellen Nachvalidierungs-Lauf.
+- Behoben 2026-03-07: Der statische Launcherpfad startete nicht mehr, weil der Browser den Bare-Specifier `mp4-muxer` ausserhalb von Vite nicht aufloesen konnte.
+- Behoben 2026-03-07: Die Cinematic-Kamera blieb in Third-Person wirkungslos, sobald `cockpitCamera` aktiv war (Blend blieb bei `0`).
 
 ## Regressionen
 
 - Keine aktive SelfTrail-Regression mehr im aktuellen Lauf (Smoke PASS, `failures: []`).
+- Behoben: Der normale Start ueber `start_game.bat`/`server.ps1` initialisiert Menu und `GAME_INSTANCE` wieder sauber.
 - Behoben: Hunt-MG priorisierte Off-Axis Gegner per Dot-Kegel und verfehlte dadurch gegnerische Spursegmente auf der Schusslinie.
 - Behoben: Hunt-MG konnte bei ueberlappender Schusslinie eigene Spur vor gegnerischer Spur waehlen.
 - Behoben: Trail-Kollision konnte bei grossen Frame-Schritten gegnerische Spur zwischen Frames ueberspringen.
@@ -35,3 +38,6 @@ Nachvalidierung: 2026-03-03 (`npx playwright test tests/physics.spec.js -g "T61|
 - Abgesichert: Neuer Physik-Regressionstest `T86` in `tests/physics.spec.js` prueft echte `ownerTrail`-Segmente (nicht nur Dummy-Registrierung).
 - Behoben: `Trail.destroySegmentByEntry` markiert InstancedMesh-Matrix sofort fuer GPU-Update, damit entfernte Segmente auch ohne Owner-Update-Frame verschwinden.
 - Abgesichert: Neuer Physik-Regressionstest `T87` in `tests/physics.spec.js` deckt den toter-Gegner-Visualfall ab.
+- Behoben: `index.html` mappt `mp4-muxer` jetzt auch fuer den statischen Browserpfad; `server.ps1` liefert `.mjs` als JavaScript aus.
+- Behoben: `CameraRigSystem` wendet Cinematic-Offsets jetzt auch im Cockpit-Third-Person-Pfad an.
+- Abgesichert: Neuer GPU-Regressionstest `T33b` in `tests/gpu.spec.js` prueft Cinematic-Blend bei `cockpitCamera=true` + `THIRD_PERSON`.

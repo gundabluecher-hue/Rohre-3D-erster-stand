@@ -9,6 +9,7 @@ import {
 import { SETTINGS_CHANGE_KEYS } from '../ui/SettingsChangeKeys.js';
 import { guardMenuRuntimeEvent, resolveMenuAccessContext } from '../ui/menu/MenuAccessPolicy.js';
 import { MenuMultiplayerBridge } from '../ui/menu/MenuMultiplayerBridge.js';
+import { LEVEL4_SECTION_IDS } from '../ui/menu/MenuStateContracts.js';
 import {
     exportMenuConfigAsCode,
     exportMenuConfigAsJson,
@@ -144,7 +145,7 @@ export class GameRuntimeFacade {
         }
         const accessResult = guardMenuRuntimeEvent(event.type, this._resolveMenuAccessContext());
         if (!accessResult.allowed) {
-            game._showStatusToast('Aktion gesperrt (owner-only).', 1600, 'error');
+            game._showStatusToast('Aktion gesperrt (nur Host).', 1600, 'error');
             return;
         }
 
@@ -420,11 +421,17 @@ export class GameRuntimeFacade {
         game._showStatusToast('Ebene 3 zurueckgesetzt', 1200, 'info');
     }
 
-    handleLevel4Open() {
+    handleLevel4Open(event) {
         const game = this.game;
+        const requestedSectionId = String(event?.sectionId || '').trim();
+        const validSectionIds = new Set(Object.values(LEVEL4_SECTION_IDS));
         game.uiManager?.menuNavigationRuntime?.showPanel?.('submenu-game', { trigger: 'open_level4' });
         if (!game.settings.localSettings.toolsState || typeof game.settings.localSettings.toolsState !== 'object') {
             game.settings.localSettings.toolsState = {};
+        }
+        if (validSectionIds.has(requestedSectionId)) {
+            game.settings.localSettings.toolsState.activeSection = requestedSectionId;
+            game.uiManager?.setLevel4Section?.(requestedSectionId, { persist: true, focus: false });
         }
         game.settings.localSettings.toolsState.level4Open = true;
         game.uiManager?.setLevel4Open?.(true);
@@ -546,7 +553,7 @@ export class GameRuntimeFacade {
         this.onSettingsChanged({ changedKeys });
 
         if (result.blockedPaths?.length > 0) {
-            game._showStatusToast('Preset teilweise angewendet (owner-only Felder gesperrt).', 1900, 'info');
+            game._showStatusToast('Preset teilweise angewendet (Host-Felder blieben unveraendert).', 1900, 'info');
             return;
         }
         game._showStatusToast(`Preset geladen: ${presetId}`, 1300, 'success');
@@ -574,7 +581,7 @@ export class GameRuntimeFacade {
                 SETTINGS_CHANGE_KEYS.PRESET_STATUS,
             ],
         });
-        const label = kind === 'fixed' ? 'fixed' : 'open';
+        const label = kind === 'fixed' ? 'verbindlich' : 'frei';
         game._showStatusToast(`Preset gespeichert (${label}): ${result.preset?.name || result.preset?.id}`, 1400, 'success');
     }
 

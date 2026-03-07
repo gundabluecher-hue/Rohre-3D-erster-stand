@@ -58,7 +58,7 @@ test.describe('T61-125: Stress, I/O & Sicherheit', () => {
         await loadGame(page);
         const dialogs = [];
         page.on('dialog', d => { dialogs.push(d.message()); d.dismiss(); });
-        await openLevel4Drawer(page);
+        await openLevel4Drawer(page, { section: 'tools' });
         await page.fill('#profile-name', '<img src=x onerror=alert(1)>');
         const isDisabled = await page.isDisabled('#btn-profile-save');
         if (!isDisabled) {
@@ -290,6 +290,43 @@ test.describe('T61-125: Stress, I/O & Sicherheit', () => {
         await openGameSubmenu(page);
         const startLabel = (await page.textContent('#btn-start')).trim();
         expect(['Starten', 'BurstStart']).toContain(startLabel);
+        expect(errors).toHaveLength(0);
+    });
+
+    test('T79: Session- und Ebenenwechsel zwischen 2, 3 und 4 bleiben unter Burst stabil', async ({ page }) => {
+        test.setTimeout(90000);
+        const errors = collectErrors(page);
+        const sessionTypes = ['single', 'multiplayer', 'splitscreen'];
+        const level4Sections = ['gameplay', 'controls', 'tools'];
+
+        await loadGame(page);
+
+        for (let i = 0; i < 6; i += 1) {
+            const sessionType = sessionTypes[i % sessionTypes.length];
+            const sectionId = level4Sections[i % level4Sections.length];
+
+            await selectSessionType(page, sessionType);
+            await page.click('#submenu-custom:not(.hidden) [data-mode-path="normal"]');
+            await page.waitForSelector('#submenu-game:not(.hidden)', { timeout: 5000 });
+
+            await page.click('#btn-open-level4');
+            await page.waitForSelector('#submenu-level4:not(.hidden)', { timeout: 4000 });
+            await page.click(`#submenu-level4 [data-level4-section-target="${sectionId}"]`);
+            await page.waitForSelector(`#submenu-level4 [data-level4-section="${sectionId}"].is-active`, { timeout: 4000 });
+
+            await page.keyboard.press('Escape');
+            await page.waitForFunction(() => {
+                const drawer = document.getElementById('submenu-level4');
+                return !!drawer && drawer.classList.contains('hidden');
+            }, { timeout: 4000 });
+
+            await page.keyboard.press('Escape');
+            await page.waitForSelector('#submenu-custom:not(.hidden)', { timeout: 4000 });
+
+            await page.keyboard.press('Escape');
+            await expect(page.locator('#menu-nav')).toBeVisible();
+        }
+
         expect(errors).toHaveLength(0);
     });
 });

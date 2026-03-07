@@ -48,12 +48,11 @@ export class CinematicCameraSystem {
         playerPosition,
         dt,
         isBoosting = false,
-        cockpitCamera = false,
     }) {
         if (!target || !playerDirection || !playerPosition) return;
         if (!Number.isInteger(playerIndex) || playerIndex < 0) return;
 
-        const cinematicPreferred = this.enabled && mode === 'THIRD_PERSON' && !cockpitCamera;
+        const cinematicPreferred = this.enabled && mode === 'THIRD_PERSON';
         const targetBlend = cinematicPreferred ? 1 : 0;
         const previousBlend = this._blendByPlayer[playerIndex] || 0;
         const blendSpeed = targetBlend > previousBlend ? this.enterSpeed : this.exitSpeed;
@@ -61,7 +60,7 @@ export class CinematicCameraSystem {
         const blend = THREE.MathUtils.clamp(THREE.MathUtils.lerp(previousBlend, targetBlend, alpha), 0, 1);
         this._blendByPlayer[playerIndex] = blend;
 
-        if (mode !== 'THIRD_PERSON' || cockpitCamera) {
+        if (mode !== 'THIRD_PERSON') {
             return;
         }
 
